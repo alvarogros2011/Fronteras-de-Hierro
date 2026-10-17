@@ -9,6 +9,24 @@ Leyenda: **[C]** = decisión confirmada por el propietario. **[S]** = suposició
 - **[C]** Inspirado en conceptos generales de OpenFront y Call of War, sin copiar contenido protegido.
 - **[C]** Godot 4.7, GDScript, Windows PC, pixel art, mapa estratégico cenital.
 
+## 1b. Dirección de diseño permanente
+
+**Confirmado [C]:**
+- Fácil de aprender y de jugar. Muy cercano a OpenFront en el bucle general: expansión territorial, ataques y economía sencilla.
+- Con una **mecánica propia** que se definirá progresivamente (ver "Pendiente").
+- Presentación **clean**: el mapa es lo principal; interfaz minimalista y legible; colores territoriales claros y consistentes; elementos visuales discretos y funcionales; sin exceso de efectos, animaciones, ventanas o información.
+- No es un RTS táctico detallado.
+- Economía futura con como máximo uno o dos recursos.
+- La resolución de combates debe permitir entender fácilmente si se tiene ventaja antes de iniciar un ataque.
+- Las tropas futuras no tienen por qué ser una única cifra global, pero no se simulan soldados individuales ni se crea una interfaz táctica recargada.
+
+**Pendiente de decisión del propietario (no definido, no implementado):**
+- Modelo concreto de unidades.
+- Mecánica diferenciadora.
+- Cuándo se introduce la economía (el alcance del MVP de §6 no la incluye).
+
+Las propuestas **[S]** de tropas y combate de §4 son provisionales y pueden cambiar con estas decisiones.
+
 ## 2. Experiencia objetivo
 
 - **[S]** Partidas cortas (5–15 minutos) y legibles de un vistazo: se ve quién posee cada provincia y cuántas tropas hay.
@@ -30,7 +48,7 @@ Leyenda: **[C]** = decisión confirmada por el propietario. **[S]** = suposició
 |---|---|---|
 | Mapa | Provincias conectadas por adyacencia (grafo). | **[C]** 14 provincias, ficticio; dibujo estático **implementado** en el hito 1 |
 | Propiedad | Cada provincia pertenece al jugador o al enemigo. | **[C]** reparto inicial 7 contra 7 (datos y color implementados; sin cambios de dueño aún) |
-| Selección | Elegir una provincia con el ratón. | **[C]** |
+| Selección | Elegir una provincia con el ratón y consultar su información básica (nombre, propietario, vecinas). | **[C]**; **implementado** en el hito 2 |
 | Ataque | Solo contra provincias adyacentes de otro dueño. | **[C]** |
 | Movimiento de tropas | Mover tropas entre provincias. | **[C]** existe; detalle **[S]** |
 | Combate | Determinista y comprobable. | **[C]**; fórmula **[S]** |
@@ -40,7 +58,7 @@ Leyenda: **[C]** = decisión confirmada por el propietario. **[S]** = suposició
 
 ### Propuestas de detalle (todas **[S]**)
 
-- Cada provincia tiene un número entero de tropas.
+- Cada provincia tiene un número entero de tropas (**provisional**: el modelo de unidades está pendiente, ver §1b).
 - Las provincias suelen empezar con tropas fijas definidas en el mapa; el número de provincias iniciales por bando es simétrico.
 - Combate: el atacante envía N tropas contra D defensoras. Si N > D, gana: la provincia pasa al atacante con N − D tropas. Si N ≤ D, el atacante pierde todo y el defensor queda con D − N. Sin azar.
 - "Tiempo real": las órdenes de tropas tardan un tiempo fijo en completarse; la IA decide cada X segundos.
@@ -50,9 +68,10 @@ Leyenda: **[C]** = decisión confirmada por el propietario. **[S]** = suposició
 
 | Acción | Control |
 |---|---|
-| Seleccionar provincia | Clic izquierdo |
+| Seleccionar provincia / ver su información | Clic izquierdo (**implementado**) |
+| Limpiar selección | Clic izquierdo en una zona vacía del mapa (**implementado**) |
 | Ordenar ataque/movimiento | Clic izquierdo sobre provincia adyacente con una propia seleccionada |
-| Cancelar selección | Clic derecho o `Esc` |
+| Cancelar selección con teclado/ratón derecho | Clic derecho o `Esc` (pendiente; no implementado) |
 | Reiniciar partida | Botón en pantalla final y tecla `R` |
 | Pausa | `Espacio` (opcional, a decidir) |
 
@@ -68,6 +87,16 @@ El MVP incluye, y solo incluye:
 6. IA enemiga simple.
 7. Condiciones de victoria y derrota claras.
 8. Reinicio de partida.
+
+### Selección e información (hito 2) **[S]**
+
+- La selección usa los **polígonos reales** de `province_data.gd` (`Geometry2D.is_point_in_polygon`), en coordenadas locales del nodo del mapa, por lo que sigue funcionando si el mapa se mueve o escala.
+- Cualquier provincia (propia o enemiga) se puede seleccionar solo para consultarla; restringir qué provincias pueden ser origen de acciones llegará con el combate.
+- Una provincia seleccionada se resalta con un contorno claro; el color del propietario no cambia.
+- Panel a la derecha: nombre, propietario ("Jugador"/"Enemigo"), número y nombres de las vecinas. Sin selección muestra una invitación a seleccionar.
+- Sin botones de acción: aún no existen acciones.
+- En un punto exacto de una frontera compartida gana la primera provincia de la lista (o ninguna si el redondeo lo deja fuera); el resultado es siempre el mismo.
+- El propietario mostrado es el inicial de los datos; cuando haya capturas hará falta un estado de partida separado de los datos iniciales.
 
 ### Mapa del hito 1 **[S]**
 

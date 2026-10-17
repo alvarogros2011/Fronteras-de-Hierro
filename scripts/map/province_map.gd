@@ -1,7 +1,11 @@
-## Dibuja el mapa estratégico (estático) a partir de ProvinceData.
+## Dibuja el mapa estratégico a partir de ProvinceData y gestiona la selección.
 ## No guarda información propia de las provincias: regiones, nombres, colores
-## de propietario y recuentos salen siempre de los datos.
+## de propietario y recuentos salen siempre de los datos. Lo único que guarda
+## es el id de la provincia seleccionada ("" = ninguna).
 extends Node2D
+
+## Se emite cuando cambia la provincia seleccionada. "" significa sin selección.
+signal selection_changed(province_id: String)
 
 const ProvinceData := preload("res://scripts/data/province_data.gd")
 
@@ -11,19 +15,57 @@ const COLOR_BORDER := Color(0.06, 0.07, 0.09)
 const COLOR_TEXT := Color(0.96, 0.96, 0.98)
 const COLOR_TEXT_OUTLINE := Color(0.05, 0.06, 0.08)
 const COLOR_LEGEND_TEXT := Color(0.80, 0.83, 0.87)
+const COLOR_SELECTION := Color(1.0, 0.93, 0.55)
 
 const BORDER_WIDTH := 3.0
+const SELECTION_WIDTH := 5.0
 const LABEL_FONT_SIZE := 18
 const LEGEND_FONT_SIZE := 18
 const LEGEND_Y := 668.0
 const LEGEND_SWATCH := Vector2(22, 22)
 
 
+var selected_id: String = ""
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	var click := event as InputEventMouseButton
+	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+		# make_input_local aplica la posición/escala/rotación de este nodo.
+		select_at(make_input_local(click).position)
+
+
+## Selecciona la provincia que contiene `local_point` (coordenadas locales de
+## este nodo) o limpia la selección si no hay ninguna.
+func select_at(local_point: Vector2) -> void:
+	set_selected(ProvinceData.find_at_point(local_point))
+
+
+func set_selected(province_id: String) -> void:
+	if province_id == selected_id:
+		return
+	selected_id = province_id
+	queue_redraw()
+	selection_changed.emit(selected_id)
+
+
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	for province: Dictionary in ProvinceData.all():
 		_draw_province(province, font)
+	_draw_selection()
 	_draw_legend(font)
+
+
+## El contorno de selección se dibuja después de todas las provincias para que
+## las fronteras vecinas no lo tapen. El color de propietario no se toca.
+func _draw_selection() -> void:
+	var province := ProvinceData.find(selected_id)
+	if province.is_empty():
+		return
+	var outline := PackedVector2Array(province["polygon"])
+	outline.append(outline[0])
+	draw_polyline(outline, COLOR_SELECTION, SELECTION_WIDTH)
 
 
 func _owner_color(owner_id: String) -> Color:
@@ -51,8 +93,8 @@ func _draw_legend(font: Font) -> void:
 	var player_count := ProvinceData.count_owned_by(ProvinceData.OWNER_PLAYER)
 	var enemy_count := ProvinceData.count_owned_by(ProvinceData.OWNER_ENEMY)
 	var entries := [
-		[COLOR_PLAYER, "Jugador: %d" % player_count],
-		[COLOR_ENEMY, "Enemigo: %d" % enemy_count],
+		[COLOR_PLAYER, "%s: %d" % [ProvinceData.owner_label(ProvinceData.OWNER_PLAYER), player_count]],
+		[COLOR_ENEMY, "%s: %d" % [ProvinceData.owner_label(ProvinceData.OWNER_ENEMY), enemy_count]],
 	]
 	var x := 140.0
 	for entry: Array in entries:

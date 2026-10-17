@@ -6,7 +6,7 @@ Los hitos están en orden de dependencia. Cada uno se pide y se revisa por separ
 |---|---|---|
 | 0 | Cimientos | Hecho y validado manualmente en el PC del propietario (Godot 4.7.2, Windows) |
 | 1 | Mapa y provincias | Implementado; pendiente de validar en el PC del propietario |
-| 2 | Interacción del jugador | Pendiente |
+| 2 | Selección e información de provincias | Implementado; pendiente de validar en el PC del propietario |
 | 3 | Tropas y combate | Pendiente |
 | 4 | Captura de provincias | Pendiente |
 | 5 | IA enemiga | Pendiente |
@@ -31,13 +31,16 @@ Los hitos están en orden de dependencia. Cada uno se pide y se revisa por separ
   - Todas se dibujan en pantalla a 1280x720 sin huecos ni solapes y con nombres legibles (validación visual manual).
   - Los vecinos declarados coinciden con las fronteras dibujadas (prueba automática).
 
-## Hito 2 — Interacción del jugador
-- Propiedad inicial jugador/enemigo y selección con el ratón.
+## Hito 2 — Selección e información de provincias
+- Selección con el ratón mediante los polígonos reales y panel de información. Sin acciones de juego.
+- **Implementado:** clic izquierdo selecciona (`ProvinceMap.select_at`), contorno de resalte, clic en vacío limpia, señal `selection_changed` hacia el panel (`scripts/ui/province_info_panel.gd`) con nombre, propietario, número y nombres de vecinas.
 - **Criterios:**
-  - Cada provincia tiene exactamente un dueño; ambos bandos empiezan con al menos 1 provincia.
-  - Clic en una provincia la selecciona y se resalta; clic en vacío o clic derecho deselecciona.
-  - Solo se puede seleccionar como origen una provincia propia.
-  - La selección se comprueba con pruebas automáticas de la lógica.
+  - Cada provincia tiene exactamente un dueño; ambos bandos empiezan con 7 (ya cubierto por las pruebas del hito 1).
+  - Clic en una provincia la selecciona y se resalta; clic en vacío la deselecciona; clic en el panel no cambia la selección.
+  - El id seleccionado es el de la provincia cuyo polígono contiene el clic; en un punto fuera de todas las provincias el resultado es "ninguna".
+  - La selección funciona con el nodo del mapa movido o escalado.
+  - El panel muestra nombre, propietario y vecinas coincidentes con los datos (pruebas automáticas).
+- **Movido al hito 3:** restringir el origen de una acción a provincias propias.
 
 ## Hito 3 — Tropas y combate
 - Tropas por provincia, órdenes de ataque/movimiento y combate determinista.

@@ -12,6 +12,18 @@ El propietario es **principiante**: toma decisiones técnicas sólidas, explica 
 - Toda la documentación, comentarios de código, mensajes de commit e informes finales: **en español**.
 - Identificadores de código (variables, funciones, clases): en español o inglés, pero **uno solo por proyecto**. Decisión actual: **inglés** para identificadores (`snake_case` en GDScript), español para texto visible y comentarios.
 
+## Dirección de diseño permanente
+
+Confirmada por el propietario:
+- Fácil de aprender y jugar; muy cercano a OpenFront en su bucle general (expansión territorial, ataques y economía sencilla), con una **mecánica propia aún por definir**.
+- Presentación **limpia (clean)**: el mapa es el elemento principal; interfaz minimalista y legible; colores territoriales claros y consistentes; elementos visuales discretos; sin exceso de efectos, animaciones, ventanas ni información.
+- No convertir el juego en un RTS táctico detallado.
+- Economía futura: como máximo uno o dos recursos.
+- Los combates deben permitir entender con facilidad si se tiene ventaja antes de atacar.
+- Las tropas futuras no tienen por qué ser una única cifra global, pero no se simulan soldados individuales ni se recarga la interfaz.
+
+Pendiente de decisión del propietario (**no inventar ni implementar**): modelo concreto de unidades y mecánica diferenciadora.
+
 ## Alcance
 
 - La fuente de verdad del alcance es `docs/GDD.md` (MVP) y `docs/ROADMAP.md` (orden de hitos).

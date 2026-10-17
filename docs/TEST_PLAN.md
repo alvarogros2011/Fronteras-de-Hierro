@@ -14,9 +14,10 @@ Scripts propios en `tests/`, sin plugins (decisión abierta nº 7 del GDD). Cada
 
 ```
 godot --headless --path . --script res://tests/test_province_data.gd
+godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-**Estado:** `tests/test_province_data.gd` (A-01 a A-04 y A-29) está escrito pero **aún no se ha ejecutado en Godot** (no hay ejecutable en la nube). Solo se ha comprobado una réplica de la lógica en Python sobre los mismos datos; no cuenta como validación en Godot. Resultado en el PC del propietario: pendiente.
+**Estado:** `tests/test_province_data.gd` (A-01 a A-04 y A-29) y `tests/test_province_selection.gd` (A-06 a A-08 y A-30 a A-36) están escritos pero **aún no se ha ejecutado en Godot** (no hay ejecutable en la nube). Solo se ha comprobado una réplica de la lógica en Python sobre los mismos datos; no cuenta como validación en Godot. Resultado en el PC del propietario: pendiente.
 
 | ID | Hito | Qué comprueba | Resultado esperado |
 |---|---|---|---|
@@ -25,9 +26,16 @@ godot --headless --path . --script res://tests/test_province_data.gd
 | A-03 | 1 | Vecinos | Todos existen; sin autovecinas ni duplicados; adyacencia simétrica |
 | A-04 | 1 | Conectividad | Un recorrido desde cualquier provincia alcanza las 14 |
 | A-29 | 1 | Topología y geometría coinciden | Dos provincias son vecinas si y solo si comparten una arista dibujada |
-| A-06 | 2 | Propiedad inicial | Un dueño por provincia; ambos bandos con ≥ 1 |
-| A-07 | 2 | Selección válida | Provincia propia seleccionable como origen |
-| A-08 | 2 | Selección inválida | Provincia enemiga no seleccionable como origen |
+| A-06 | 2 | Propiedad inicial y datos intactos | 14 provincias, 7 contra 7, etiquetas "Jugador"/"Enemigo"; la selección no modifica los datos |
+| A-07 | 2 | Selección por punto interior | El centro y puntos interiores de cada provincia devuelven su id |
+| A-08 | 2 | Puntos exteriores | Fuera de la ventana, márgenes y esquina recortada del mapa devuelven "" |
+| A-30 | 2 | Cerca de fronteras | A 1 px de cada frontera compartida, cada lado devuelve su provincia; sobre la frontera exacta el resultado es estable y nunca una tercera provincia |
+| A-31 | 2 | Cambio de selección | Seleccionar otra provincia actualiza `selected_id` y emite `selection_changed`; repetir no emite |
+| A-32 | 2 | Limpiar selección | Un punto vacío deja `selected_id` en "" y emite la señal una vez |
+| A-33 | 2 | Transformación del mapa | Con el nodo movido, escalado y rotado, convertir un punto global a local selecciona la provincia correcta |
+| A-34 | 2 | Panel: contenido | Nombre, propietario, recuento y nombres de vecinas coinciden con los datos para las 14 provincias |
+| A-35 | 2 | Panel: estado vacío | Sin selección se muestra la invitación y no los detalles; `build_info` de un id inexistente devuelve vacío |
+| A-36 | 2 | Escena principal | `main.tscn` carga y conecta el mapa con el panel |
 | A-09 | 3 | Ataque válido | Aceptado: origen propio, destino adyacente enemigo, tropas suficientes |
 | A-10 | 3 | Ataque a no adyacente | Rechazado |
 | A-11 | 3 | Ataque a provincia propia | Rechazado |
@@ -61,9 +69,12 @@ Se realizan en Godot 4.7 en un PC con Windows.
 | M-02 | 0 | F5 | Ventana 1280x720 con título "FRONTERAS DE HIERRO" y subtítulo "Prototipo temprano" |
 | M-03 | 0 | Redimensionar la ventana | El contenido sigue centrado y legible |
 | M-04 | 1 | Ejecutar (F5) y observar el mapa | 14 provincias visibles, sin huecos ni solapes, con fronteras oscuras y los 14 nombres legibles; 7 azules (jugador) y 7 rojas (enemigo); leyenda "Jugador: 7 / Enemigo: 7" y "Provincias: 14"; título y subtítulo visibles; sin errores en la consola |
-| M-05 | 2 | Clic en provincia propia | Se resalta |
-| M-06 | 2 | Clic en vacío o clic derecho | Se deselecciona |
-| M-07 | 2 | Clic en provincia enemiga sin selección previa | No ocurre nada |
+| M-05 | 2 | Clic izquierdo en una provincia (propia o enemiga) | Se resalta con contorno claro, conserva su color y el panel muestra nombre, propietario y vecinas |
+| M-06 | 2 | Clic en otra provincia | La selección y el panel cambian de inmediato |
+| M-07 | 2 | Clic en una zona vacía del mapa (p. ej. la esquina inferior derecha o el fondo) | Se limpia la selección y el panel invita a seleccionar |
+| M-07b | 2 | Clic sobre el panel de información | La selección no cambia |
+| M-07c | 2 | Clics repetidos cerca de fronteras | Siempre se selecciona una de las dos provincias vecinas (o ninguna si cae justo en el borde), sin errores en la consola |
+| M-07d | 2 | Revisión visual del panel | Panel a la derecha sin tapar nombres del mapa; texto legible; sin botones de acción |
 | M-08 | 3 | Atacar provincia adyacente enemiga | Combate resuelto; tropas actualizadas |
 | M-09 | 3 | Intentar atacar provincia no adyacente | Rechazado con mensaje o sin efecto |
 | M-10 | 4 | Ganar un ataque | La provincia cambia de color |
@@ -88,3 +99,12 @@ Se realizan en Godot 4.7 en un PC con Windows.
 | Datos del mapa (14 provincias, 7-7, vecinos simétricos, conexo, aristas compartidas) | Réplica en Python de las comprobaciones sobre `province_data.gd` | Ejecutado en la nube: correcto. No sustituye a Godot |
 | `tests/test_province_data.gd` | Comando de arriba | **Pendiente** en Godot (PC del propietario) |
 | Aspecto del mapa | M-04 | **Pendiente** (nadie lo ha visto ejecutándose) |
+
+## Estado del hito 2 (selección e información)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| Lógica de selección (centros, puntos descentrados, vecindades, bordes, exteriores) | Réplica en Python sobre los datos reales | Ejecutado en la nube: correcto. No sustituye a Godot |
+| `tests/test_province_selection.gd` | Comando de arriba | **Pendiente** en Godot (PC del propietario) |
+| `tests/test_province_data.gd` | Comando de arriba | **Pendiente** en Godot (PC del propietario) |
+| Aspecto, clics reales y panel | M-05 a M-07d | **Pendiente** (nadie lo ha visto ejecutándose) |

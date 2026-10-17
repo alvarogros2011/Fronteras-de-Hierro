@@ -133,6 +133,27 @@ static func find(province_id: String) -> Dictionary:
 	return {}
 
 
+## Devuelve el id de la provincia cuyo polígono contiene `point` (coordenadas
+## locales del mapa, las mismas que usan los polígonos), o "" si no hay ninguna.
+## Si un punto cae exactamente sobre una frontera compartida, gana la primera
+## provincia de la lista: el resultado es siempre el mismo para el mismo punto.
+static func find_at_point(point: Vector2) -> String:
+	for province: Dictionary in PROVINCES:
+		if Geometry2D.is_point_in_polygon(point, PackedVector2Array(province["polygon"])):
+			return province["id"]
+	return ""
+
+
+## Texto en español para mostrar un propietario ("Jugador" o "Enemigo").
+static func owner_label(owner_id: String) -> String:
+	match owner_id:
+		OWNER_PLAYER:
+			return "Jugador"
+		OWNER_ENEMY:
+			return "Enemigo"
+	return "Desconocido"
+
+
 ## Cuenta las provincias cuyo propietario inicial es `owner_id`.
 static func count_owned_by(owner_id: String) -> int:
 	var total := 0
