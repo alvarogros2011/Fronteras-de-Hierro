@@ -20,6 +20,11 @@
 ##      de la tierra queda sin reclamar.
 extends RefCounted
 
+## Se emite cada vez que cambia algún propietario (conquista, try_set_owner, carga o reinicio),
+## una vez por operación. La interfaz la usa para recalcular estadísticas; no lleva datos:
+## se consultan a la cuadrícula. No se emite si la operación se rechaza.
+signal ownership_changed
+
 const WIDTH := 320
 const HEIGHT := 180
 const CELL_COUNT := WIDTH * HEIGHT
@@ -52,11 +57,12 @@ const CONQUEST_ERR_NO_CONTACT := 9  # la zona no toca ortogonalmente territorio 
 
 ## Metadatos de las naciones, indexados por su ID numérico estable.
 ## "key" es el ID textual estable; los nombres son provisionales.
+## "controller": "human" (la maneja el jugador) o "ai". Provisional hasta decidir D2.
 const NATIONS: Dictionary = {
-	OWNER_PLAYER: {"id": OWNER_PLAYER, "key": "player", "name": "Confederación de Alba", "color": Color(0.25, 0.55, 0.90)},
-	OWNER_AI_1: {"id": OWNER_AI_1, "key": "ai_1", "name": "Reino de Cobre", "color": Color(0.85, 0.30, 0.30)},
-	OWNER_AI_2: {"id": OWNER_AI_2, "key": "ai_2", "name": "República de Bruma", "color": Color(0.90, 0.75, 0.25)},
-	OWNER_AI_3: {"id": OWNER_AI_3, "key": "ai_3", "name": "Imperio de Ceniza", "color": Color(0.70, 0.45, 0.85)},
+	OWNER_PLAYER: {"id": OWNER_PLAYER, "key": "player", "controller": "human", "name": "Confederación de Alba", "color": Color(0.25, 0.55, 0.90)},
+	OWNER_AI_1: {"id": OWNER_AI_1, "key": "ai_1", "controller": "ai", "name": "Reino de Cobre", "color": Color(0.85, 0.30, 0.30)},
+	OWNER_AI_2: {"id": OWNER_AI_2, "key": "ai_2", "controller": "ai", "name": "República de Bruma", "color": Color(0.90, 0.75, 0.25)},
+	OWNER_AI_3: {"id": OWNER_AI_3, "key": "ai_3", "controller": "ai", "name": "Imperio de Ceniza", "color": Color(0.70, 0.45, 0.85)},
 }
 
 ## Territorio inicial de cada nación: punto central y radio (en celdas).
@@ -100,6 +106,7 @@ func reset_to_default() -> void:
 	_generate_landmass()
 	_keep_largest_land_component()
 	_claim_start_territories()
+	ownership_changed.emit()
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +218,19 @@ func count_land() -> int:
 	return total
 
 
+## Celdas de TIERRA por propietario, en una sola pasada: {OWNER_NONE: tierra sin reclamar,
+## OWNER_PLAYER: celdas del jugador, ...}. Todas las naciones aparecen, aunque sea con 0.
+## El agua no cuenta. La suma de todos los valores es la tierra total del mapa.
+func count_land_by_owner() -> Dictionary:
+	var counts := {OWNER_NONE: 0}
+	for nation_id: int in NATIONS:
+		counts[nation_id] = 0
+	for index in CELL_COUNT:
+		if _terrain[index] == TERRAIN_LAND:
+			counts[_owner[index]] += 1
+	return counts
+
+
 ## Copia independiente de los datos de terreno (modificarla no afecta a la cuadrícula).
 func copy_terrain_data() -> PackedByteArray:
 	return _terrain.duplicate()
@@ -240,7 +260,9 @@ func try_set_owner(x: int, y: int, owner_id: int) -> bool:
 	var index := y * WIDTH + x
 	if _terrain[index] == TERRAIN_WATER and owner_id != OWNER_NONE:
 		return false
-	_owner[index] = owner_id
+	if _owner[index] != owner_id:
+		_owner[index] = owner_id
+		ownership_changed.emit()
 	return true
 
 
@@ -262,6 +284,7 @@ func load_from_data(terrain: PackedByteArray, owners: PackedByteArray) -> bool:
 			return false
 	_terrain = terrain.duplicate()
 	_owner = owners.duplicate()
+	ownership_changed.emit()
 	return true
 
 
@@ -293,6 +316,7 @@ func conquer_cells(attacker_id: int, cells: Array) -> Dictionary:
 	for cell: Vector2i in cells:
 		_owner[cell.y * WIDTH + cell.x] = attacker_id
 		changed.append(cell)
+	ownership_changed.emit()
 	return _conquest_result(CONQUEST_OK, INVALID, changed)
 
 

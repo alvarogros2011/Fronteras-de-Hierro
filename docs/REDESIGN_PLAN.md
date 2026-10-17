@@ -136,7 +136,7 @@ Las dependencias van en una sola dirección (de abajo hacia arriba en la tabla).
 | 3 | Datos del territorio (cuadrícula) con pruebas — **hecho; pruebas por ejecutar en Godot** | — | D1 (valores provisionales) |
 | 4 | Vista pixelada, fronteras derivadas, ratón → celda; medir rendimiento — **implementado sin cámara; pruebas y medición por hacer en Godot** | 3 | D1 (cámara) |
 | 5 | Fundamentos de la conquista: operación `conquer_cells` validada y atómica — **implementado; pruebas por ejecutar en Godot** | 4 | — (el combate/autorización: D3) |
-| 5b | Naciones y HUD base (antes «hito 5») | 4 | D2 |
+| 5b | Naciones y HUD base (antes «hito 5») — **implementado; pruebas por ejecutar en Godot** | 4 | D2 (valores provisionales) |
 | 6 | Reloj de simulación y expansión territorial (con comprobación de continuidad) | 5 | D3, D10 |
 | 7 | Ciudades: fundación y representación | 5 | D4, D6 |
 | 8 | Población, trabajadores, reparto y crecimiento urbano | 7 | D5, D6, D15 |
@@ -221,3 +221,13 @@ Propuestas técnicas provisionales; el propietario puede revertirlas.
 - **Refresco visual:** `changed_cells` lista exactamente las celdas cambiadas; la vista llama a `refresh_cell(x, y)` con cada una (cada llamada repinta 5 píxeles y sube la textura). Con zonas muy grandes convendría un `refresh_cells` que suba la textura una sola vez; no se ha hecho porque aún no hay conquistas reales.
 - **Aún sin decidir:** si una nación puede quedarse sin celdas (eliminación, D11) y qué hacer entonces; la operación lo permite sin tratamiento especial. Tampoco evita que una conquista deje territorio enemigo partido en dos zonas.
 
+
+## Decisiones técnicas del hito 5b (naciones y HUD)
+
+Propuestas técnicas provisionales; el propietario puede revertirlas.
+
+- **Sin cifras duplicadas:** `TerritoryGrid.count_land_by_owner()` cuenta la tierra por propietario en una sola pasada (57.600 celdas, estimación de coste no medida: unos pocos milisegundos o decenas en GDScript). No hay contadores incrementales: se evita que puedan desincronizarse de la cuadrícula.
+- **Actualización:** nueva señal `ownership_changed` en `TerritoryGrid` (sin datos), emitida una vez por operación que cambia propietarios (`conquer_cells`, `try_set_owner` con cambio, `load_from_data`, `reset_to_default`). La pantalla marca el refresco pendiente y recalcula en el siguiente fotograma, así que una conquista grande cuesta un solo recuento. `conquer_cells` y la generación no cambian salvo por esta emisión.
+- **Registro de naciones:** se mantiene `NATIONS` con IDs, claves, nombres y colores intactos y se añade `controller` ("human"/"ai"), provisional hasta D2.
+- **Interfaz:** se reutiliza la leyenda del hito 4 (dos columnas de tres filas) con las cifras alineadas a la derecha y una etiqueta con el resumen del jugador; no se añaden paneles. `build_rows` y `player_summary` son funciones estáticas para poder probarlas sin nodos. El porcentaje es sobre la **tierra total** (incluida la sin reclamar), con una decimal.
+- **Pendiente:** validar visualmente que las dos columnas caben bajo el mapa y el aspecto de las cifras.

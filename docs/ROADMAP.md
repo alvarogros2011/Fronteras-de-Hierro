@@ -15,7 +15,7 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 | 3 | Datos del territorio (cuadrícula) | Hecho; 21 PASS, 0 FAIL ejecutadas por el propietario en Godot 4.7.2 |
 | 4 | Vista pixelada del territorio | Implementado (`territory_map_view.gd`, `scenes/territory_main.tscn`); pruebas escritas, **pendientes de ejecutar y validar visualmente en Godot** |
 | 5 | Fundamentos de la conquista territorial (operación `conquer_cells`) | Implementado en `territory_grid.gd`; pruebas escritas, **pendientes de ejecutar en Godot** |
-| 5b | Naciones y HUD base (antes «hito 5») | Pendiente; requiere D2 |
+| 5b | Naciones y HUD base (antes «hito 5») | Implementado (leyenda con estadísticas territoriales, resumen del jugador); pruebas escritas, **pendientes de ejecutar y validar visualmente en Godot** |
 | 6 | Simulación por pasos y expansión territorial | Pendiente; requiere D3, D10 |
 | 7 | Ciudades: fundación y representación | Pendiente; requiere D4, D6 |
 | 8 | Población, trabajadores y crecimiento urbano | Pendiente; requiere D5, D6, D15, D19 |
@@ -66,11 +66,15 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 - **Fuera de alcance:** combate, bajas, ejércitos, dirección de ataque, economía, ciudades, expansión automática, IA, eliminación de naciones, otros terrenos, cámara.
 
 ## Hito 5b — Naciones y HUD base (antes numerado como hito 5)
-- Registro de naciones (id, nombre, color, quién la controla), territorios iniciales y HUD mínimo.
+**Estado: implementado en la nube sin Godot; pruebas escritas, no ejecutadas; validación visual pendiente.**
+- Registro de naciones (id, clave, nombre, color y controlador `human`/`ai`, en `TerritoryGrid.NATIONS`; sin cambiar IDs, nombres ni colores) y HUD mínimo reutilizando la leyenda del hito 4.
+- La leyenda muestra, por nación, **celdas de tierra controladas y porcentaje de la tierra total del mapa** (agua excluida; la tierra sin reclamar cuenta en el total y tiene su propia fila). Son estadísticas de territorio, no de población, poder ni economía. Una etiqueta arriba a la derecha resume la nación del jugador; su color lleva un recuadro blanco en la leyenda.
+- Los datos salen de `TerritoryGrid.count_land_by_owner()` (una pasada sobre el mapa); no se guardan cifras aparte. `TerritoryGrid` emite `ownership_changed` al cambiar propietarios y la pantalla recalcula como mucho una vez por fotograma. El panel de celda seleccionada también se refresca.
 - **Criterios:**
   - Cada nación tiene un territorio inicial continuo (ya cubierto por las pruebas del hito 3).
-  - El HUD muestra el nombre de la nación del jugador y el tamaño de su territorio, leídos del estado.
+  - El HUD muestra el nombre de la nación del jugador y el tamaño de su territorio, leídos del estado (pruebas H-01…H-10).
   - Sin selección de provincias ni botones de acciones inexistentes.
+- **Decisiones provisionales:** el porcentaje usa una decimal con coma; «controlador» provisional hasta decidir D2 (cuántas naciones y quién las controla).
 
 ## Hito 6 — Simulación por pasos y expansión territorial
 - Reloj de simulación con pasos fijos y pausa; expansión de fronteras según la regla decidida en D3, incluida una comprobación reutilizable de continuidad del territorio.

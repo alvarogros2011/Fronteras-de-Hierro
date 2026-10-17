@@ -5,7 +5,7 @@ Leyenda:
 - **[P]** Propuesta recomendada por Claude, pendiente de aprobación.
 - **[A]** Abierto: sin decidir. Cada decisión abierta tiene un código (D1, D2…) listado en §12.
 
-> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) y la operación de conquista de celdas (hito 5, sin ejecutar sus pruebas); no hay combate ni otras mecánicas. El resto de §5–§9 es diseño.
+> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5) y la leyenda con estadísticas territoriales por nación (hito 5b), ambos sin ejecutar sus pruebas; no hay combate ni otras mecánicas. El resto de §5–§9 es diseño.
 
 ## 1. Concepto
 
@@ -142,7 +142,7 @@ Fuera del MVP: multijugador, guardado de partida, más recursos (excluidos por d
 | Código | Pregunta | Bloquea |
 |---|---|---|
 | D1 | Provisional: 320x180, agua/tierra, mapa determinista (hito 3). Abierto: cámara (zoom/desplazamiento), mapa aleatorio, más terrenos | Hito 4 (cámara) |
-| D2 | Provisional: 4 naciones (jugador + 3 de IA). Abierto: cuántas en el MVP y quién las controla | Hito 5b |
+| D2 | Provisional: 4 naciones (jugador + 3 de IA; campo `controller` human/ai). Abierto: cuántas en el MVP y quién las controla | Tras el hito 5b |
 | D3 | Fórmula y coste de los ataques; cómo crece el territorio tras atacar; cómo se expande hacia tierra vacía | Hito 6 |
 | D4 | Condiciones exactas, coste y tiempo de fundación de ciudades | Hito 7 |
 | D5 | Asignación de trabajadores a ciudades; población global o por ciudad | Hito 8 |
@@ -175,3 +175,8 @@ Este prototipo **no se amplía** y no define el diseño actual: las provincias s
 - **[C]** El territorio solo cambia de propietario como consecuencia de una **conquista explícita**. Nunca se expande solo por el tiempo, la economía, el crecimiento de una ciudad ni por dibujar el mapa. (Confirmado por el propietario.)
 - **[P]** Una conquista es un conjunto concreto de celdas de **tierra**, contiguo por vecinos ortogonales y con contacto ortogonal con el territorio actual del atacante; se aplica entera o no se aplica. El agua nunca tiene propietario. Puede tomar tierra de otra nación o sin reclamar.
 - **[A]** Quién puede atacar, cuándo, qué celdas, con qué coste y cómo se resuelve (D3, D7, D8) sigue abierto; el hito 5 solo implementa la operación segura que usará el combate.
+
+## Información territorial en pantalla (hito 5b)
+
+- **[P]** La leyenda muestra por nación las **celdas de tierra** que controla y su **porcentaje de la tierra total** del mapa (agua excluida). Son estadísticas de territorio: no representan población, poder militar ni economía. La nación del jugador se marca en la leyenda y se resume arriba a la derecha.
+- **[P]** Las cifras se derivan siempre de la cuadrícula; no se guardan copias.

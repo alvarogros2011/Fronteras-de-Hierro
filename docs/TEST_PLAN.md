@@ -16,11 +16,12 @@ Desde la raíz del proyecto (sustituye `godot` por tu ejecutable de Godot 4.7):
 godot --headless --path . --script res://tests/test_territory_grid.gd
 godot --headless --path . --script res://tests/test_territory_map_view.gd
 godot --headless --path . --script res://tests/test_territory_conquest.gd
+godot --headless --path . --script res://tests/test_territory_hud.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`.
 
 ## Estado actual
 
@@ -33,6 +34,7 @@ Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 
 | `tests/test_province_selection.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | Réplica en Python del algoritmo del mapa inicial (herramienta de diseño: tierra 27.324 celdas, 4 territorios de 441, sin adyacencias entre naciones, borde de agua) y de la lógica de provincias | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye** |
 | `tests/territory_conquest_tests.gd` + `tests/test_territory_conquest.gd` + `tests/run_conquest_tests.tscn` (hito 5, 18 pruebas C-01…C-18) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
+| `tests/territory_hud_tests.gd` + `tests/test_territory_hud.gd` + `tests/run_hud_tests.tscn` (hito 5b, 10 pruebas H-01…H-10) | Escritos. **Ejecución en Godot sin confirmar** |
 | Pruebas del sistema de territorio, ciudades, población, recursos, ejércitos, IA | **No existen**: esas mecánicas no están implementadas |
 
 ## 1. Pruebas existentes del territorio (hito 3, sistema nuevo)
@@ -152,11 +154,29 @@ Las 21 pruebas del hito 3 y las 14 del hito 4 siguen existiendo sin cambios; el 
 | M-20 | Ejecutar `test_territory_conquest.gd` (o F6 en `run_conquest_tests.tscn`) y confirmar 18 PASS; ejecutar también las de los hitos 3 y 4 |
 | M-21 | Nada se ve distinto en F5: el hito 5 no añade interfaz de conquista (no hay forma de lanzarla desde el juego todavía) |
 
-### Hito 5b — Naciones y HUD
-| ID | Qué comprobar |
+### Hito 5b — Naciones y HUD (escritas, sin ejecutar en Godot)
+
+Cubren los antiguos T-20 y T-21 (la continuidad inicial ya la cubre G-12). Mapa controlado: 603 celdas de tierra; jugador 100, IA 1 100, sin reclamar 403.
+
+| ID | Qué comprueba |
 |---|---|
-| T-20 | Registro de naciones y territorios iniciales (la continuidad inicial ya la cubre G-12) |
-| T-21 | El HUD muestra datos iguales a los del estado |
+| H-01 | Las 4 naciones conservan IDs 1–4, claves, nombres y colores |
+| H-02 | Solo la nación del jugador tiene controlador `human`; las demás `ai` |
+| H-03 | `count_land_by_owner`: solo tierra, todas las naciones presentes (también con 0), suma = tierra total |
+| H-04 | Lo mismo en el mapa por defecto: coincide con `count_owned_by`, naciones con territorio y tierra sin reclamar |
+| H-05 | Formato del porcentaje: coma decimal, 100 %, total 0 sin error |
+| H-06 | Filas de la leyenda: orden, nombres, celdas, porcentajes, colores = los de la cuadrícula, el agua sin cifra |
+| H-07 | Tras conquistar, las filas reflejan +2/−2 y la tierra total no cambia |
+| H-08 | `ownership_changed`: una emisión por operación válida; ninguna en rechazos ni en `try_set_owner` sin cambio |
+| H-09 | Resumen del jugador («Confederación de Alba · 100 celdas · 16,6 %») |
+| H-10 | La escena principal carga; la etiqueta del jugador coincide con la cuadrícula; un cambio marca el refresco y tras refrescar muestra las celdas actuales |
+
+| ID | Pendiente (manual en Godot) |
+|---|---|
+| M-30 | Ejecutar `test_territory_hud.gd` (o F6 en `run_hud_tests.tscn`) y confirmar 10 PASS; repetir las de los hitos 3, 4 y 5 |
+| M-31 | Visual: la leyenda de dos columnas cabe bajo el mapa, las cifras se leen y no se solapan con el panel de celda |
+| M-32 | Visual: el resumen del jugador (arriba a la derecha) y el recuadro blanco del jugador en la leyenda se entienden sin ocultar el mapa |
+| M-33 | Con las cifras iniciales: cada nación 441 celdas y ~1,6 % (la réplica de diseño del hito 3 da 27.324 de tierra); no es un dato confirmado en Godot |
 
 ### Hito 6 — Simulación y expansión
 | ID | Qué comprobar |
@@ -254,3 +274,12 @@ Las 21 pruebas del hito 3 y las 14 del hito 4 siguen existiendo sin cambios; el 
 | Pruebas de los hitos 3 y 4 tras el cambio | Comandos de arriba | Hito 3: confirmado por el propietario **antes** de este cambio (21 PASS); hay que repetirlo. Hito 4: sin ejecutar |
 | Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** |
 | Escenarios de las pruebas C-01…C-15 (códigos de error esperados sobre el mapa controlado) | Réplica en Python de las reglas de validación (21 casos) | Ejecutada en la nube: 21/21 coinciden; **no es una prueba de Godot ni la sustituye** |
+
+## Estado del hito 5b (naciones y HUD)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| `tests/test_territory_hud.gd` (10 pruebas) | `godot --headless --path . --script res://tests/test_territory_hud.gd` | **Pendiente** en Godot (PC del propietario) |
+| Aspecto de la leyenda y del resumen | F5 en el editor | **Pendiente** (validación visual del propietario) |
+| Pruebas de los hitos 3, 4 y 5 tras el cambio | Comandos de arriba | Hito 3 confirmado antes de este cambio (21 PASS); hay que repetirlo. Hitos 4 y 5: sin ejecutar |
+| Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** |
