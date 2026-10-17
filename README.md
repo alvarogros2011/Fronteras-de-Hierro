@@ -20,7 +20,7 @@ Juego 2D de estrategia territorial en tiempo real, fácil de aprender y de jugar
 
 ## Estado real del proyecto
 
-**Fase actual: construcción del sistema territorial nuevo. Hitos 3 (datos) y 4 (vista pixelada e inspección) implementados.**
+**Fase actual: construcción del sistema territorial nuevo. Hitos 3 (datos), 4 (vista pixelada e inspección) y 5 (operación de conquista) implementados; 4 y 5 sin ejecutar ni validar en Godot.**
 
 **Sistema nuevo (hito 3):** `scripts/world/territory_grid.gd` guarda el territorio como una cuadrícula de 320x180 celdas (terreno agua/tierra y propietario por celda en dos `PackedByteArray`), con 4 naciones provisionales (jugador y 3 rivales) y un mapa inicial determinista: una masa de tierra con costa irregular, cuatro pequeños territorios conectados y tierra sin reclamar. Los valores de la cuadrícula son **provisionales**. Sus pruebas (`tests/test_territory_grid.gd`) fueron ejecutadas a mano por el propietario en Godot 4.7.2: 21 PASS, 0 FAIL.
 
@@ -34,7 +34,9 @@ Juego 2D de estrategia territorial en tiempo real, fácil de aprender y de jugar
 
 Este prototipo **no se amplía**: no hay tropas, combate, captura, economía, ciudades ni IA. Se mantiene intacto y solo se retirará cuando el nuevo mapa visual y su interacción hayan sido validados manualmente en el PC del propietario.
 
-No existen todavía ciudades, población, recursos, ejércitos, expansión, ataques ni IA. Siguiente paso: validar a mano el hito 4 en Godot (ejecutar sus pruebas y revisar el aspecto). Ver `docs/ROADMAP.md`.
+**Hito 5 (implementado; pruebas sin ejecutar):** `TerritoryGrid.conquer_cells(attacker_id, cells)` cambia el propietario de un conjunto concreto de celdas de tierra solo si toda la operación es válida (nación existente, celdas dentro del mapa, sin repetidas ni agua ni propias, zona contigua y en contacto con el territorio del atacante); si no, no cambia nada y devuelve el motivo. El territorio solo cambia por una conquista explícita. **No hay todavía combate ni forma de lanzarla desde el juego**, así que F5 se ve igual que en el hito 4. Tras una conquista, la vista se refresca con `refresh_cell` sobre las celdas devueltas. Pruebas: `tests/test_territory_conquest.gd`.
+
+No existen todavía ciudades, población, recursos, ejércitos, expansión, ataques ni IA. Siguiente paso: ejecutar en Godot las pruebas de los hitos 3, 4 y 5 y revisar el aspecto del hito 4. Ver `docs/ROADMAP.md`.
 
 ## Cómo abrir el proyecto
 
@@ -52,6 +54,7 @@ Desde la raíz del proyecto (sustituye `godot` por la ruta de tu ejecutable de G
 ```
 godot --headless --path . --script res://tests/test_territory_grid.gd
 godot --headless --path . --script res://tests/test_territory_map_view.gd
+godot --headless --path . --script res://tests/test_territory_conquest.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```

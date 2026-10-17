@@ -36,6 +36,20 @@ const OWNER_AI_3 := 4
 ## Valor devuelto por las consultas con coordenadas o índice fuera de límites.
 const INVALID := -1
 
+## Códigos de resultado de conquer_cells (campo "error" del resultado).
+const ORTHOGONAL_STEPS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+
+const CONQUEST_OK := 0
+const CONQUEST_ERR_UNKNOWN_ATTACKER := 1  # no es una nación existente (OWNER_NONE tampoco vale)
+const CONQUEST_ERR_EMPTY := 2  # lista de celdas vacía
+const CONQUEST_ERR_INVALID_DATA := 3  # un elemento de la lista no es un Vector2i
+const CONQUEST_ERR_OUT_OF_BOUNDS := 4
+const CONQUEST_ERR_DUPLICATE := 5
+const CONQUEST_ERR_WATER := 6
+const CONQUEST_ERR_ALREADY_OWNED := 7  # la celda ya es del atacante
+const CONQUEST_ERR_NOT_CONTIGUOUS := 8  # la zona no es una sola pieza (vecinos ortogonales)
+const CONQUEST_ERR_NO_CONTACT := 9  # la zona no toca ortogonalmente territorio del atacante
+
 ## Metadatos de las naciones, indexados por su ID numérico estable.
 ## "key" es el ID textual estable; los nombres son provisionales.
 const NATIONS: Dictionary = {
@@ -216,7 +230,8 @@ func copy_owner_data() -> PackedByteArray:
 ##   - (x, y) está fuera de límites,
 ##   - owner_id no es OWNER_NONE ni una nación conocida,
 ##   - la celda es agua y owner_id no es OWNER_NONE.
-## Esta operación no valida reglas de juego (adyacencia, costes…): eso llegará en otros hitos.
+## Esta operación no valida reglas de juego (adyacencia, costes…): para eso existe conquer_cells,
+## que es la vía que debe usar el juego.
 func try_set_owner(x: int, y: int, owner_id: int) -> bool:
 	if not is_valid_coord(x, y):
 		return false
@@ -227,6 +242,114 @@ func try_set_owner(x: int, y: int, owner_id: int) -> bool:
 		return false
 	_owner[index] = owner_id
 	return true
+
+
+## Carga terreno y propietarios completos (para pruebas con mapas controlados y, más adelante,
+## partidas guardadas). Devuelve true si se aplicó; si algo no es válido devuelve false y no
+## cambia nada. Se rechaza si: algún array no mide CELL_COUNT, el terreno no es agua/tierra,
+## el propietario no es OWNER_NONE ni una nación conocida, o una celda de agua tiene propietario.
+func load_from_data(terrain: PackedByteArray, owners: PackedByteArray) -> bool:
+	if terrain.size() != CELL_COUNT or owners.size() != CELL_COUNT:
+		return false
+	for index in CELL_COUNT:
+		var cell_terrain := terrain[index]
+		var cell_owner := owners[index]
+		if cell_terrain != TERRAIN_WATER and cell_terrain != TERRAIN_LAND:
+			return false
+		if cell_owner != OWNER_NONE and not NATIONS.has(cell_owner):
+			return false
+		if cell_terrain == TERRAIN_WATER and cell_owner != OWNER_NONE:
+			return false
+	_terrain = terrain.duplicate()
+	_owner = owners.duplicate()
+	return true
+
+
+## ÚNICA vía prevista del juego para cambiar propietarios: una conquista ya resuelta.
+## (El combate decidirá en otro hito CUÁNDO y QUÉ celdas; esto solo valida y aplica.)
+##
+## attacker_id: nación conquistadora. cells: Array de Vector2i (x, y) con las celdas a conquistar.
+## Conquista tierra sin reclamar o de otra nación; no cambia el terreno ni ninguna otra celda.
+##
+## Se valida TODO antes de tocar nada; si una celda falla no cambia ninguna. Reglas:
+##   1. attacker_id es una nación existente (OWNER_NONE no vale).
+##   2. cells no está vacía y todos sus elementos son Vector2i.
+##   3. Cada celda está dentro del mapa, no se repite, es tierra y no es ya del atacante.
+##   4. La zona es contigua (una sola pieza por vecinos ortogonales; la diagonal no cuenta).
+##   5. Alguna celda de la zona toca ortogonalmente territorio actual del atacante.
+##
+## Devuelve un Dictionary:
+##   "ok": bool                    true si se aplicó.
+##   "changed": int                celdas cambiadas (0 si falló).
+##   "error": int                  CONQUEST_OK o un CONQUEST_ERR_*.
+##   "bad_index": int              posición en `cells` de la primera celda inválida, o -1.
+##   "changed_cells": Array        las celdas cambiadas (Vector2i); la vista debe llamar a
+##                                 refresh_cell(x, y) con cada una (vacío si falló).
+func conquer_cells(attacker_id: int, cells: Array) -> Dictionary:
+	var failure := _validate_conquest(attacker_id, cells)
+	if not failure.is_empty():
+		return _conquest_result(failure["error"], failure["bad_index"], [])
+	var changed: Array = []
+	for cell: Vector2i in cells:
+		_owner[cell.y * WIDTH + cell.x] = attacker_id
+		changed.append(cell)
+	return _conquest_result(CONQUEST_OK, INVALID, changed)
+
+
+func _conquest_result(error: int, bad_index: int, changed: Array) -> Dictionary:
+	return {
+		"ok": error == CONQUEST_OK,
+		"changed": changed.size(),
+		"error": error,
+		"bad_index": bad_index,
+		"changed_cells": changed,
+	}
+
+
+## Diccionario vacío si la conquista es válida; si no, {"error": código, "bad_index": int}.
+func _validate_conquest(attacker_id: int, cells: Array) -> Dictionary:
+	if not NATIONS.has(attacker_id):
+		return {"error": CONQUEST_ERR_UNKNOWN_ATTACKER, "bad_index": INVALID}
+	if cells.is_empty():
+		return {"error": CONQUEST_ERR_EMPTY, "bad_index": INVALID}
+	var targets := {}
+	for i in cells.size():
+		if typeof(cells[i]) != TYPE_VECTOR2I:
+			return {"error": CONQUEST_ERR_INVALID_DATA, "bad_index": i}
+		var cell: Vector2i = cells[i]
+		if not is_valid_coord(cell.x, cell.y):
+			return {"error": CONQUEST_ERR_OUT_OF_BOUNDS, "bad_index": i}
+		if targets.has(cell):
+			return {"error": CONQUEST_ERR_DUPLICATE, "bad_index": i}
+		var index := cell.y * WIDTH + cell.x
+		if _terrain[index] == TERRAIN_WATER:
+			return {"error": CONQUEST_ERR_WATER, "bad_index": i}
+		if _owner[index] == attacker_id:
+			return {"error": CONQUEST_ERR_ALREADY_OWNED, "bad_index": i}
+		targets[cell] = true
+	if not _is_contiguous(cells, targets):
+		return {"error": CONQUEST_ERR_NOT_CONTIGUOUS, "bad_index": INVALID}
+	for cell: Vector2i in cells:
+		for step: Vector2i in ORTHOGONAL_STEPS:
+			var n := cell + step
+			if is_valid_coord(n.x, n.y) and _owner[n.y * WIDTH + n.x] == attacker_id:
+				return {}
+	return {"error": CONQUEST_ERR_NO_CONTACT, "bad_index": INVALID}
+
+
+## True si todas las celdas forman una sola pieza por vecinos ortogonales.
+## `targets` es el conjunto (Dictionary) de las mismas celdas.
+func _is_contiguous(cells: Array, targets: Dictionary) -> bool:
+	var visited := {cells[0]: true}
+	var stack: Array = [cells[0]]
+	while not stack.is_empty():
+		var current: Vector2i = stack.pop_back()
+		for step: Vector2i in ORTHOGONAL_STEPS:
+			var n := current + step
+			if targets.has(n) and not visited.has(n):
+				visited[n] = true
+				stack.append(n)
+	return visited.size() == targets.size()
 
 
 # ---------------------------------------------------------------------------

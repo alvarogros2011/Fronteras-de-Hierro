@@ -135,7 +135,8 @@ Las dependencias van en una sola dirección (de abajo hacia arriba en la tabla).
 |---|---|---|---|
 | 3 | Datos del territorio (cuadrícula) con pruebas — **hecho; pruebas por ejecutar en Godot** | — | D1 (valores provisionales) |
 | 4 | Vista pixelada, fronteras derivadas, ratón → celda; medir rendimiento — **implementado sin cámara; pruebas y medición por hacer en Godot** | 3 | D1 (cámara) |
-| 5 | Naciones y HUD base | 4 | D2 |
+| 5 | Fundamentos de la conquista: operación `conquer_cells` validada y atómica — **implementado; pruebas por ejecutar en Godot** | 4 | — (el combate/autorización: D3) |
+| 5b | Naciones y HUD base (antes «hito 5») | 4 | D2 |
 | 6 | Reloj de simulación y expansión territorial (con comprobación de continuidad) | 5 | D3, D10 |
 | 7 | Ciudades: fundación y representación | 5 | D4, D6 |
 | 8 | Población, trabajadores, reparto y crecimiento urbano | 7 | D5, D6, D15 |
@@ -168,7 +169,7 @@ Detalle completo en `docs/GDD.md` §12. En orden de urgencia:
 **Antes del hito 3 y 4**
 - **D1** — Tamaño aproximado del mapa, si se dibuja a mano o se genera, y si solo hay tierra y agua o más terrenos. ¿Cámara con zoom y desplazamiento?
 
-**Antes del hito 5** (4 naciones es el valor provisional del hito 3)
+**Antes del hito 5b** (4 naciones es el valor provisional del hito 3)
 - **D2** — ¿Cuántas naciones en el MVP y quién las controla (una jugador, el resto IA)?
 
 **Antes del hito 6**
@@ -208,3 +209,15 @@ Propuestas técnicas provisionales; el propietario puede revertirlas.
 - **Selección:** solo la tierra se resalta y se selecciona. Un clic en agua o fuera del mapa **limpia** la selección (decisión provisional; alternativa: permitir inspeccionar el agua).
 - **Entrada:** `_unhandled_input`, así que los paneles de la interfaz que capturan el clic no seleccionan el mapa. La conversión usa la transformación global del nodo, por lo que admite mover o escalar el nodo o sus padres.
 - **Coste esperado (estimación, no medida):** el pintado completo inicial son 57.600 celdas con ~5 consultas a la cuadrícula cada una en GDScript, una sola vez al arrancar; `refresh_cell` toca 5 píxeles y sube la textura. Cada fotograma con el ratón en movimiento solo redibuja una textura y dos rectángulos. Posibles mejoras si hiciera falta: pintar desde los arrays copiados en vez de consultar celda a celda, subir solo las regiones modificadas, o pasar a un shader (enfoque D). El hito 4 sigue pendiente de medir en el PC.
+
+## Decisiones técnicas del hito 5 (conquista)
+
+Propuestas técnicas provisionales; el propietario puede revertirlas.
+
+- **Dónde vive:** en `TerritoryGrid` (`conquer_cells`). Es el dueño de los datos y la regla (contigüidad y contacto) es una invariante de los datos del territorio; así no hay segunda copia ni un módulo nuevo. Cuando existan combate y simulación (hitos 6+), llamarán a esta operación; la validación de reglas de juego (coste, ejércitos…) irá fuera, en esas capas.
+- **Atomicidad:** primero `_validate_conquest` (no escribe nada) y después una sola pasada de escritura. Resultado en un `Dictionary` con códigos `CONQUEST_*` (convención ya usada: enteros y bool, sin excepciones).
+- **Contigüidad y contacto:** vecinos ortogonales (no diagonales). La zona completa debe ser de una pieza y alguna celda suya debe tocar al atacante. Coste: proporcional al tamaño de la zona pedida, no al mapa.
+- **`try_set_owner` se conserva** (bajo nivel, usado por pruebas y herramientas); el juego debe usar `conquer_cells`.
+- **Refresco visual:** `changed_cells` lista exactamente las celdas cambiadas; la vista llama a `refresh_cell(x, y)` con cada una (cada llamada repinta 5 píxeles y sube la textura). Con zonas muy grandes convendría un `refresh_cells` que suba la textura una sola vez; no se ha hecho porque aún no hay conquistas reales.
+- **Aún sin decidir:** si una nación puede quedarse sin celdas (eliminación, D11) y qué hacer entonces; la operación lo permite sin tratamiento especial. Tampoco evita que una conquista deje territorio enemigo partido en dos zonas.
+

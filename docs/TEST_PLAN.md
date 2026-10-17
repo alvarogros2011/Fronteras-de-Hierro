@@ -15,11 +15,12 @@ Desde la raíz del proyecto (sustituye `godot` por tu ejecutable de Godot 4.7):
 ```
 godot --headless --path . --script res://tests/test_territory_grid.gd
 godot --headless --path . --script res://tests/test_territory_map_view.gd
+godot --headless --path . --script res://tests/test_territory_conquest.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`.
 
 ## Estado actual
 
@@ -31,6 +32,7 @@ Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 
 | `tests/test_province_data.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | `tests/test_province_selection.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | Réplica en Python del algoritmo del mapa inicial (herramienta de diseño: tierra 27.324 celdas, 4 territorios de 441, sin adyacencias entre naciones, borde de agua) y de la lógica de provincias | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye** |
+| `tests/territory_conquest_tests.gd` + `tests/test_territory_conquest.gd` + `tests/run_conquest_tests.tscn` (hito 5, 18 pruebas C-01…C-18) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
 | Pruebas del sistema de territorio, ciudades, población, recursos, ejércitos, IA | **No existen**: esas mecánicas no están implementadas |
 
 ## 1. Pruebas existentes del territorio (hito 3, sistema nuevo)
@@ -118,7 +120,39 @@ Cubren los antiguos T-10…T-13 y T-15; se mantienen pendientes T-14 y M-10…M-
 | M-13 | El clic acierta con la celda bajo el cursor (probar cerca de bordes y esquinas del mapa y con la ventana redimensionada) |
 | M-14 | Clic en agua o fuera del mapa limpia la selección sin errores; el panel inferior no deja pasar clics al mapa |
 
-### Hito 5 — Naciones y HUD
+### Hito 5 — Conquista territorial (escritas, sin ejecutar en Godot)
+
+Usan un mapa controlado cargado con `load_from_data` (tierra x 10..39, y 10..29; jugador x 10..14; IA 1 x 15..19; resto sin reclamar; una isla aparte), por lo que no dependen de la generación. Todas las de rechazo comprueban además que ni propietarios ni terreno cambian.
+
+| ID | Qué comprueba |
+|---|---|
+| C-01 | Conquista válida: cambia el propietario de todas las celdas pedidas (tierra de otra nación y sin reclamar) |
+| C-02 | Las celdas no pedidas y el terreno no cambian; el agua sigue sin propietario |
+| C-03 | Se puede conquistar tierra de otra nación (los recuentos de ambas cuadran) |
+| C-04 | Forma del resultado: `ok`, `changed`, `error`, `bad_index`, `changed_cells` |
+| C-05 | Agua rechazada (sola y mezclada con tierra) |
+| C-06 | Celda ya del atacante rechazada |
+| C-07 | Coordenadas fuera del mapa rechazadas |
+| C-08 | Atacante inválido (`NONE`, 99, −1, 5) rechazado |
+| C-09 | Lista vacía y elementos que no son `Vector2i` (texto, `Vector2`, `null`, entero) rechazados |
+| C-10 | Objetivos repetidos rechazados, con la posición de la repetida |
+| C-11 | Zona desconectada rechazada (piezas lejanas, solo diagonal, dos bloques, isla) |
+| C-12 | Zona sin contacto con el atacante rechazada (también atacante sin territorio) |
+| C-13 | Basta con que una celda de la zona toque al atacante |
+| C-14 | Una sola celda inválida entre varias válidas no modifica ninguna |
+| C-15 | Conquistas encadenadas: tras avanzar aparece el contacto que faltaba |
+| C-16 | `load_from_data` rechaza tamaños, terreno, propietarios y agua con propietario inválidos sin cambiar nada |
+| C-17 | Mapa por defecto: conquistar una celda cambia solo esa celda, el terreno no cambia y una instancia nueva sigue generando el mapa original; `try_set_owner` sigue funcionando |
+| C-18 | La vista: `refresh_cell` sobre `changed_cells` deja la imagen igual que un repintado completo |
+
+Las 21 pruebas del hito 3 y las 14 del hito 4 siguen existiendo sin cambios; el comportamiento de `try_set_owner` no se ha modificado.
+
+| ID | Pendiente (manual en Godot) |
+|---|---|
+| M-20 | Ejecutar `test_territory_conquest.gd` (o F6 en `run_conquest_tests.tscn`) y confirmar 18 PASS; ejecutar también las de los hitos 3 y 4 |
+| M-21 | Nada se ve distinto en F5: el hito 5 no añade interfaz de conquista (no hay forma de lanzarla desde el juego todavía) |
+
+### Hito 5b — Naciones y HUD
 | ID | Qué comprobar |
 |---|---|
 | T-20 | Registro de naciones y territorios iniciales (la continuidad inicial ya la cubre G-12) |
@@ -211,3 +245,12 @@ Cubren los antiguos T-10…T-13 y T-15; se mantienen pendientes T-14 y M-10…M-
 | `tests/test_territory_map_view.gd` | `godot --headless --path . --script res://tests/test_territory_map_view.gd` | **Pendiente** en Godot (PC del propietario) |
 | Arranque de la escena y aspecto | F5 en el editor | **Pendiente** (validación visual del propietario) |
 | Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** |
+
+## Estado del hito 5 (conquista territorial)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| `tests/test_territory_conquest.gd` (18 pruebas) | `godot --headless --path . --script res://tests/test_territory_conquest.gd` | **Pendiente** en Godot (PC del propietario) |
+| Pruebas de los hitos 3 y 4 tras el cambio | Comandos de arriba | Hito 3: confirmado por el propietario **antes** de este cambio (21 PASS); hay que repetirlo. Hito 4: sin ejecutar |
+| Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** |
+| Escenarios de las pruebas C-01…C-15 (códigos de error esperados sobre el mapa controlado) | Réplica en Python de las reglas de validación (21 casos) | Ejecutada en la nube: 21/21 coinciden; **no es una prueba de Godot ni la sustituye** |

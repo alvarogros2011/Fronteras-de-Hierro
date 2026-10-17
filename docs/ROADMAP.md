@@ -14,7 +14,8 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 | R | Rediseño: documentación y planificación | Hecho (este cambio; sin código) |
 | 3 | Datos del territorio (cuadrícula) | Hecho; 21 PASS, 0 FAIL ejecutadas por el propietario en Godot 4.7.2 |
 | 4 | Vista pixelada del territorio | Implementado (`territory_map_view.gd`, `scenes/territory_main.tscn`); pruebas escritas, **pendientes de ejecutar y validar visualmente en Godot** |
-| 5 | Naciones y HUD base | Pendiente; requiere D2 |
+| 5 | Fundamentos de la conquista territorial (operación `conquer_cells`) | Implementado en `territory_grid.gd`; pruebas escritas, **pendientes de ejecutar en Godot** |
+| 5b | Naciones y HUD base (antes «hito 5») | Pendiente; requiere D2 |
 | 6 | Simulación por pasos y expansión territorial | Pendiente; requiere D3, D10 |
 | 7 | Ciudades: fundación y representación | Pendiente; requiere D4, D6 |
 | 8 | Población, trabajadores y crecimiento urbano | Pendiente; requiere D5, D6, D15, D19 |
@@ -56,7 +57,15 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
   - El clic sobre el mapa devuelve la celda correcta con el nodo movido o escalado (prueba automática).
   - Se mide el tiempo de actualización en el PC del propietario y se registra en la documentación.
 
-## Hito 5 — Naciones y HUD base
+## Hito 5 — Fundamentos de la conquista territorial
+**Estado: implementado en la nube sin Godot; pruebas escritas, no ejecutadas.** Regla de diseño: el territorio solo cambia de propietario por una conquista explícita; nunca por el paso del tiempo, la economía, una ciudad ni por dibujar el mapa.
+- `TerritoryGrid.conquer_cells(attacker_id, cells) -> Dictionary`: valida la operación completa y solo entonces cambia el propietario de las celdas pedidas. Si una celda es inválida no cambia ninguna. Rechaza: atacante inexistente, lista vacía o con elementos que no son `Vector2i`, coordenadas fuera del mapa, repetidas, agua, celdas ya del atacante, zona no contigua (vecinos ortogonales) y zona sin contacto ortogonal con el territorio del atacante. Devuelve `ok`, `changed`, `error`, `bad_index` y `changed_cells` (para que la vista haga `refresh_cell` solo de esas celdas).
+- Acepta tierra de otra nación o sin reclamar. **No decide cuándo ni por qué** se conquista: autorización, combate, coste y resolución son de hitos posteriores (D3).
+- Añade `load_from_data` para cargar mapas controlados en pruebas (y, más adelante, partidas guardadas).
+- **Criterios:** pruebas C-01…C-18 (`tests/test_territory_conquest.gd`), ver `docs/TEST_PLAN.md`. Los tests de hitos anteriores no se tocan.
+- **Fuera de alcance:** combate, bajas, ejércitos, dirección de ataque, economía, ciudades, expansión automática, IA, eliminación de naciones, otros terrenos, cámara.
+
+## Hito 5b — Naciones y HUD base (antes numerado como hito 5)
 - Registro de naciones (id, nombre, color, quién la controla), territorios iniciales y HUD mínimo.
 - **Criterios:**
   - Cada nación tiene un territorio inicial continuo (ya cubierto por las pruebas del hito 3).
