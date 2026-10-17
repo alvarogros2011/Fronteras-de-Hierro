@@ -134,7 +134,7 @@ Las dependencias van en una sola dirección (de abajo hacia arriba en la tabla).
 | Hito | Contenido | Depende de | Decisiones previas |
 |---|---|---|---|
 | 3 | Datos del territorio (cuadrícula) con pruebas — **hecho; pruebas por ejecutar en Godot** | — | D1 (valores provisionales) |
-| 4 | Vista pixelada, fronteras derivadas, ratón → celda; medir rendimiento | 3 | D1 (cámara) |
+| 4 | Vista pixelada, fronteras derivadas, ratón → celda; medir rendimiento — **implementado sin cámara; pruebas y medición por hacer en Godot** | 3 | D1 (cámara) |
 | 5 | Naciones y HUD base | 4 | D2 |
 | 6 | Reloj de simulación y expansión territorial (con comprobación de continuidad) | 5 | D3, D10 |
 | 7 | Ciudades: fundación y representación | 5 | D4, D6 |
@@ -196,3 +196,15 @@ Detalle completo en `docs/GDD.md` §12. En orden de urgencia:
 - **D17** — Nombres del mundo, las naciones y las ciudades (provisionales sin bloqueo).
 
 **Además:** el hito 3 ya usa la arquitectura recomendada de forma provisional; confirmar si se mantiene (cuadrícula + imagen en CPU, §4) tras ver el resultado visual en el hito 4.
+
+
+## Decisiones técnicas del hito 4 (vista pixelada)
+
+Propuestas técnicas provisionales; el propietario puede revertirlas.
+
+- **Representación:** `Image` RGBA8 de 320x180 (1 píxel = 1 celda) + `ImageTexture`, dibujada con `draw_texture` en un `Node2D` (`territory_map_view.gd`) con filtro `nearest`. La escala (3 → 960x540) y la posición salen de `scale` y `position` del nodo; no hay cámara (D1 sigue abierto). Una textura de 57.600 píxeles es ~230 KB; se vuelve a subir entera en cada cambio (`ImageTexture.update`), lo que es asumible a este tamaño.
+- **Una sola fuente de datos:** la vista no guarda propietarios ni terreno, solo la imagen de colores (caché de dibujo) y la selección. `TerritoryGrid` no emite señales: quien cambie una celda debe llamar a `refresh_cell(x, y)` (repinta la celda y sus 4 vecinas). Si en el hito 6 hay muchos cambios por paso, convendrá una señal o una lista de celdas modificadas.
+- **Fronteras:** celda de frontera = tierra con algún vecino ortogonal que sea agua o tenga otro propietario (`is_border`). Se pinta con el color de la nación oscurecido, siempre del lado de la propia nación: entre dos naciones queda una línea de 2 celdas sin huecos; entre nación y tierra sin reclamar y en las costas de una nación, 1 celda. La tierra sin reclamar solo marca la costa (tono más oscuro), no su límite con naciones.
+- **Selección:** solo la tierra se resalta y se selecciona. Un clic en agua o fuera del mapa **limpia** la selección (decisión provisional; alternativa: permitir inspeccionar el agua).
+- **Entrada:** `_unhandled_input`, así que los paneles de la interfaz que capturan el clic no seleccionan el mapa. La conversión usa la transformación global del nodo, por lo que admite mover o escalar el nodo o sus padres.
+- **Coste esperado (estimación, no medida):** el pintado completo inicial son 57.600 celdas con ~5 consultas a la cuadrícula cada una en GDScript, una sola vez al arrancar; `refresh_cell` toca 5 píxeles y sube la textura. Cada fotograma con el ratón en movimiento solo redibuja una textura y dos rectángulos. Posibles mejoras si hiciera falta: pintar desde los arrays copiados en vez de consultar celda a celda, subir solo las regiones modificadas, o pasar a un shader (enfoque D). El hito 4 sigue pendiente de medir en el PC.

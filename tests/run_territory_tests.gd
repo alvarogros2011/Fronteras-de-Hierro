@@ -5,7 +5,10 @@
 ## el ejecutor headless) y las muestra en pantalla. No toca la escena principal del juego.
 extends Control
 
-const SUITE_PATH := "res://tests/territory_grid_tests.gd"
+## Valores por defecto = pruebas del hito 3. run_view_tests.tscn los cambia para el hito 4.
+@export var suite_path: String = "res://tests/territory_grid_tests.gd"
+@export var title_text: String = "Pruebas del territorio (hito 3)"
+
 const COLOR_PASS := Color(0.35, 0.85, 0.45)
 const COLOR_FAIL := Color(1.0, 0.35, 0.35)
 const COLOR_TEXT := Color(0.88, 0.9, 0.93)
@@ -42,7 +45,7 @@ func _build_ui() -> void:
 	margin.add_child(column)
 
 	var title := Label.new()
-	title.text = "Pruebas del territorio (hito 3)"
+	title.text = title_text
 	title.add_theme_font_size_override("font_size", 26)
 	title.add_theme_color_override("font_color", COLOR_TEXT)
 	column.add_child(title)
@@ -71,7 +74,7 @@ func _run_tests() -> void:
 	_details.clear()
 	# load() en vez de preload(): si el script de pruebas tuviera un error de sintaxis,
 	# la escena sigue abierta y lo explica en pantalla en vez de quedarse en blanco.
-	var suite_script: GDScript = load(SUITE_PATH)
+	var suite_script: GDScript = load(suite_path)
 	if suite_script == null or not suite_script.can_instantiate():
 		_show_load_error()
 		_button.disabled = false
@@ -106,7 +109,7 @@ func _run_tests() -> void:
 func _show_load_error() -> void:
 	_summary.text = "NO SE PUDIERON CARGAR LAS PRUEBAS"
 	_summary.add_theme_color_override("font_color", COLOR_FAIL)
-	_details.append_text("[color=#%s]No se pudo cargar %s.\nRevisa el panel [b]Salida[/b] o [b]Depurador > Errores[/b] de Godot: seguramente hay un error de sintaxis en ese archivo o en scripts/world/territory_grid.gd.[/color]\n" % [COLOR_FAIL.to_html(false), SUITE_PATH])
+	_details.append_text("[color=#%s]No se pudo cargar %s.\nRevisa el panel [b]Salida[/b] o [b]Depurador > Errores[/b] de Godot: seguramente hay un error de sintaxis en ese archivo o en scripts/world/territory_grid.gd.[/color]\n" % [COLOR_FAIL.to_html(false), suite_path])
 
 
 ## Evita que los corchetes del texto se interpreten como etiquetas BBCode.

@@ -1,0 +1,75 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/territory_screen.gd" id="1_screen"]
+[ext_resource type="Script" path="res://scripts/world/territory_map_view.gd" id="2_view"]
+[ext_resource type="Script" path="res://scripts/ui/territory_info_panel.gd" id="3_info"]
+[ext_resource type="Script" path="res://scripts/ui/territory_legend.gd" id="4_legend"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.11, 0.13, 0.16, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.26, 0.29, 0.34, 1)
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+
+[node name="TerritoryMain" type="Control"]
+mouse_filter = 2
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_screen")
+
+[node name="Fondo" type="ColorRect" parent="."]
+mouse_filter = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.07, 0.09, 0.11, 1)
+
+[node name="Titulo" type="Label" parent="."]
+mouse_filter = 2
+layout_mode = 0
+offset_left = 160.0
+offset_top = 28.0
+offset_right = 700.0
+offset_bottom = 56.0
+theme_override_colors/font_color = Color(0.75, 0.78, 0.82, 1)
+theme_override_font_sizes/font_size = 20
+text = "FRONTERAS DE HIERRO"
+
+[node name="Mapa" type="Node2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(160, 76)
+scale = Vector2(3, 3)
+script = ExtResource("2_view")
+
+[node name="Leyenda" type="Control" parent="."]
+unique_name_in_owner = true
+mouse_filter = 2
+layout_mode = 0
+offset_left = 160.0
+offset_top = 632.0
+offset_right = 760.0
+offset_bottom = 700.0
+script = ExtResource("4_legend")
+
+[node name="Info" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 780.0
+offset_top = 630.0
+offset_right = 1120.0
+offset_bottom = 690.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+script = ExtResource("3_info")

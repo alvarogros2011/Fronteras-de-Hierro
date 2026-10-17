@@ -20,11 +20,13 @@ Juego 2D de estrategia territorial en tiempo real, fácil de aprender y de jugar
 
 ## Estado real del proyecto
 
-**Fase actual: construcción del sistema territorial nuevo. Hito 3 hecho (solo datos, sin dibujo).**
+**Fase actual: construcción del sistema territorial nuevo. Hitos 3 (datos) y 4 (vista pixelada e inspección) implementados.**
 
-**Sistema nuevo (hito 3):** `scripts/world/territory_grid.gd` guarda el territorio como una cuadrícula de 320x180 celdas (terreno agua/tierra y propietario por celda en dos `PackedByteArray`), con 4 naciones provisionales (jugador y 3 rivales) y un mapa inicial determinista: una masa de tierra con costa irregular, cuatro pequeños territorios conectados y tierra sin reclamar. Los valores de la cuadrícula son **provisionales**. Aún **no se dibuja ni se puede interactuar con él**: al pulsar F5 sigue viéndose el prototipo anterior. Sus pruebas (`tests/test_territory_grid.gd`) están escritas pero **no se han ejecutado en Godot**.
+**Sistema nuevo (hito 3):** `scripts/world/territory_grid.gd` guarda el territorio como una cuadrícula de 320x180 celdas (terreno agua/tierra y propietario por celda en dos `PackedByteArray`), con 4 naciones provisionales (jugador y 3 rivales) y un mapa inicial determinista: una masa de tierra con costa irregular, cuatro pequeños territorios conectados y tierra sin reclamar. Los valores de la cuadrícula son **provisionales**. Sus pruebas (`tests/test_territory_grid.gd`) fueron ejecutadas a mano por el propietario en Godot 4.7.2: 21 PASS, 0 FAIL.
 
-**Prototipo anterior de provincias (legado)**, intacto:
+**Hito 4 (implementado; sin validar en Godot):** `scripts/world/territory_map_view.gd` dibuja la cuadrícula en una `Image`/`ImageTexture` (1 píxel = 1 celda, filtro `nearest`, escala 3 → 960x540 centrada en 1280x720). Agua azul oscura, tierra sin reclamar gris, cuatro naciones de colores distintos y fronteras de 1 celda derivadas de la propiedad real de las celdas. Al pasar el ratón por tierra se resalta la celda; el clic izquierdo la selecciona y un panel compacto muestra coordenadas, terreno y propietario. Es solo inspección: no se puede cambiar ningún propietario. **F5 abre ahora esta escena** (`scenes/territory_main.tscn`, ver `project.godot`). Las pruebas del hito 4 (`tests/test_territory_map_view.gd`) están escritas pero **no se han ejecutado en Godot** (no hay Godot en la nube).
+
+**Prototipo anterior de provincias (legado)**, intacto (sigue en `scenes/main.tscn`, que ya no es la escena principal; ábrelo y pulsa F6 para verlo):
 - Pantalla inicial con el título y mapa estático de 14 provincias (7 del jugador, 7 del enemigo).
 - Clic izquierdo para seleccionar una provincia y panel con su nombre, propietario y vecinas.
 - El propietario validó a mano en Godot 4.7.2 la pantalla inicial, el mapa y la selección.
@@ -32,14 +34,14 @@ Juego 2D de estrategia territorial en tiempo real, fácil de aprender y de jugar
 
 Este prototipo **no se amplía**: no hay tropas, combate, captura, economía, ciudades ni IA. Se mantiene intacto y solo se retirará cuando el nuevo mapa visual y su interacción hayan sido validados manualmente en el PC del propietario.
 
-No existen todavía ciudades, población, recursos, ejércitos, expansión, ataques ni IA. Siguiente paso: validar las pruebas del hito 3 en Godot y empezar el hito 4 (vista pixelada del territorio). Ver `docs/ROADMAP.md`.
+No existen todavía ciudades, población, recursos, ejércitos, expansión, ataques ni IA. Siguiente paso: validar a mano el hito 4 en Godot (ejecutar sus pruebas y revisar el aspecto). Ver `docs/ROADMAP.md`.
 
 ## Cómo abrir el proyecto
 
 1. Instala Godot 4.7 (versión estándar, no .NET).
 2. Clona este repositorio o descárgalo.
 3. En el gestor de proyectos de Godot pulsa **Importar** y elige `project.godot`.
-4. Pulsa **F5**. Aparece el mapa de provincias del prototipo anterior.
+4. Pulsa **F5**. Aparece el mapa pixelado de territorio del hito 4. (Para ver el prototipo de provincias, abre `scenes/main.tscn` y pulsa F6.)
 
 La primera vez Godot genera la carpeta `.godot/` (caché local, ignorada por git).
 
@@ -49,6 +51,7 @@ Desde la raíz del proyecto (sustituye `godot` por la ruta de tu ejecutable de G
 
 ```
 godot --headless --path . --script res://tests/test_territory_grid.gd
+godot --headless --path . --script res://tests/test_territory_map_view.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
@@ -59,11 +62,11 @@ Cada comando ejecuta un archivo; imprime `PASS`/`FAIL` y termina con código 0 s
 
 | Ruta | Contenido |
 |---|---|
-| `scenes/` | Escenas de Godot (`main.tscn`) |
-| `scripts/world/` | Datos del territorio en cuadrícula (`territory_grid.gd`), sistema nuevo |
+| `scenes/` | Escenas de Godot: `territory_main.tscn` (principal, hito 4) y `main.tscn` (prototipo de provincias, legado) |
+| `scripts/world/` | Datos del territorio en cuadrícula (`territory_grid.gd`) y su vista pixelada (`territory_map_view.gd`), sistema nuevo |
 | `scripts/data/` | Datos del mapa de provincias (legado) |
 | `scripts/map/` | Dibujo y selección del mapa de provincias (legado) |
-| `scripts/ui/` | Panel de información de provincias (legado) |
+| `scripts/ui/` | Pantalla, panel de información y leyenda del hito 4 (`territory_*.gd`); panel de provincias (legado) |
 | `tests/` | Pruebas automáticas sin plugins |
 | `assets/` | Aún no existe; se creará con el primer recurso |
 | `docs/` | Documentación |

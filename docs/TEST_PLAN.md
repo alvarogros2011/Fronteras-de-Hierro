@@ -14,18 +14,20 @@ Desde la raíz del proyecto (sustituye `godot` por tu ejecutable de Godot 4.7):
 
 ```
 godot --headless --path . --script res://tests/test_territory_grid.gd
+godot --headless --path . --script res://tests/test_territory_map_view.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`.
 
 ## Estado actual
 
 | Elemento | Estado |
 |---|---|
 | Pantalla inicial, mapa de provincias y selección (validación visual) | Validado a mano por el propietario en Godot 4.7.2 / Windows |
-| `tests/territory_grid_tests.gd` + ejecutores `tests/test_territory_grid.gd` (headless) y `tests/run_territory_tests.tscn` (F6) (hito 3, sistema nuevo) | Escritos. **Ejecución en Godot sin confirmar** |
+| `tests/territory_grid_tests.gd` + ejecutores `tests/test_territory_grid.gd` (headless) y `tests/run_territory_tests.tscn` (F6) (hito 3, sistema nuevo) | Ejecutados a mano por el propietario en Godot 4.7.2: **21 PASS, 0 FAIL** |
+| `tests/territory_map_view_tests.gd` + `tests/test_territory_map_view.gd` + `tests/run_view_tests.tscn` (hito 4, 14 pruebas V-01…V-14) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
 | `tests/test_province_data.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | `tests/test_province_selection.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | Réplica en Python del algoritmo del mapa inicial (herramienta de diseño: tierra 27.324 celdas, 4 territorios de 441, sin adyacencias entre naciones, borde de agua) y de la lógica de provincias | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye** |
@@ -86,16 +88,35 @@ Pruebas manuales ya realizadas por el propietario (validación visual): M-01 abr
 
 Cada bloque se escribe en el hito indicado y **solo cuando exista la mecánica**. Los valores concretos dependen de las decisiones abiertas (GDD §12).
 
-### Hito 4 — Vista pixelada
-| ID | Qué comprobar |
+### Hito 4 — Vista pixelada (escritas, sin ejecutar en Godot)
+
+Cubren los antiguos T-10…T-13 y T-15; se mantienen pendientes T-14 y M-10…M-14.
+
+| ID | Qué comprueba |
 |---|---|
-| T-10 | El color de cada píxel de la imagen corresponde al propietario de su celda |
-| T-11 | Las celdas de frontera usan el tono de frontera |
-| T-12 | Cambiar una celda actualiza solo esa celda y sus cuatro vecinas |
-| T-13 | Conversión posición de ratón → celda correcta con el nodo movido, escalado o con zoom |
-| T-14 | Medición de tiempo de actualización (manual, en el PC) |
-| T-15 | Detección de frontera (`is_border`): celda de frontera si algún vecino ortogonal tiene otro propietario o es agua |
-| M-10 | Visual: aspecto pixelado limpio, fronteras coherentes, sin provincias seleccionables |
+| V-01 | La imagen mide 320x180 y cada píxel coincide con el color calculado de su celda; fuera de la imagen no hay píxel |
+| V-02 | Colores: agua, tierra sin reclamar interior, costa sin reclamar, interior y borde de cada nación (el color de nación sale de `TerritoryGrid`) |
+| V-03 | `is_border` coincide en las 57.600 celdas con una comprobación independiente sobre los arrays copiados; el agua nunca es frontera |
+| V-04 | Dos naciones contiguas: cada lado tiene su propia línea de frontera, sin huecos; el límite con tierra sin reclamar también es frontera |
+| V-05 | Celda ↔ posición visual: centros, esquinas y posiciones concretas con la posición y escala por defecto |
+| V-06 | Bordes del mapa (0,0), (319,179) y coordenadas fuera de límites, locales y globales |
+| V-07 | Cambio de posición y escala del nodo (también tras moverlo) y con un nodo padre desplazado y escalado |
+| V-08 | Resaltado: solo tierra; agua y fuera del mapa no resaltan; mover el ratón no selecciona |
+| V-09 | Selección: tierra sin reclamar y territorio nacional se seleccionan; clic en agua, fuera del mapa y `clear_selection` la vacían, sin errores si ya estaba vacía |
+| V-10 | La señal `selection_changed` solo se emite al cambiar |
+| V-11 | `set_grid` limpia selección y resaltado |
+| V-12 | `refresh_cell` cambia solo la celda y sus 4 vecinas, la imagen no cambia sola, y lo incremental coincide con repintar todo |
+| V-13 | El texto del panel coincide con `TerritoryGrid` (coordenadas, terreno, propietario) y sigue sus cambios |
+| V-14 | Barrido de movimientos y clics por todo el mapa y fuera de él: terreno y propietarios idénticos antes y después |
+
+| ID | Pendiente (manual en Godot) |
+|---|---|
+| T-14 | Medición del tiempo de arranque (`refresh_all`) y de `refresh_cell` en el PC; registrar números reales |
+| M-10 | Visual: aspecto pixelado limpio, mapa centrado y suficientemente grande, sin HUD que lo oculte |
+| M-11 | Visual: fronteras claras entre naciones y con la tierra sin reclamar, sin huecos ni diagonales; costas legibles |
+| M-12 | Visual: resaltado del ratón discreto; la selección sigue visible; el panel muestra datos correctos |
+| M-13 | El clic acierta con la celda bajo el cursor (probar cerca de bordes y esquinas del mapa y con la ventana redimensionada) |
+| M-14 | Clic en agua o fuera del mapa limpia la selección sin errores; el panel inferior no deja pasar clics al mapa |
 
 ### Hito 5 — Naciones y HUD
 | ID | Qué comprobar |
@@ -179,5 +200,14 @@ Cada bloque se escribe en el hito indicado y **solo cuando exista la mecánica**
 |---|---|---|
 | Algoritmo del mapa inicial (límites de las pruebas) | Réplica en Python con la misma aritmética entera | Ejecutado en la nube; no sustituye a Godot |
 | Búsqueda de referencias a provincias en los archivos nuevos | `grep` | Ejecutado: sin coincidencias |
-| `tests/test_territory_grid.gd` | Comando de arriba | **Pendiente** en Godot (PC del propietario) |
+| `tests/test_territory_grid.gd` | Comando de arriba | Ejecutado por el propietario en Godot 4.7.2: 21 PASS, 0 FAIL |
 | Compatibilidad del script con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** |
+
+## Estado del hito 4 (vista pixelada)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| Premisas de las pruebas V-02/V-04 (existen un tramo interior de 6x3, costa sin reclamar, naciones con interior y borde) y vista previa del diseño | Réplica en Python de la generación del mapa y de las reglas de color/frontera | Ejecutada en la nube (tierra 27.324, 4 territorios de 441 celdas, 64 de borde y 377 de interior cada uno); **no sustituye a Godot** |
+| `tests/test_territory_map_view.gd` | `godot --headless --path . --script res://tests/test_territory_map_view.gd` | **Pendiente** en Godot (PC del propietario) |
+| Arranque de la escena y aspecto | F5 en el editor | **Pendiente** (validación visual del propietario) |
+| Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** |

@@ -12,8 +12,8 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 | 1 | Mapa estático de provincias (legado) | Hecho; validado a mano visualmente |
 | 2 | Selección e información de provincias (legado) | Hecho; validado a mano; pruebas automáticas sin confirmar |
 | R | Rediseño: documentación y planificación | Hecho (este cambio; sin código) |
-| 3 | Datos del territorio (cuadrícula) | Implementado (`territory_grid.gd`); pruebas escritas, **pendientes de ejecutar en Godot** |
-| 4 | Vista pixelada del territorio | Pendiente |
+| 3 | Datos del territorio (cuadrícula) | Hecho; 21 PASS, 0 FAIL ejecutadas por el propietario en Godot 4.7.2 |
+| 4 | Vista pixelada del territorio | Implementado (`territory_map_view.gd`, `scenes/territory_main.tscn`); pruebas escritas, **pendientes de ejecutar y validar visualmente en Godot** |
 | 5 | Naciones y HUD base | Pendiente; requiere D2 |
 | 6 | Simulación por pasos y expansión territorial | Pendiente; requiere D3, D10 |
 | 7 | Ciudades: fundación y representación | Pendiente; requiere D4, D6 |
@@ -47,6 +47,7 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 - **Aplazado a otros hitos:** detección de fronteras (hito 4, cuando haya que dibujarlas) y comprobación reutilizable de continuidad del territorio (hito 6, con la expansión).
 
 ## Hito 4 — Vista pixelada del territorio
+**Estado: implementado en la nube sin Godot; pendiente de pruebas y validación visual del propietario.** Se hizo una versión sin cámara (sin zoom ni desplazamiento): escala fija 3 (960x540) centrada en la ventana; D1 (cámara) sigue abierto. Incluye resaltado, selección y panel de información como herramientas de inspección; no se puede modificar el territorio. No se midió el tiempo de actualización (no hay Godot en la nube): sigue pendiente en el PC (ver `docs/REDESIGN_PLAN.md` §4).
 - Dibujo del territorio con `Image`/`ImageTexture` escalada con filtro `nearest`; colores de nación y fronteras; conversión ratón → celda. La cámara (zoom y desplazamiento) se evalúa aquí (D1).
 - **Criterios:**
   - El mapa de `TerritoryGrid` se ve pixelado, con fronteras derivadas de la diferencia de propietario entre celdas adyacentes, coherentes y sin provincias seleccionables (validación visual del propietario).
