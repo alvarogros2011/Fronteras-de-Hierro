@@ -1,25 +1,41 @@
-# Godot 4.2+ specific ignores
-~*.dll
-
-# Godot 4+ specific ignores
+# --- Godot 4 ---
+# Caché generada por el editor (importaciones, shaders, etc.)
 .godot/
 .nomedia
-
-# Godot-specific ignores
+# Godot 3 (por si se abre con restos antiguos)
 .import/
+# Ajustes locales de exportación (pueden contener credenciales)
 export.cfg
 export_credentials.cfg
-*.tmp
-
-# Imported translations (automatically generated from CSV files)
+# Traducciones importadas desde CSV
 *.translation
-
-# Mono-specific ignores
+# Mono / C# (no se usa, pero evita basura si se activa)
 .mono/
 data_*/
 mono_crash.*.json
 
-# Export outputs
+# NOTA: NO se ignoran *.uid ni *.import de assets: Godot 4.4+ los necesita versionados.
+
+# --- Compilaciones exportadas ---
+build/
+builds/
+export/
 *.exe
-# Uncomment if your project does not version PCK files as runtime dependencies.
-# *.pck
+*.pck
+*.zip
+*.apk
+*.aab
+
+# --- Archivos locales y temporales ---
+*.tmp
+*.bak
+*~
+~*.dll
+.vscode/
+.idea/
+*.log
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
+desktop.ini
