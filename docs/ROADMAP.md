@@ -4,8 +4,8 @@ Los hitos están en orden de dependencia. Cada uno se pide y se revisa por separ
 
 | Hito | Nombre | Estado |
 |---|---|---|
-| 0 | Cimientos | Hecho (pendiente de revisión en Godot) |
-| 1 | Mapa y provincias | Pendiente |
+| 0 | Cimientos | Hecho y validado manualmente en el PC del propietario (Godot 4.7.2, Windows) |
+| 1 | Mapa y provincias | Implementado; pendiente de validar en el PC del propietario |
 | 2 | Interacción del jugador | Pendiente |
 | 3 | Tropas y combate | Pendiente |
 | 4 | Captura de provincias | Pendiente |
@@ -23,11 +23,13 @@ Los hitos están en orden de dependencia. Cada uno se pide y se revisa por separ
 
 ## Hito 1 — Mapa y provincias
 - Definición de 12–16 provincias ficticias, sus vecinas y su dibujo en pantalla.
+- **Implementado:** 14 provincias (7 jugador, 7 enemigo) en `scripts/data/province_data.gd`, dibujadas por `scripts/map/province_map.gd`, con leyenda y contador. Sin interacción.
 - **Criterios:**
-  - Hay entre 12 y 16 provincias, cada una con id y nombre único.
+  - Hay exactamente 14 provincias, cada una con id y nombre únicos.
   - La adyacencia es simétrica y no hay provincias aisladas: el grafo es conexo (prueba automática).
-  - Ninguna provincia es vecina de sí misma.
-  - Todas se dibujan en pantalla a 1280x720 sin solaparse.
+  - Ninguna provincia es vecina de sí misma ni repite vecinos.
+  - Todas se dibujan en pantalla a 1280x720 sin huecos ni solapes y con nombres legibles (validación visual manual).
+  - Los vecinos declarados coinciden con las fronteras dibujadas (prueba automática).
 
 ## Hito 2 — Interacción del jugador
 - Propiedad inicial jugador/enemigo y selección con el ratón.

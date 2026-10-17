@@ -10,14 +10,15 @@ Juego de estrategia 2D en tiempo real de conquista de territorios. Controlas una
 
 ## Estado actual
 
-**Cimientos del proyecto.** Lo único implementado es:
+**Hito 1 (mapa y provincias) implementado; pendiente de validar en el PC del propietario.**
 
-- Configuración de Godot (`project.godot`): ventana de 1280x720, escalado 2D, renderizador Compatibility.
-- Una escena de arranque (`scenes/main.tscn`) con el título y el subtítulo "Prototipo temprano".
+- Hito 0 (cimientos): validado manualmente en Godot 4.7.2 en Windows, según informó el propietario (importa, F5 arranca, sin errores).
+- Hito 1: mapa **estático** de 14 provincias ficticias (7 del jugador, 7 del enemigo) con fronteras, nombres, leyenda y contador. Los datos están en `scripts/data/province_data.gd` y el dibujo en `scripts/map/province_map.gd`.
+- Pruebas automáticas de los datos del mapa en `tests/test_province_data.gd`.
 
-**No hay jugabilidad todavía**: ni mapa, ni provincias, ni tropas, ni combate, ni IA.
+**Todavía no hay jugabilidad**: no se puede hacer clic en provincias, ni hay tropas, combate, captura ni IA.
 
-> La escena no se ha ejecutado en Godot desde la nube (no había ejecutable disponible). Ábrela en tu PC para comprobarla. Ver `docs/TEST_PLAN.md`.
+> Desde la nube no hay ejecutable de Godot: ni las pruebas automáticas ni el dibujo del mapa se han ejecutado todavía. Ver `docs/TEST_PLAN.md`.
 
 ## Cómo abrir el proyecto
 
@@ -28,12 +29,24 @@ Juego de estrategia 2D en tiempo real de conquista de territorios. Controlas una
 
 La primera vez Godot generará la carpeta `.godot/` (caché local, ignorada por git).
 
+## Pruebas automáticas
+
+Desde la raíz del proyecto (sustituye `godot` por la ruta de tu ejecutable de Godot 4.7):
+
+```
+godot --headless --path . --script res://tests/test_province_data.gd
+```
+
+Imprime `PASS`/`FAIL` por prueba y termina con código 0 si todo pasa o 1 si algo falla. Si es la primera vez que abres el proyecto, ábrelo antes una vez en el editor para que Godot genere la caché `.godot/`.
+
 ## Estructura
 
 | Ruta | Contenido |
 |---|---|
 | `scenes/` | Escenas de Godot (`.tscn`) |
-| `scripts/` | Scripts GDScript (aún vacío; se crea con el primer script) |
+| `scripts/data/` | Datos autoritativos del mapa (`province_data.gd`) |
+| `scripts/map/` | Dibujo del mapa (`province_map.gd`) |
+| `tests/` | Pruebas automáticas (sin plugins) |
 | `assets/` | Arte y sonido (aún vacío; se crea con el primer recurso) |
 | `docs/` | Documentación del diseño y del desarrollo |
 

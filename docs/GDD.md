@@ -28,8 +28,8 @@ Leyenda: **[C]** = decisión confirmada por el propietario. **[S]** = suposició
 
 | Mecánica | Descripción | Estado |
 |---|---|---|
-| Mapa | Provincias conectadas por adyacencia (grafo). | **[C]** 12–16 provincias, ficticio |
-| Propiedad | Cada provincia pertenece al jugador o al enemigo. | **[C]** |
+| Mapa | Provincias conectadas por adyacencia (grafo). | **[C]** 14 provincias, ficticio; dibujo estático **implementado** en el hito 1 |
+| Propiedad | Cada provincia pertenece al jugador o al enemigo. | **[C]** reparto inicial 7 contra 7 (datos y color implementados; sin cambios de dueño aún) |
 | Selección | Elegir una provincia con el ratón. | **[C]** |
 | Ataque | Solo contra provincias adyacentes de otro dueño. | **[C]** |
 | Movimiento de tropas | Mover tropas entre provincias. | **[C]** existe; detalle **[S]** |
@@ -60,7 +60,7 @@ Leyenda: **[C]** = decisión confirmada por el propietario. **[S]** = suposició
 
 El MVP incluye, y solo incluye:
 
-1. Mapa ficticio de 12–16 provincias conectadas.
+1. Mapa ficticio de 14 provincias conectadas (7 jugador, 7 enemigo al inicio). **[Implementado, estático, en el hito 1]**
 2. Propiedad jugador/enemigo.
 3. Selección de provincia y ataques a adyacentes.
 4. Movimiento de tropas y combate determinista y comprobable.
@@ -68,6 +68,13 @@ El MVP incluye, y solo incluye:
 6. IA enemiga simple.
 7. Condiciones de victoria y derrota claras.
 8. Reinicio de partida.
+
+### Mapa del hito 1 **[S]**
+
+- Rejilla irregular de 5x3 casillas sin la esquina inferior derecha (14 provincias). Dos provincias son vecinas si comparten una arista; las que solo se tocan en una esquina no lo son.
+- Todos los nombres son provisionales. Ids ASCII estables (p. ej. `villa_roble`).
+- El jugador ocupa el oeste y la provincia central; el enemigo, el este y el norte/sur del centro.
+- Los datos viven en un único módulo (`scripts/data/province_data.gd`); el dibujo los lee de ahí.
 
 ## 7. Funcionalidades posteriores (fuera del MVP)
 
@@ -88,7 +95,7 @@ Requieren aprobación expresa antes de empezar:
 | 1 | ¿Regla exacta de combate? | La del apartado 4 (atacante gana si N > D). |
 | 2 | ¿Las provincias generan tropas? | Tasa fija simple, decidir en el hito de combate. |
 | 3 | ¿Tiempo real con pausa? | Sí, pausa opcional. |
-| 4 | ¿Cómo se dibuja el mapa? | Polígonos 2D coloreados al inicio; pixel art después. |
+| 4 | ¿Cómo se dibuja el mapa? | Polígonos 2D coloreados (hecho en hito 1); pixel art después. |
 | 5 | ¿Nombres de la nación, el enemigo y las provincias? | Ficticios, a proponer por el propietario. |
 | 6 | ¿Tamaño de la resolución de pixel art? | Por definir al llegar a los gráficos. |
 | 7 | ¿Pruebas automáticas con GUT o con scripts propios? | Scripts propios sin plugin (ver TEST_PLAN). |

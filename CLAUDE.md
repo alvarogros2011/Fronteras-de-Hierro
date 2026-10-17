@@ -28,7 +28,7 @@ El propietario es **principiante**: toma decisiones técnicas sólidas, explica 
 - Los datos del mapa (provincias, vecinos) se definen de forma declarativa (recurso o archivo de datos), no dispersos en código.
 - Comunicación entre nodos con **señales**; evita rutas de nodo frágiles (`get_node("../../x")`).
 - Sin autoloads, plugins ni abstracciones "por si acaso". Añádelos solo con justificación escrita.
-- Estructura: `scenes/`, `scripts/`, `docs/`, `assets/`. No crear carpetas vacías ni módulos sin uso inmediato.
+- Estructura: `scenes/`, `scripts/`, `tests/`, `docs/`, `assets/`. No crear carpetas vacías ni módulos sin uso inmediato.
 - Ventana base 1280x720, stretch `canvas_items`, renderizador Compatibility.
 
 ## Pruebas

@@ -8,18 +8,23 @@
 
 ## Pruebas automáticas
 
-**Estado actual: ninguna (aún no hay lógica de juego).**
+Scripts propios en `tests/`, sin plugins (decisión abierta nº 7 del GDD). Cada ejecutable termina con código 0 si pasa todo y 1 si algo falla.
 
-Propuesta: scripts propios en `tests/` (se creará con la primera prueba), ejecutados con
-`godot --headless --path . --script res://tests/run_all.gd`, sin plugins (decisión abierta nº 7 del GDD). Cada prueba devuelve código de salida distinto de 0 si falla.
+**Comando (desde la raíz del proyecto; sustituye `godot` por tu ejecutable de Godot 4.7):**
+
+```
+godot --headless --path . --script res://tests/test_province_data.gd
+```
+
+**Estado:** `tests/test_province_data.gd` (A-01 a A-04 y A-29) está escrito pero **aún no se ha ejecutado en Godot** (no hay ejecutable en la nube). Solo se ha comprobado una réplica de la lógica en Python sobre los mismos datos; no cuenta como validación en Godot. Resultado en el PC del propietario: pendiente.
 
 | ID | Hito | Qué comprueba | Resultado esperado |
 |---|---|---|---|
-| A-01 | 1 | Número de provincias | Entre 12 y 16 |
-| A-02 | 1 | Ids y nombres de provincia | Únicos |
-| A-03 | 1 | Adyacencia simétrica | Si A es vecina de B, B lo es de A |
-| A-04 | 1 | Sin autovecinas | Ninguna provincia es vecina de sí misma |
-| A-05 | 1 | Conectividad | Un recorrido desde cualquier provincia alcanza todas |
+| A-01 | 1 | Número de provincias | Exactamente 14 |
+| A-02 | 1 | Ids, nombres, propietarios y geometría | Ids únicos, no vacíos y ASCII; nombres no vacíos; propietario válido con reparto 7-7; polígonos con ≥ 3 vértices, dentro de la ventana, con área y triangulables |
+| A-03 | 1 | Vecinos | Todos existen; sin autovecinas ni duplicados; adyacencia simétrica |
+| A-04 | 1 | Conectividad | Un recorrido desde cualquier provincia alcanza las 14 |
+| A-29 | 1 | Topología y geometría coinciden | Dos provincias son vecinas si y solo si comparten una arista dibujada |
 | A-06 | 2 | Propiedad inicial | Un dueño por provincia; ambos bandos con ≥ 1 |
 | A-07 | 2 | Selección válida | Provincia propia seleccionable como origen |
 | A-08 | 2 | Selección inválida | Provincia enemiga no seleccionable como origen |
@@ -55,7 +60,7 @@ Se realizan en Godot 4.7 en un PC con Windows.
 | M-01 | 0 | Importar `project.godot` y abrirlo | Sin errores ni avisos al cargar |
 | M-02 | 0 | F5 | Ventana 1280x720 con título "FRONTERAS DE HIERRO" y subtítulo "Prototipo temprano" |
 | M-03 | 0 | Redimensionar la ventana | El contenido sigue centrado y legible |
-| M-04 | 1 | Ejecutar y observar el mapa | Entre 12 y 16 provincias visibles y distinguibles |
+| M-04 | 1 | Ejecutar (F5) y observar el mapa | 14 provincias visibles, sin huecos ni solapes, con fronteras oscuras y los 14 nombres legibles; 7 azules (jugador) y 7 rojas (enemigo); leyenda "Jugador: 7 / Enemigo: 7" y "Provincias: 14"; título y subtítulo visibles; sin errores en la consola |
 | M-05 | 2 | Clic en provincia propia | Se resalta |
 | M-06 | 2 | Clic en vacío o clic derecho | Se deselecciona |
 | M-07 | 2 | Clic en provincia enemiga sin selección previa | No ocurre nada |
@@ -74,3 +79,12 @@ Se realizan en Godot 4.7 en un PC con Windows.
 | `project.godot` apunta a `res://scenes/main.tscn` | Revisión estática | Hecho en la nube |
 | La escena existe y su formato es coherente | Revisión estática | Hecho en la nube |
 | Carga sin errores en Godot 4.7 | M-01, M-02, M-03 | **Pendiente** (requiere Godot) |
+
+## Estado del hito 1 (mapa y provincias)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| Hito 0 en Godot 4.7.2 / Windows | M-01, M-02 | Validado por el propietario (informe del usuario) |
+| Datos del mapa (14 provincias, 7-7, vecinos simétricos, conexo, aristas compartidas) | Réplica en Python de las comprobaciones sobre `province_data.gd` | Ejecutado en la nube: correcto. No sustituye a Godot |
+| `tests/test_province_data.gd` | Comando de arriba | **Pendiente** en Godot (PC del propietario) |
+| Aspecto del mapa | M-04 | **Pendiente** (nadie lo ha visto ejecutándose) |
