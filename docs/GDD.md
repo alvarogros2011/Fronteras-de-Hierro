@@ -5,7 +5,7 @@ Leyenda:
 - **[P]** Propuesta recomendada por Claude, pendiente de aprobación.
 - **[A]** Abierto: sin decidir. Cada decisión abierta tiene un código (D1, D2…) listado en §12.
 
-> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. Nada de lo descrito en §5–§9 está implementado todavía.
+> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora (hito 3):** solo la base de datos del territorio en cuadrícula (§5); no hay dibujo, interacción ni mecánicas. El resto de §5–§9 es diseño.
 
 ## 1. Concepto
 
@@ -32,6 +32,7 @@ Leyenda:
 - **[P]** Partidas de duración moderada, legibles de un vistazo: se ve quién domina qué territorio, dónde están las ciudades y hacia dónde crecen las fronteras.
 - **[P]** Pocas decisiones por minuto, pero con consecuencias claras: dónde fundar ciudades, cómo repartir la población nueva, cuándo y dónde atacar.
 - **[C]** El jugador debe entender si tiene ventaja antes de atacar (ver §8).
+- **[C]** El juego debe ser sencillo de jugar; la interfaz, CLEAN.
 
 ## 4. Bucle de juego
 
@@ -46,26 +47,42 @@ Leyenda:
 
 ## 5. Territorio y naciones
 
-- **[C]** Territorio continuo por nación, formado por celdas/elementos territoriales; varias naciones posibles; fronteras coherentes.
-- **[P]** Representación técnica: cuadrícula de celdas con propietario por celda (ver `docs/REDESIGN_PLAN.md` §3–§4). Cada celda es terreno (tierra/agua) y, si es tierra, tiene propietario o está sin reclamar.
-- **[P]** El territorio es independiente de las ciudades: las ciudades se superponen al territorio y no definen las fronteras.
-- **[A]** D1: tamaño del mapa, origen (dibujado a mano o generado) y tipos de terreno.
-- **[A]** D2: número de naciones en el MVP y quién controla cada una.
-- **[A]** D3: cómo se expande el territorio (qué se gasta, si es continuo o por órdenes).
-- **[A]** D12: qué ocurre con una ciudad cuando su celda cambia de propietario.
+**Confirmado [C]**
+- No hay provincias: el territorio está formado por celdas.
+- Cada nación es un territorio continuo formado por celdas; varias naciones posibles.
+- Las fronteras son pixeladas, con estética similar a OpenFront, y surgen de la diferencia de propietario entre celdas adyacentes.
+- En el futuro el jugador podrá concentrar un ataque en una zona concreta del mapa, con ayuda opcional de una flecha de dirección o herramienta visual equivalente (no implementado).
+
+**Propuesta técnica [P]** — valores provisionales, **implementados en el hito 3** (`scripts/world/territory_grid.gd`); no son preferencias confirmadas y pueden cambiar si surge una limitación técnica real:
+- Cuadrícula lógica de **320 x 180** celdas (57.600; 16:9). La ventana sigue siendo 1280x720; la futura vista usará `Image`/`ImageTexture` ampliada con filtro `nearest`.
+- Dos `PackedByteArray` de 57.600 elementos: terreno y propietario. Índice lineal por filas: `index = y * 320 + x`.
+- Terreno inicial: `WATER = 0` y `LAND = 1`, sin bonificaciones.
+- Propietarios: `OWNER_NONE = 0` (agua o tierra sin reclamar), `OWNER_PLAYER = 1`, `OWNER_AI_1 = 2`, `OWNER_AI_2 = 3`, `OWNER_AI_3 = 4`. El agua siempre es `OWNER_NONE`; la tierra puede estar sin reclamar o ser de una nación.
+- Cuatro naciones iniciales (jugador y tres rivales de IA futuros) con ID numérico, clave textual, nombre provisional y color. Los nombres son provisionales (D17).
+- Mapa inicial determinista (sin azar): una masa de tierra con costa irregular, agua alrededor, cuatro pequeños territorios iniciales conectados y separados, y gran parte de la tierra sin reclamar para la expansión futura. El mapa no pretende ser bonito ni histórico.
+- Las operaciones de cambio de propietario validan límites, nación conocida y terreno, y devuelven éxito o fracaso sin alterar el estado si fallan.
+- El territorio es independiente de las ciudades: las ciudades se superponen y no definen las fronteras.
+
+**Abierto [A]**
+- D1: cámara con zoom y desplazamiento; si el mapa llegará a generarse de forma aleatoria; más tipos de terreno (los valores de arriba son provisionales).
+- D2: número definitivo de naciones y quién controla cada una (4 es provisional).
+- D3: fórmula y coste exactos de los ataques y cómo crece el territorio tras un ataque.
+- D12: qué ocurre con una ciudad cuando su celda cambia de propietario.
+- D18: cómo se selecciona y visualiza la zona de ataque.
 
 ## 6. Ciudades y población
 
 **Confirmado [C]**
-- El jugador elige dónde fundar una ciudad, dentro de condiciones territoriales por definir.
-- Al inicio, una ciudad ocupa una superficie visual pequeña (unos pocos píxeles o celdas).
+- Las ciudades se fundan haciendo clic en una ubicación válida del propio territorio; cuestan dinero y tardan un breve tiempo en fundarse.
+- Al inicio, una ciudad ocupa una superficie visual pequeña (unos pocos píxeles o celdas) y crece visualmente desde su centro.
 - Las ciudades crecen con el tiempo según la población trabajadora que se les asigna.
 - El crecimiento se ralentiza progresivamente al aumentar el tamaño, para evitar que todo el país sea una superficie urbana enorme.
 - Al alcanzar umbrales, la ciudad sube de nivel automáticamente; después su expansión visual sigue siendo posible, pero más lenta.
 - La población se divide en **trabajadores** y **soldados**.
 - Un control deslizante del HUD decide qué porcentaje de la **nueva** población generada va a trabajadores y qué porcentaje a soldados.
 - Cambiar el control **no reasigna** la población que ya existe.
-- Existe una opción de **reclutamiento forzoso** que convierte rápidamente un porcentaje elegible de los trabajadores existentes en soldados.
+- El jugador puede activar una **prioridad de población** para una ciudad, que favorece su crecimiento poblacional.
+- Existe una opción de **reclutamiento forzoso** que convierte un porcentaje de los trabajadores existentes en soldados durante un plazo corto, no instantáneamente.
 - Cantidades, costes y equilibrio: sin definir.
 
 **Propuesto [P]**
@@ -74,10 +91,11 @@ Leyenda:
 - El tamaño de la ciudad se calcula con una función de crecimiento decreciente (cada píxel adicional cuesta más), con niveles por umbrales; la fórmula concreta se decide con D6.
 
 **Abierto [A]**
-- D4: condiciones para fundar una ciudad (dentro del propio territorio, distancia mínima entre ciudades, coste, número máximo…).
+- D4: condiciones exactas de una ubicación válida (distancia mínima entre ciudades, número máximo…), coste en dinero y tiempo de fundación. (Confirmado: clic en el propio territorio, coste en dinero, breve tiempo.)
 - D5: cómo se asignan los trabajadores a cada ciudad (manual por ciudad, automático, por cercanía…) y si la población es global o por ciudad.
 - D6: cómo se representa el crecimiento en el mapa (forma, regla de ocupación de píxeles, niveles y umbrales).
-- D13: qué penalización o condición tiene el reclutamiento forzoso y qué porcentaje es "elegible".
+- D13: porcentaje elegible, duración del plazo corto y penalizaciones del reclutamiento forzoso.
+- D19: efecto, coste y límites de la prioridad de población de una ciudad.
 - D15: ¿el control deslizante es global de la nación o por ciudad?
 
 ## 7. Recursos
@@ -93,8 +111,9 @@ Leyenda:
 
 - **[C]** El jugador debe entender fácilmente si tiene ventaja antes de atacar.
 - **[C]** Cuando se defina el combate, el juego mostrará una previsión comprensible de las posibilidades de victoria y las pérdidas estimadas.
-- **[C]** No se usa un único número global para todo el ejército ni se simulan soldados individuales uno a uno.
-- **[A]** D7: representación y organización exactas de los ejércitos.
+- **[C]** Los ejércitos se representan inicialmente mediante una **cifra de soldados**. No se crean regimientos ni entidades individuales de soldados.
+- **[C]** En el futuro, el jugador podrá concentrar un ataque en una zona concreta del mapa, con ayuda opcional de una flecha de dirección (ver §5, D18).
+- **[A]** D7: dónde se guarda y cómo se agrupa la cifra de soldados (por nación, por ciudad, por zona de ataque…). La directriz anterior de "no usar un único número global" queda pendiente de reconciliar con esta decisión.
 - **[A]** D8: combate determinista o con azar (si hay azar, cómo se expresa la "probabilidad de victoria").
 - **[P]** Independientemente de D7/D8, el cálculo de la previsión será una función pura y comprobable, separada de la interfaz.
 
@@ -122,23 +141,25 @@ Fuera del MVP: multijugador, guardado de partida, más recursos (excluidos por d
 
 | Código | Pregunta | Bloquea |
 |---|---|---|
-| D1 | Tamaño y origen del mapa; tipos de terreno; escala de píxel y cámara | Hito 3 |
-| D2 | Número de naciones en el MVP y quién las controla | Hito 5 |
-| D3 | Cómo se expande el territorio y qué cuesta | Hito 6 |
-| D4 | Condiciones para fundar ciudades | Hito 7 |
+| D1 | Provisional: 320x180, agua/tierra, mapa determinista (hito 3). Abierto: cámara (zoom/desplazamiento), mapa aleatorio, más terrenos | Hito 4 (cámara) |
+| D2 | Provisional: 4 naciones (jugador + 3 de IA). Abierto: cuántas en el MVP y quién las controla | Hito 5 |
+| D3 | Fórmula y coste de los ataques; cómo crece el territorio tras atacar; cómo se expande hacia tierra vacía | Hito 6 |
+| D4 | Condiciones exactas, coste y tiempo de fundación de ciudades | Hito 7 |
 | D5 | Asignación de trabajadores a ciudades; población global o por ciudad | Hito 8 |
 | D6 | Representación del crecimiento urbano, niveles y umbrales | Hito 7–8 |
-| D7 | Representación y organización de los ejércitos | Hito 10 |
+| D7 | Dónde se guarda y cómo se agrupa la cifra de soldados | Hito 10 |
 | D8 | Combate determinista o con azar; significado de la probabilidad de victoria | Hito 10 |
 | D9 | Mecánica diferenciadora definitiva | Ninguno directo; afecta a la prioridad |
-| D10 | Ritmo del tiempo real: pausa, velocidad, duración de partida | Hito 6 |
+| D10 | Ritmo del tiempo real: pausa, control de velocidad, duración objetivo de la partida | Hito 6 |
 | D11 | Condiciones de victoria y derrota | Hito 13 |
 | D12 | Destino de las ciudades cuando cambia el propietario de su territorio | Hito 10 |
-| D13 | Reclutamiento forzoso: porcentaje elegible, penalizaciones | Hito 11 |
+| D13 | Reclutamiento forzoso: porcentaje elegible, duración, penalizaciones | Hito 11 |
 | D14 | Producción, consumo, construcciones y costes del dinero y los recursos | Hito 9 |
 | D15 | Control deslizante: global de la nación o por ciudad | Hito 8 |
-| D16 | Destino del prototipo de provincias: conservar como legado o eliminar | Hito 6 |
-| D17 | Nombres: mundo, naciones y ciudades | Sin bloqueo (provisional) |
+| D16 | Retirada del prototipo de provincias: cuando el nuevo mapa visual y su interacción estén validados a mano por el propietario | Tras el hito 4–5 |
+| D17 | Nombres: mundo, naciones y ciudades (hoy hay nombres provisionales de naciones) | Sin bloqueo |
+| D18 | Cómo se selecciona y visualiza la zona de ataque (flecha u otra herramienta) | Hito 10 |
+| D19 | Prioridad de población: efecto, coste y límites | Hito 8 |
 
 ## 13. Prototipo anterior de provincias (legado)
 
@@ -147,4 +168,4 @@ Implementado en los hitos 0–2 y validado a mano por el propietario en Godot 4.
 - Mapa estático de 14 provincias (7 jugador, 7 enemigo) con vecindades, dibujado con polígonos.
 - Selección con clic izquierdo y panel de información (nombre, propietario, vecinas).
 
-Este prototipo **no se amplía** y no define el diseño actual: las provincias seleccionables contradicen §2. Se conserva solo hasta que exista un sustituto y el propietario decida su destino (D16). Detalle en `docs/REDESIGN_PLAN.md` §2.
+Este prototipo **no se amplía** y no define el diseño actual: las provincias seleccionables contradicen §2. Se mantiene intacto mientras se construye y valida el sistema territorial nuevo; su retirada se decidirá cuando el nuevo mapa visual y su interacción hayan sido validados manualmente en el PC del propietario (D16). Detalle en `docs/REDESIGN_PLAN.md` §2.

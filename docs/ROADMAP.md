@@ -2,7 +2,7 @@
 
 Cada hito se pide y se revisa por separado. El orden respeta las dependencias técnicas y de diseño. Las decisiones abiertas (D1, D2…) están en `docs/GDD.md` §12 y el análisis técnico en `docs/REDESIGN_PLAN.md`.
 
-> **El concepto cambió.** La arquitectura basada en **provincias** (hitos 0–2) es un **prototipo anterior (legado)**. **No debe ampliarse con nuevas mecánicas de provincias.** Los antiguos hitos 3–7 (combate, captura, IA y victoria sobre provincias) quedan **descartados**. No se elimina código existente hasta que el propietario lo apruebe (D16).
+> **El concepto cambió.** La arquitectura basada en **provincias** (hitos 0–2) es un **prototipo anterior (legado)**. **No debe ampliarse con nuevas mecánicas de provincias.** Los antiguos hitos 3–7 (combate, captura, IA y victoria sobre provincias) quedan **descartados**. El código antiguo se mantiene intacto mientras se construye el sistema nuevo; se retirará solo cuando el nuevo mapa visual y su interacción hayan sido validados manualmente en el PC del propietario (D16).
 
 ## Estado
 
@@ -12,14 +12,14 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 | 1 | Mapa estático de provincias (legado) | Hecho; validado a mano visualmente |
 | 2 | Selección e información de provincias (legado) | Hecho; validado a mano; pruebas automáticas sin confirmar |
 | R | Rediseño: documentación y planificación | Hecho (este cambio; sin código) |
-| 3 | Datos del territorio (cuadrícula) | Pendiente; requiere D1 |
+| 3 | Datos del territorio (cuadrícula) | Implementado (`territory_grid.gd`); pruebas escritas, **pendientes de ejecutar en Godot** |
 | 4 | Vista pixelada del territorio | Pendiente |
 | 5 | Naciones y HUD base | Pendiente; requiere D2 |
-| 6 | Simulación por pasos y expansión territorial | Pendiente; requiere D3, D10, D16 |
+| 6 | Simulación por pasos y expansión territorial | Pendiente; requiere D3, D10 |
 | 7 | Ciudades: fundación y representación | Pendiente; requiere D4, D6 |
-| 8 | Población, trabajadores y crecimiento urbano | Pendiente; requiere D5, D6, D15 |
+| 8 | Población, trabajadores y crecimiento urbano | Pendiente; requiere D5, D6, D15, D19 |
 | 9 | Dinero y recursos | Pendiente; requiere D14 |
-| 10 | Ejércitos, ataques y previsión de combate | Pendiente; requiere D7, D8, D12 |
+| 10 | Ejércitos, ataques y previsión de combate | Pendiente; requiere D7, D8, D12, D18 |
 | 11 | Reclutamiento forzoso | Pendiente; requiere D13 |
 | 12 | IA enemiga | Pendiente |
 | 13 | Victoria, derrota y reinicio | Pendiente; requiere D11 |
@@ -35,19 +35,22 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 - **Criterios:** los documentos son coherentes entre sí, distinguen confirmado/propuesto/abierto y no se modificó ningún script, escena ni prueba.
 
 ## Hito 3 — Datos del territorio (cuadrícula)
-- Lógica pura de la cuadrícula: terreno, propietario por celda, vecinos, detección de frontera, recuentos.
-- **Criterios:**
-  - Se puede crear una cuadrícula de tamaño configurable y consultar/cambiar el terreno y el propietario de una celda; fuera de límites se rechaza sin errores.
-  - Una celda de agua no puede tener propietario.
-  - Una celda es "de frontera" si algún vecino ortogonal tiene distinto propietario o es agua (prueba automática).
-  - Los recuentos de celdas por nación son correctos tras una secuencia de cambios.
-  - Hay una función de comprobación de continuidad del territorio de una nación (prueba automática).
-  - Todo funciona sin nodos y con pruebas automáticas.
+- Lógica pura (sin nodos, sin dibujo): `scripts/world/territory_grid.gd` con terreno y propietario por celda, naciones y mapa inicial determinista. Valores provisionales: 320x180, agua/tierra, 4 naciones.
+- **Criterios (implementados; ejecución en Godot pendiente):**
+  - El mapa mide 320x180 y los dos arrays tienen 57.600 elementos; conversión coordenadas ↔ índice correcta y límites rechazados.
+  - Terreno solo agua/tierra; el agua nunca tiene propietario; no hay propietarios desconocidos.
+  - 4 naciones con ID numérico, clave, nombre provisional y color contrastado.
+  - Cada nación empieza con un territorio no vacío, conectado y separado de los demás; hay tierra sin reclamar y suficiente tierra y agua.
+  - Dos instancias producen la misma configuración.
+  - `try_set_owner` acepta casos válidos y rechaza nación inexistente, agua y coordenadas inválidas sin alterar el estado.
+  - Pruebas automáticas en `tests/test_territory_grid.gd`.
+- **Aplazado a otros hitos:** detección de fronteras (hito 4, cuando haya que dibujarlas) y comprobación reutilizable de continuidad del territorio (hito 6, con la expansión).
 
 ## Hito 4 — Vista pixelada del territorio
-- Dibujo del territorio con `Image`/`ImageTexture` escalada con filtro `nearest`; colores de nación y fronteras; conversión ratón → celda.
+- Dibujo del territorio con `Image`/`ImageTexture` escalada con filtro `nearest`; colores de nación y fronteras; conversión ratón → celda. La cámara (zoom y desplazamiento) se evalúa aquí (D1).
 - **Criterios:**
-  - Un mapa de ejemplo con varias naciones se ve pixelado, con fronteras coherentes y sin provincias seleccionables (validación visual del propietario).
+  - El mapa de `TerritoryGrid` se ve pixelado, con fronteras derivadas de la diferencia de propietario entre celdas adyacentes, coherentes y sin provincias seleccionables (validación visual del propietario).
+  - Existe una función `is_border` probada (una celda es de frontera si un vecino ortogonal tiene otro propietario o es agua).
   - Al cambiar el propietario de una celda solo se redibujan esa celda y sus vecinas (prueba automática sobre la imagen).
   - El clic sobre el mapa devuelve la celda correcta con el nodo movido o escalado (prueba automática).
   - Se mide el tiempo de actualización en el PC del propietario y se registra en la documentación.
@@ -55,27 +58,27 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 ## Hito 5 — Naciones y HUD base
 - Registro de naciones (id, nombre, color, quién la controla), territorios iniciales y HUD mínimo.
 - **Criterios:**
-  - Cada nación tiene un territorio inicial continuo (prueba automática).
+  - Cada nación tiene un territorio inicial continuo (ya cubierto por las pruebas del hito 3).
   - El HUD muestra el nombre de la nación del jugador y el tamaño de su territorio, leídos del estado.
   - Sin selección de provincias ni botones de acciones inexistentes.
 
 ## Hito 6 — Simulación por pasos y expansión territorial
-- Reloj de simulación con pasos fijos y pausa; expansión de fronteras según la regla decidida en D3; retirada o archivado del prototipo de provincias según D16.
+- Reloj de simulación con pasos fijos y pausa; expansión de fronteras según la regla decidida en D3, incluida una comprobación reutilizable de continuidad del territorio.
 - **Criterios:**
   - Mismas entradas y misma semilla producen el mismo estado tras N pasos (prueba automática).
-  - La expansión solo reclama celdas adyacentes y de tierra, no deja territorio desconectado y conserva el total de celdas (prueba automática).
+  - La expansión solo reclama celdas adyacentes y de tierra, no deja territorio desconectado y conserva el total de celdas (prueba automática, con la comprobación de continuidad).
   - La pausa detiene la simulación.
   - El resultado se ve fluido en el PC del propietario.
 
 ## Hito 7 — Ciudades: fundación y representación
-- Capa de ciudades independiente del territorio: fundación según D4, nivel inicial, dibujo como agrupación de píxeles.
+- Capa de ciudades independiente del territorio: fundación por clic en una ubicación válida del propio territorio (cuesta dinero y tarda un breve tiempo), nivel inicial, dibujo como agrupación de píxeles que crece desde su centro.
 - **Criterios:**
   - Fundar una ciudad solo funciona si se cumplen las condiciones de D4 (pruebas automáticas de casos válidos e inválidos).
   - La ciudad no modifica el propietario ni las fronteras del territorio y viceversa (prueba automática).
   - Una ciudad recién fundada ocupa el tamaño inicial acordado.
 
 ## Hito 8 — Población, trabajadores y crecimiento urbano
-- Población trabajadora y de soldados, control deslizante en el HUD, crecimiento decreciente de ciudades y subida de nivel por umbrales.
+- Población trabajadora y de soldados, control deslizante en el HUD, prioridad de población por ciudad (D19), crecimiento decreciente de ciudades y subida de nivel por umbrales.
 - **Criterios:**
   - Cambiar el control afecta solo a la población **nueva** (prueba automática).
   - El crecimiento por unidad de población es estrictamente decreciente con el tamaño (prueba automática).
@@ -91,7 +94,7 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
   - El HUD muestra ambos saldos de forma discreta.
 
 ## Hito 10 — Ejércitos, ataques y previsión de combate
-- Modelo de ejército según D7, ataques según D3/D8 y previsión visible de ventaja, probabilidad de victoria y pérdidas estimadas.
+- Cifra de soldados según D7, ataques según D3/D8 (incluida la selección de la zona de ataque y su flecha opcional, D18) y previsión visible de ventaja, probabilidad de victoria y pérdidas estimadas.
 - **Criterios:**
   - Los ataques inválidos se rechazan (pruebas automáticas).
   - La previsión se calcula con una función pura y coincide con el resultado cuando el combate es determinista, o con la distribución definida si hay azar (pruebas automáticas).
@@ -99,7 +102,7 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
   - Está definido y probado el destino de las ciudades en territorio conquistado (D12).
 
 ## Hito 11 — Reclutamiento forzoso
-- Conversión rápida de un porcentaje elegible de trabajadores en soldados.
+- Conversión de un porcentaje de trabajadores existentes en soldados durante un plazo corto (no instantánea).
 - **Criterios:**
   - Solo se convierte el porcentaje elegible y se conserva el total de población (pruebas automáticas).
   - Las consecuencias definidas en D13 se aplican y se prueban.

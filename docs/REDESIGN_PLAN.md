@@ -37,7 +37,7 @@ El prototipo tiene unas 330 líneas de código de juego y unas 450 de pruebas. N
 | `test_province_data.gd` | **Dejará de usarse** | Prueba datos que se retirarán. Se reaprovechan las ideas: conectividad, integridad y determinismo |
 | `test_province_selection.gd` | **Dejará de usarse** (casi todo) | Se reaprovecha la idea de pruebas de borde y de transformación del nodo |
 
-**No se elimina nada ahora.** Mientras no exista el hito 6 y el propietario no responda D16, el prototipo permanece y sigue arrancando con F5. Opciones para D16: (a) borrar al final del hito 6, (b) moverlo a una carpeta `legacy/` o (c) dejarlo en una rama. Se recomienda (a): el historial de git ya lo conserva.
+**No se elimina nada ahora.** El prototipo permanece intacto y sigue arrancando con F5 mientras se construye el sistema nuevo. Decisión del propietario: su retirada se decidirá cuando el nuevo mapa visual y su interacción hayan sido validados manualmente en su PC (D16). Opciones: (a) borrarlo (el historial de git ya lo conserva), (b) moverlo a una carpeta `legacy/` o (c) dejarlo en una rama.
 
 ## 3. Enfoques técnicos para el territorio pixelado
 
@@ -75,6 +75,8 @@ Mismos datos que C, pero se sube el mapa de propietarios como textura de un cana
 | Arte necesario | Ninguno | Atlas de bordes | **Ninguno** | Ninguno |
 | Complejidad inicial | Media | Media | **Baja** | Media-alta |
 | Verificable desde la nube | Parcial | Parcial | **Alta (la imagen se puede comprobar píxel a píxel)** | Baja |
+
+> **Actualización (hito 3):** la parte de datos de esta arquitectura ya está implementada en `scripts/world/territory_grid.gd` con valores provisionales: 320x180, `PackedByteArray` de terreno (agua/tierra) y de propietario (`OWNER_NONE`, jugador y tres IA), sin dibujo. La detección de fronteras y la comprobación de continuidad se aplazaron a los hitos 4 y 6. Siguen siendo propuestas técnicas, no preferencias confirmadas.
 
 ## 4. Arquitectura recomendada
 
@@ -131,14 +133,14 @@ Las dependencias van en una sola dirección (de abajo hacia arriba en la tabla).
 
 | Hito | Contenido | Depende de | Decisiones previas |
 |---|---|---|---|
-| 3 | Datos del territorio (cuadrícula) con pruebas | — | D1 |
-| 4 | Vista pixelada y ratón → celda; medir rendimiento | 3 | D1 |
+| 3 | Datos del territorio (cuadrícula) con pruebas — **hecho; pruebas por ejecutar en Godot** | — | D1 (valores provisionales) |
+| 4 | Vista pixelada, fronteras derivadas, ratón → celda; medir rendimiento | 3 | D1 (cámara) |
 | 5 | Naciones y HUD base | 4 | D2 |
-| 6 | Reloj de simulación y expansión; retirar el prototipo antiguo | 5 | D3, D10, D16 |
+| 6 | Reloj de simulación y expansión territorial (con comprobación de continuidad) | 5 | D3, D10 |
 | 7 | Ciudades: fundación y representación | 5 | D4, D6 |
 | 8 | Población, trabajadores, reparto y crecimiento urbano | 7 | D5, D6, D15 |
 | 9 | Dinero y recursos | 8 | D14 |
-| 10 | Ejércitos, ataques y previsión de combate | 6, 8 | D7, D8, D12 |
+| 10 | Cifra de soldados, ataques (zona de ataque con flecha opcional) y previsión de combate | 6, 8 | D7, D8, D12, D18 |
 | 11 | Reclutamiento forzoso | 8, 10 | D13 |
 | 12 | IA | 10 | — |
 | 13 | Victoria, derrota y reinicio | 12 | D11 |
@@ -166,22 +168,24 @@ Detalle completo en `docs/GDD.md` §12. En orden de urgencia:
 **Antes del hito 3 y 4**
 - **D1** — Tamaño aproximado del mapa, si se dibuja a mano o se genera, y si solo hay tierra y agua o más terrenos. ¿Cámara con zoom y desplazamiento?
 
-**Antes del hito 5**
+**Antes del hito 5** (4 naciones es el valor provisional del hito 3)
 - **D2** — ¿Cuántas naciones en el MVP y quién las controla (una jugador, el resto IA)?
 
 **Antes del hito 6**
 - **D3** — ¿Qué se gasta al expandir el territorio (tropas, dinero, nada) y es continuo o por órdenes?
 - **D10** — Ritmo del tiempo real: ¿pausa, velocidad variable, duración de partida?
-- **D16** — ¿Qué se hace con el prototipo de provincias? (se recomienda borrarlo al terminar el hito 6)
+- **D16** — Ya decidido el plazo: se retira tras validar el nuevo mapa visual y su interacción en tu PC. Queda por elegir cómo (borrar, `legacy/` o rama).
 
 **Antes de los hitos 7–9**
 - **D4** — Condiciones para fundar ciudades.
+- **D19** — Efecto, coste y límites de la prioridad de población de una ciudad.
 - **D5 / D15** — ¿Cómo se asignan los trabajadores? ¿El control deslizante es global o por ciudad? ¿La población es global o por ciudad?
 - **D6** — Cómo se ve crecer una ciudad (forma, niveles, umbrales).
 - **D14** — Producción, consumo y construcciones del dinero y los recursos.
 
 **Antes del hito 10 en adelante**
-- **D7** — Cómo se representan y organizan los ejércitos (ni un número global ni soldados individuales).
+- **D7** — Ya se sabe que los ejércitos son una cifra de soldados (sin regimientos). Falta decidir dónde se guarda y cómo se agrupa esa cifra, y reconciliarlo con la antigua directriz de "no usar un único número global".
+- **D18** — Cómo se selecciona y visualiza la zona de ataque (flecha u otra herramienta).
 - **D8** — ¿El combate es determinista o con azar? ¿Qué significa "probabilidad de victoria"?
 - **D12** — ¿Qué pasa con una ciudad cuando su territorio cambia de dueño?
 - **D13** — Límites y penalizaciones del reclutamiento forzoso.
@@ -191,4 +195,4 @@ Detalle completo en `docs/GDD.md` §12. En orden de urgencia:
 - **D9** — Mecánica diferenciadora definitiva (no es una decisión tomada; ciudades y población son candidatas).
 - **D17** — Nombres del mundo, las naciones y las ciudades (provisionales sin bloqueo).
 
-**Además:** confirmar si se acepta la arquitectura recomendada (cuadrícula + imagen en CPU, §4) o se prefiere otra.
+**Además:** el hito 3 ya usa la arquitectura recomendada de forma provisional; confirmar si se mantiene (cuadrícula + imagen en CPU, §4) tras ver el resultado visual en el hito 4.

@@ -16,7 +16,8 @@ El propietario es **principiante**: toma decisiones técnicas sólidas, explica 
 
 El concepto cambió. El prototipo basado en **provincias** (hitos 0–2) es **legado**:
 - **No se amplía** con nuevas mecánicas de provincias (ni combate, ni captura, ni IA, ni economía sobre provincias).
-- **No se elimina** hasta que lo ordene el propietario y exista el sustituto.
+- **No se elimina** hasta que el nuevo mapa visual y su interacción hayan sido validados manualmente en el PC del propietario y este lo ordene.
+- Estado del sustituto: el hito 3 creó la lógica de datos del territorio en cuadrícula (`scripts/world/territory_grid.gd`); aún no hay dibujo ni interacción.
 - La nueva hoja de ruta está en `docs/ROADMAP.md`; el análisis técnico en `docs/REDESIGN_PLAN.md`.
 
 ## Dirección de diseño permanente (confirmada por el propietario)
@@ -30,12 +31,13 @@ El concepto cambió. El prototipo basado en **provincias** (hitos 0–2) es **le
 - Marcadores y controles sencillos; nunca cientos de soldados individuales; sin interfaces recargadas, exceso de animaciones ni microgestión innecesaria.
 
 **Ciudades y población**
-- El jugador elige dónde fundar una ciudad, dentro de condiciones territoriales aún por definir.
+- El jugador funda una ciudad haciendo clic en una ubicación válida de su propio territorio; cuesta dinero y tarda un breve tiempo en fundarse. Condiciones, coste y tiempo exactos: sin definir.
 - Una ciudad empieza ocupando muy poca superficie (unos pocos píxeles o celdas).
-- Crece con el tiempo según la población trabajadora asignada. El crecimiento se ralentiza al aumentar el tamaño, para evitar una única superficie urbana enorme.
+- Crece visualmente desde su centro con el tiempo según la población trabajadora asignada. El crecimiento se ralentiza al aumentar el tamaño, para evitar una única superficie urbana enorme.
 - Al alcanzar umbrales sube de nivel automáticamente; tras subir, su expansión visual sigue siendo posible pero más lenta.
 - Población dividida en **trabajadores** y **soldados**. Un control deslizante del HUD fija qué porcentaje de la **nueva** población va a cada grupo; cambiarlo **no reasigna** la población existente.
-- Opción de **reclutamiento forzoso**: convierte rápidamente un porcentaje elegible de trabajadores existentes en soldados.
+- El jugador puede activar una **prioridad de población** en una ciudad para favorecer su crecimiento poblacional (efecto y coste sin definir).
+- Opción de **reclutamiento forzoso**: convierte un porcentaje de los trabajadores existentes en soldados durante un plazo corto, no instantáneamente.
 - Cantidades, costes y equilibrio: sin definir.
 
 **Recursos: solo dos**
@@ -45,7 +47,8 @@ El concepto cambió. El prototipo basado en **provincias** (hitos 0–2) es **le
 
 **Combate y ejércitos**
 - El jugador debe poder entender fácilmente si tiene ventaja antes de atacar: comparación de fuerzas clara y, cuando se defina el combate, previsión comprensible de probabilidades de victoria y pérdidas estimadas.
-- Ni un único número global para todo el ejército ni soldados simulados uno a uno. La representación y organización de los ejércitos está **pendiente de decisión**.
+- Los ejércitos se representan inicialmente mediante una **cifra de soldados**; no hay regimientos ni soldados individuales simulados uno a uno. Dónde se guarda esa cifra (por nación, ciudad, zona de ataque…) sigue **pendiente de decisión**.
+- En el futuro el jugador podrá concentrar un ataque en una zona concreta del mapa, con una flecha de dirección opcional (no implementado; método de selección sin definir).
 
 **Mecánica diferenciadora**
 - Las ciudades, el crecimiento urbano y la gestión sencilla de la población **podrían** ser parte de la identidad del juego. **No** presentarlo como decisión definitiva: la decide el propietario tras valorar alternativas.
@@ -65,7 +68,9 @@ El concepto cambió. El prototipo basado en **provincias** (hitos 0–2) es **le
 - Simple y nativa de Godot: escenas + scripts GDScript con tipado estático (`var x: int`, `func f() -> void`). Cuidado con `:=` cuando el valor es `Variant` (da error): declara el tipo explícitamente.
 - **Separar lógica y presentación**: las reglas viven en scripts sin dependencia de nodos visuales (`RefCounted`/`Resource`) para poder probarlas sin interfaz. La presentación lee el estado; las órdenes del jugador llegan como llamadas a la lógica.
 - **Capas conceptuales separadas** (ver `docs/REDESIGN_PLAN.md` §6): territorio, ciudades, población, recursos y ejército. El territorio no conoce las ciudades; el crecimiento urbano no debe confundirse con la expansión de fronteras.
-- Territorio como **cuadrícula de celdas** (propuesta recomendada en `REDESIGN_PLAN.md`), no como polígonos de provincias.
+- Territorio como **cuadrícula de celdas**, no como polígonos de provincias. Valores provisionales ya implementados en el hito 3 (propuestas técnicas, no preferencias confirmadas): 320x180 celdas, dos `PackedByteArray` (terreno y propietario) con índice `y * 320 + x`, terreno agua/tierra, propietarios `OWNER_NONE`…`OWNER_AI_3`, representación visual futura con `Image`/`ImageTexture` y filtro `nearest`.
+- El propietario de una celda de agua es siempre `OWNER_NONE`. Los datos de cada celda viven solo en `TerritoryGrid`; nunca se duplican en otro sistema.
+- Las fronteras no se almacenan: surgen de la diferencia de propietario entre celdas adyacentes.
 - Simulación **determinista** y por pasos fijos (ticks). Si hay azar, con semilla inyectable. El combate debe ser comprobable.
 - Datos declarativos (recurso o archivo de datos) para lo que sea contenido, no disperso en código.
 - Comunicación entre nodos con **señales**; evita rutas de nodo frágiles.
@@ -78,10 +83,11 @@ El concepto cambió. El prototipo basado en **provincias** (hitos 0–2) es **le
 
 - Cada regla de juego nueva lleva pruebas automáticas, salvo que no sea viable (y se justifique en el informe).
 - Pruebas propias, sin plugins: scripts `SceneTree` en `tests/`, ejecutables con `godot --headless --path . --script res://tests/<archivo>.gd`; imprimen PASS/FAIL y salen con código ≠ 0 si algo falla.
+- Pruebas del territorio: `tests/test_territory_grid.gd`. Pruebas del prototipo de provincias (legado): `tests/test_province_data.gd`, `tests/test_province_selection.gd`.
 - Plan y casos en `docs/TEST_PLAN.md`; actualízalo en cada hito sin fingir que existen mecánicas que no existen.
 - Si hay ejecutable de Godot en el entorno, valida con `godot --headless --path . --quit` y ejecuta las pruebas. Si no lo hay, **no lo instales**: haz comprobaciones estáticas e informa de lo no verificado.
 - **Nunca afirmes** que el juego o las pruebas se han ejecutado, ni que algo se ve bien, si no ocurrió. Informa de los resultados reales, incluidos los fallos.
-- Estado conocido: el propietario validó a mano en Godot 4.7.2 la pantalla inicial, el mapa y la selección de provincias; las pruebas automáticas **no** están confirmadas como ejecutadas.
+- Estado conocido: el propietario validó a mano en Godot 4.7.2 la pantalla inicial, el mapa y la selección de provincias; las pruebas automáticas (incluidas las del hito 3) **no** están confirmadas como ejecutadas en Godot.
 - No se desactivan ni se saltan pruebas para que pasen.
 
 ## Flujo de trabajo

@@ -20,17 +20,19 @@ Juego 2D de estrategia territorial en tiempo real, fácil de aprender y de jugar
 
 ## Estado real del proyecto
 
-**Fase actual: rediseño y planificación. No se ha escrito código nuevo.**
+**Fase actual: construcción del sistema territorial nuevo. Hito 3 hecho (solo datos, sin dibujo).**
 
-Lo único implementado es el **prototipo anterior de provincias** (legado):
+**Sistema nuevo (hito 3):** `scripts/world/territory_grid.gd` guarda el territorio como una cuadrícula de 320x180 celdas (terreno agua/tierra y propietario por celda en dos `PackedByteArray`), con 4 naciones provisionales (jugador y 3 rivales) y un mapa inicial determinista: una masa de tierra con costa irregular, cuatro pequeños territorios conectados y tierra sin reclamar. Los valores de la cuadrícula son **provisionales**. Aún **no se dibuja ni se puede interactuar con él**: al pulsar F5 sigue viéndose el prototipo anterior. Sus pruebas (`tests/test_territory_grid.gd`) están escritas pero **no se han ejecutado en Godot**.
+
+**Prototipo anterior de provincias (legado)**, intacto:
 - Pantalla inicial con el título y mapa estático de 14 provincias (7 del jugador, 7 del enemigo).
 - Clic izquierdo para seleccionar una provincia y panel con su nombre, propietario y vecinas.
 - El propietario validó a mano en Godot 4.7.2 la pantalla inicial, el mapa y la selección.
 - Existen pruebas automáticas (`tests/`), pero **no están confirmadas como ejecutadas** en Godot.
 
-Este prototipo **no se amplía**: no hay tropas, combate, captura, economía, ciudades ni IA. Se conservará hasta que exista un sustituto y el propietario decida su destino.
+Este prototipo **no se amplía**: no hay tropas, combate, captura, economía, ciudades ni IA. Se mantiene intacto y solo se retirará cuando el nuevo mapa visual y su interacción hayan sido validados manualmente en el PC del propietario.
 
-Nada de lo descrito en el concepto actual existe todavía. Siguiente paso: respuestas del propietario a las decisiones abiertas y, después, el hito 3 (datos del territorio). Ver `docs/ROADMAP.md`.
+No existen todavía ciudades, población, recursos, ejércitos, expansión, ataques ni IA. Siguiente paso: validar las pruebas del hito 3 en Godot y empezar el hito 4 (vista pixelada del territorio). Ver `docs/ROADMAP.md`.
 
 ## Cómo abrir el proyecto
 
@@ -41,11 +43,12 @@ Nada de lo descrito en el concepto actual existe todavía. Siguiente paso: respu
 
 La primera vez Godot genera la carpeta `.godot/` (caché local, ignorada por git).
 
-## Pruebas automáticas (prototipo anterior)
+## Pruebas automáticas
 
 Desde la raíz del proyecto (sustituye `godot` por la ruta de tu ejecutable de Godot 4.7):
 
 ```
+godot --headless --path . --script res://tests/test_territory_grid.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
@@ -57,6 +60,7 @@ Cada comando ejecuta un archivo; imprime `PASS`/`FAIL` y termina con código 0 s
 | Ruta | Contenido |
 |---|---|
 | `scenes/` | Escenas de Godot (`main.tscn`) |
+| `scripts/world/` | Datos del territorio en cuadrícula (`territory_grid.gd`), sistema nuevo |
 | `scripts/data/` | Datos del mapa de provincias (legado) |
 | `scripts/map/` | Dibujo y selección del mapa de provincias (legado) |
 | `scripts/ui/` | Panel de información de provincias (legado) |
