@@ -83,7 +83,7 @@ El concepto cambió. El prototipo basado en **provincias** (hitos 0–2) es **le
 
 - Cada regla de juego nueva lleva pruebas automáticas, salvo que no sea viable (y se justifique en el informe).
 - Pruebas propias, sin plugins: scripts `SceneTree` en `tests/`, ejecutables con `godot --headless --path . --script res://tests/<archivo>.gd`; imprimen PASS/FAIL y salen con código ≠ 0 si algo falla.
-- Pruebas del territorio: `tests/test_territory_grid.gd`. Pruebas del prototipo de provincias (legado): `tests/test_province_data.gd`, `tests/test_province_selection.gd`.
+- Pruebas del territorio: comprobaciones en `tests/territory_grid_tests.gd`; ejecutor headless `tests/test_territory_grid.gd`; ejecutor visual en el editor (abrir `tests/run_territory_tests.tscn` y pulsar F6). Pruebas del prototipo de provincias (legado): `tests/test_province_data.gd`, `tests/test_province_selection.gd`.
 - Plan y casos en `docs/TEST_PLAN.md`; actualízalo en cada hito sin fingir que existen mecánicas que no existen.
 - Si hay ejecutable de Godot en el entorno, valida con `godot --headless --path . --quit` y ejecuta las pruebas. Si no lo hay, **no lo instales**: haz comprobaciones estáticas e informa de lo no verificado.
 - **Nunca afirmes** que el juego o las pruebas se han ejecutado, ni que algo se ve bien, si no ocurrió. Informa de los resultados reales, incluidos los fallos.

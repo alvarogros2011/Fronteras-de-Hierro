@@ -18,14 +18,14 @@ godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal: abrir el script en el editor de Godot → **Archivo → Ejecutar** → leer el panel **Salida**.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`.
 
 ## Estado actual
 
 | Elemento | Estado |
 |---|---|
 | Pantalla inicial, mapa de provincias y selección (validación visual) | Validado a mano por el propietario en Godot 4.7.2 / Windows |
-| `tests/test_territory_grid.gd` (hito 3, sistema nuevo) | Escrito. **Ejecución en Godot sin confirmar** |
+| `tests/territory_grid_tests.gd` + ejecutores `tests/test_territory_grid.gd` (headless) y `tests/run_territory_tests.tscn` (F6) (hito 3, sistema nuevo) | Escritos. **Ejecución en Godot sin confirmar** |
 | `tests/test_province_data.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | `tests/test_province_selection.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | Réplica en Python del algoritmo del mapa inicial (herramienta de diseño: tierra 27.324 celdas, 4 territorios de 441, sin adyacencias entre naciones, borde de agua) y de la lógica de provincias | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye** |
