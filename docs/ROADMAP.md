@@ -1,85 +1,128 @@
 # Hoja de ruta — Fronteras de Hierro
 
-Los hitos están en orden de dependencia. Cada uno se pide y se revisa por separado. El MVP coincide con `docs/GDD.md` §6 y termina en el hito 7.
+Cada hito se pide y se revisa por separado. El orden respeta las dependencias técnicas y de diseño. Las decisiones abiertas (D1, D2…) están en `docs/GDD.md` §12 y el análisis técnico en `docs/REDESIGN_PLAN.md`.
+
+> **El concepto cambió.** La arquitectura basada en **provincias** (hitos 0–2) es un **prototipo anterior (legado)**. **No debe ampliarse con nuevas mecánicas de provincias.** Los antiguos hitos 3–7 (combate, captura, IA y victoria sobre provincias) quedan **descartados**. No se elimina código existente hasta que el propietario lo apruebe (D16).
+
+## Estado
 
 | Hito | Nombre | Estado |
 |---|---|---|
-| 0 | Cimientos | Hecho y validado manualmente en el PC del propietario (Godot 4.7.2, Windows) |
-| 1 | Mapa y provincias | Implementado; pendiente de validar en el PC del propietario |
-| 2 | Selección e información de provincias | Implementado; pendiente de validar en el PC del propietario |
-| 3 | Tropas y combate | Pendiente |
-| 4 | Captura de provincias | Pendiente |
-| 5 | IA enemiga | Pendiente |
-| 6 | Victoria, derrota y reinicio | Pendiente |
-| 7 | Pulido y cierre del MVP | Pendiente |
-| 8+ | Ampliaciones | Fuera del MVP |
+| 0 | Cimientos | Hecho; validado a mano por el propietario (Godot 4.7.2, Windows) |
+| 1 | Mapa estático de provincias (legado) | Hecho; validado a mano visualmente |
+| 2 | Selección e información de provincias (legado) | Hecho; validado a mano; pruebas automáticas sin confirmar |
+| R | Rediseño: documentación y planificación | Hecho (este cambio; sin código) |
+| 3 | Datos del territorio (cuadrícula) | Pendiente; requiere D1 |
+| 4 | Vista pixelada del territorio | Pendiente |
+| 5 | Naciones y HUD base | Pendiente; requiere D2 |
+| 6 | Simulación por pasos y expansión territorial | Pendiente; requiere D3, D10, D16 |
+| 7 | Ciudades: fundación y representación | Pendiente; requiere D4, D6 |
+| 8 | Población, trabajadores y crecimiento urbano | Pendiente; requiere D5, D6, D15 |
+| 9 | Dinero y recursos | Pendiente; requiere D14 |
+| 10 | Ejércitos, ataques y previsión de combate | Pendiente; requiere D7, D8, D12 |
+| 11 | Reclutamiento forzoso | Pendiente; requiere D13 |
+| 12 | IA enemiga | Pendiente |
+| 13 | Victoria, derrota y reinicio | Pendiente; requiere D11 |
+| 14 | Pulido y cierre del MVP | Pendiente |
 
-## Hito 0 — Cimientos
-- Proyecto Godot 4.7 válido, escena de arranque, documentación base.
+## Hitos 0–2 — Prototipo de provincias (legado, completado)
+- Proyecto Godot 4.7, escena de arranque, mapa de 14 provincias con selección y panel de información.
+- Se reutilizan de él la configuración del proyecto, la estructura de carpetas, el patrón de pruebas y la separación datos/presentación (`docs/REDESIGN_PLAN.md` §2).
+- **Pendiente de confirmar:** ejecución en Godot de `tests/test_province_data.gd` y `tests/test_province_selection.gd`.
+
+## Hito R — Rediseño (documentación)
+- Reescritura de GDD, ROADMAP, TEST_PLAN, README y CLAUDE.md; creación de `docs/REDESIGN_PLAN.md`.
+- **Criterios:** los documentos son coherentes entre sí, distinguen confirmado/propuesto/abierto y no se modificó ningún script, escena ni prueba.
+
+## Hito 3 — Datos del territorio (cuadrícula)
+- Lógica pura de la cuadrícula: terreno, propietario por celda, vecinos, detección de frontera, recuentos.
 - **Criterios:**
-  - `project.godot` apunta a `res://scenes/main.tscn`.
-  - Al abrirlo en Godot 4.7 y pulsar F5 se ve el título y el subtítulo sin errores en la consola.
-  - Existen README, CLAUDE.md, GDD, ROADMAP, TEST_PLAN y .gitignore coherentes entre sí.
+  - Se puede crear una cuadrícula de tamaño configurable y consultar/cambiar el terreno y el propietario de una celda; fuera de límites se rechaza sin errores.
+  - Una celda de agua no puede tener propietario.
+  - Una celda es "de frontera" si algún vecino ortogonal tiene distinto propietario o es agua (prueba automática).
+  - Los recuentos de celdas por nación son correctos tras una secuencia de cambios.
+  - Hay una función de comprobación de continuidad del territorio de una nación (prueba automática).
+  - Todo funciona sin nodos y con pruebas automáticas.
 
-## Hito 1 — Mapa y provincias
-- Definición de 12–16 provincias ficticias, sus vecinas y su dibujo en pantalla.
-- **Implementado:** 14 provincias (7 jugador, 7 enemigo) en `scripts/data/province_data.gd`, dibujadas por `scripts/map/province_map.gd`, con leyenda y contador. Sin interacción.
+## Hito 4 — Vista pixelada del territorio
+- Dibujo del territorio con `Image`/`ImageTexture` escalada con filtro `nearest`; colores de nación y fronteras; conversión ratón → celda.
 - **Criterios:**
-  - Hay exactamente 14 provincias, cada una con id y nombre únicos.
-  - La adyacencia es simétrica y no hay provincias aisladas: el grafo es conexo (prueba automática).
-  - Ninguna provincia es vecina de sí misma ni repite vecinos.
-  - Todas se dibujan en pantalla a 1280x720 sin huecos ni solapes y con nombres legibles (validación visual manual).
-  - Los vecinos declarados coinciden con las fronteras dibujadas (prueba automática).
+  - Un mapa de ejemplo con varias naciones se ve pixelado, con fronteras coherentes y sin provincias seleccionables (validación visual del propietario).
+  - Al cambiar el propietario de una celda solo se redibujan esa celda y sus vecinas (prueba automática sobre la imagen).
+  - El clic sobre el mapa devuelve la celda correcta con el nodo movido o escalado (prueba automática).
+  - Se mide el tiempo de actualización en el PC del propietario y se registra en la documentación.
 
-## Hito 2 — Selección e información de provincias
-- Selección con el ratón mediante los polígonos reales y panel de información. Sin acciones de juego.
-- **Implementado:** clic izquierdo selecciona (`ProvinceMap.select_at`), contorno de resalte, clic en vacío limpia, señal `selection_changed` hacia el panel (`scripts/ui/province_info_panel.gd`) con nombre, propietario, número y nombres de vecinas.
+## Hito 5 — Naciones y HUD base
+- Registro de naciones (id, nombre, color, quién la controla), territorios iniciales y HUD mínimo.
 - **Criterios:**
-  - Cada provincia tiene exactamente un dueño; ambos bandos empiezan con 7 (ya cubierto por las pruebas del hito 1).
-  - Clic en una provincia la selecciona y se resalta; clic en vacío la deselecciona; clic en el panel no cambia la selección.
-  - El id seleccionado es el de la provincia cuyo polígono contiene el clic; en un punto fuera de todas las provincias el resultado es "ninguna".
-  - La selección funciona con el nodo del mapa movido o escalado.
-  - El panel muestra nombre, propietario y vecinas coincidentes con los datos (pruebas automáticas).
-- **Movido al hito 3:** restringir el origen de una acción a provincias propias.
+  - Cada nación tiene un territorio inicial continuo (prueba automática).
+  - El HUD muestra el nombre de la nación del jugador y el tamaño de su territorio, leídos del estado.
+  - Sin selección de provincias ni botones de acciones inexistentes.
 
-## Hito 3 — Tropas y combate
-- Tropas por provincia, órdenes de ataque/movimiento y combate determinista.
+## Hito 6 — Simulación por pasos y expansión territorial
+- Reloj de simulación con pasos fijos y pausa; expansión de fronteras según la regla decidida en D3; retirada o archivado del prototipo de provincias según D16.
 - **Criterios:**
-  - El combate es una función pura: mismas entradas, mismo resultado.
-  - Se rechazan ataques inválidos: origen no propio, destino no adyacente, destino propio, tropas insuficientes.
-  - Casos de victoria, derrota y empate cubiertos por pruebas automáticas.
-  - El número de tropas es visible en cada provincia.
+  - Mismas entradas y misma semilla producen el mismo estado tras N pasos (prueba automática).
+  - La expansión solo reclama celdas adyacentes y de tierra, no deja territorio desconectado y conserva el total de celdas (prueba automática).
+  - La pausa detiene la simulación.
+  - El resultado se ve fluido en el PC del propietario.
 
-## Hito 4 — Captura de provincias
-- Cambio de dueño tras un ataque victorioso.
+## Hito 7 — Ciudades: fundación y representación
+- Capa de ciudades independiente del territorio: fundación según D4, nivel inicial, dibujo como agrupación de píxeles.
 - **Criterios:**
-  - Tras un ataque ganador, el dueño cambia y las tropas restantes quedan en la provincia capturada.
-  - Tras un ataque perdido, el dueño no cambia.
-  - El color del mapa se actualiza de inmediato.
-  - Ninguna provincia queda sin dueño ni con dos dueños (prueba automática).
+  - Fundar una ciudad solo funciona si se cumplen las condiciones de D4 (pruebas automáticas de casos válidos e inválidos).
+  - La ciudad no modifica el propietario ni las fronteras del territorio y viceversa (prueba automática).
+  - Una ciudad recién fundada ocupa el tamaño inicial acordado.
 
-## Hito 5 — IA enemiga
-- IA simple que ataca con las mismas reglas que el jugador.
+## Hito 8 — Población, trabajadores y crecimiento urbano
+- Población trabajadora y de soldados, control deslizante en el HUD, crecimiento decreciente de ciudades y subida de nivel por umbrales.
 - **Criterios:**
-  - La IA solo realiza órdenes válidas (nunca rechazadas por el sistema).
-  - Dado el mismo estado, toma la misma decisión (determinista).
-  - En un escenario de prueba prefijado ataca a una provincia adyacente débil.
-  - Una partida de 5 minutos sin intervención no produce errores.
+  - Cambiar el control afecta solo a la población **nueva** (prueba automática).
+  - El crecimiento por unidad de población es estrictamente decreciente con el tamaño (prueba automática).
+  - Al cruzar un umbral la ciudad sube de nivel automáticamente; después sigue creciendo más despacio (prueba automática).
+  - El total de población se conserva en las conversiones.
 
-## Hito 6 — Victoria, derrota y reinicio
-- Fin de partida y reinicio.
+## Hito 9 — Dinero y recursos
+- Los dos recursos confirmados, producción en ciudades, mantenimiento de trabajadores y soldados, y construcciones según D14.
 - **Criterios:**
-  - Si el enemigo no tiene provincias, se muestra "Victoria".
-  - Si el jugador no tiene provincias, se muestra "Derrota".
-  - Tras el fin, no se aceptan más órdenes.
-  - Reiniciar restaura el estado inicial exacto (prueba automática) sin reiniciar el programa.
+  - Existen exactamente dos recursos: dinero y recursos (prueba automática del modelo).
+  - Los saldos no se vuelven negativos sin una regla explícita (prueba automática).
+  - El comportamiento cuando no alcanzan los recursos está definido y probado.
+  - El HUD muestra ambos saldos de forma discreta.
 
-## Hito 7 — Pulido y cierre del MVP
-- Corrección de errores, equilibrio básico, texto visible, revisión de documentación.
+## Hito 10 — Ejércitos, ataques y previsión de combate
+- Modelo de ejército según D7, ataques según D3/D8 y previsión visible de ventaja, probabilidad de victoria y pérdidas estimadas.
 - **Criterios:**
-  - Se completa una partida entera (victoria y derrota) siguiendo el plan de pruebas manuales.
-  - Todas las pruebas automáticas pasan.
-  - README, GDD y ROADMAP reflejan lo realmente implementado.
+  - Los ataques inválidos se rechazan (pruebas automáticas).
+  - La previsión se calcula con una función pura y coincide con el resultado cuando el combate es determinista, o con la distribución definida si hay azar (pruebas automáticas).
+  - El jugador puede ver la previsión antes de confirmar un ataque (validación visual).
+  - Está definido y probado el destino de las ciudades en territorio conquistado (D12).
 
-## Hito 8+ — Ampliaciones (fuera del MVP, requieren aprobación)
-Recursos, reclutamiento, edificios, tipos de unidad, investigación, suministros, más mapas y facciones. Se planificarán en detalle al cerrar el hito 7.
+## Hito 11 — Reclutamiento forzoso
+- Conversión rápida de un porcentaje elegible de trabajadores en soldados.
+- **Criterios:**
+  - Solo se convierte el porcentaje elegible y se conserva el total de población (pruebas automáticas).
+  - Las consecuencias definidas en D13 se aplican y se prueban.
+
+## Hito 12 — IA enemiga
+- IA simple que usa las mismas reglas y órdenes que el jugador.
+- **Criterios:**
+  - La IA solo emite órdenes válidas (prueba automática).
+  - Mismo estado y misma semilla producen la misma decisión.
+  - Una partida simulada sin intervención del jugador no produce errores.
+
+## Hito 13 — Victoria, derrota y reinicio
+- Condiciones D11, pantalla final y reinicio.
+- **Criterios:**
+  - Se detecta victoria y derrota según D11 (pruebas automáticas).
+  - No se aceptan órdenes tras el final.
+  - Reiniciar restaura el estado inicial exacto.
+
+## Hito 14 — Pulido y cierre del MVP
+- Corrección de errores, equilibrio básico, revisión de interfaz y documentación.
+- **Criterios:** una partida completa jugable de principio a fin; todas las pruebas automáticas ejecutadas y pasadas en el PC; documentos coherentes con lo implementado.
+
+## Notas de orden
+- Los hitos 7–9 pueden intercambiarse con el 6 si el propietario prefiere ver ciudades antes que expansión; el 3→4→5 es obligatorio.
+- Un hito no empieza hasta que sus decisiones abiertas tengan respuesta.
+- Más allá del MVP (sin planificar): mapas adicionales, más naciones, diplomacia, investigación, guardado de partida.

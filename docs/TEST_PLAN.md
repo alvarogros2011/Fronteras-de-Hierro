@@ -2,109 +2,152 @@
 
 ## Principios
 
-- La lógica del juego se prueba **sin interfaz**, con scripts de GDScript ejecutables en modo headless.
-- Cada hito del `ROADMAP.md` añade sus pruebas; no se cierra un hito con pruebas fallidas.
-- Los informes distinguen siempre entre pruebas **ejecutadas** y **no verificadas**.
+- La lógica del juego se prueba **sin interfaz**, con scripts GDScript ejecutables en modo headless, sin plugins.
+- Cada hito de `docs/ROADMAP.md` añade sus pruebas; un hito no se cierra con pruebas fallidas.
+- Los informes distinguen siempre entre pruebas **ejecutadas** y **no verificadas**. Nunca se afirma que algo se ejecutó o se ve bien sin haberlo hecho.
+- La simulación debe ser determinista: mismas entradas y misma semilla, mismo resultado.
+- La parte visual solo la valida el propietario en su PC (la nube no puede ver el juego).
 
-## Pruebas automáticas
+## Cómo ejecutar las pruebas
 
-Scripts propios en `tests/`, sin plugins (decisión abierta nº 7 del GDD). Cada ejecutable termina con código 0 si pasa todo y 1 si algo falla.
-
-**Comando (desde la raíz del proyecto; sustituye `godot` por tu ejecutable de Godot 4.7):**
+Desde la raíz del proyecto (sustituye `godot` por tu ejecutable de Godot 4.7):
 
 ```
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-**Estado:** `tests/test_province_data.gd` (A-01 a A-04 y A-29) y `tests/test_province_selection.gd` (A-06 a A-08 y A-30 a A-36) están escritos pero **aún no se ha ejecutado en Godot** (no hay ejecutable en la nube). Solo se ha comprobado una réplica de la lógica en Python sobre los mismos datos; no cuenta como validación en Godot. Resultado en el PC del propietario: pendiente.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal: abrir el script en el editor de Godot → **Archivo → Ejecutar** → leer el panel **Salida**.
 
-| ID | Hito | Qué comprueba | Resultado esperado |
-|---|---|---|---|
-| A-01 | 1 | Número de provincias | Exactamente 14 |
-| A-02 | 1 | Ids, nombres, propietarios y geometría | Ids únicos, no vacíos y ASCII; nombres no vacíos; propietario válido con reparto 7-7; polígonos con ≥ 3 vértices, dentro de la ventana, con área y triangulables |
-| A-03 | 1 | Vecinos | Todos existen; sin autovecinas ni duplicados; adyacencia simétrica |
-| A-04 | 1 | Conectividad | Un recorrido desde cualquier provincia alcanza las 14 |
-| A-29 | 1 | Topología y geometría coinciden | Dos provincias son vecinas si y solo si comparten una arista dibujada |
-| A-06 | 2 | Propiedad inicial y datos intactos | 14 provincias, 7 contra 7, etiquetas "Jugador"/"Enemigo"; la selección no modifica los datos |
-| A-07 | 2 | Selección por punto interior | El centro y puntos interiores de cada provincia devuelven su id |
-| A-08 | 2 | Puntos exteriores | Fuera de la ventana, márgenes y esquina recortada del mapa devuelven "" |
-| A-30 | 2 | Cerca de fronteras | A 1 px de cada frontera compartida, cada lado devuelve su provincia; sobre la frontera exacta el resultado es estable y nunca una tercera provincia |
-| A-31 | 2 | Cambio de selección | Seleccionar otra provincia actualiza `selected_id` y emite `selection_changed`; repetir no emite |
-| A-32 | 2 | Limpiar selección | Un punto vacío deja `selected_id` en "" y emite la señal una vez |
-| A-33 | 2 | Transformación del mapa | Con el nodo movido, escalado y rotado, convertir un punto global a local selecciona la provincia correcta |
-| A-34 | 2 | Panel: contenido | Nombre, propietario, recuento y nombres de vecinas coinciden con los datos para las 14 provincias |
-| A-35 | 2 | Panel: estado vacío | Sin selección se muestra la invitación y no los detalles; `build_info` de un id inexistente devuelve vacío |
-| A-36 | 2 | Escena principal | `main.tscn` carga y conecta el mapa con el panel |
-| A-09 | 3 | Ataque válido | Aceptado: origen propio, destino adyacente enemigo, tropas suficientes |
-| A-10 | 3 | Ataque a no adyacente | Rechazado |
-| A-11 | 3 | Ataque a provincia propia | Rechazado |
-| A-12 | 3 | Ataque desde provincia ajena | Rechazado |
-| A-13 | 3 | Ataque sin tropas suficientes | Rechazado |
-| A-14 | 3 | Combate: atacante mayor | Gana con N − D tropas |
-| A-15 | 3 | Combate: atacante menor | Pierde; defensor queda con D − N |
-| A-16 | 3 | Combate: igualdad | Gana el defensor con 0 de excedente (regla del GDD) |
-| A-17 | 3 | Determinismo | 100 repeticiones con las mismas entradas dan el mismo resultado |
-| A-18 | 4 | Cambio de dueño | Tras victoria, dueño nuevo y tropas restantes correctas |
-| A-19 | 4 | Sin cambio tras derrota | El dueño no cambia |
-| A-20 | 4 | Integridad de propiedad | Tras N ataques, cada provincia tiene un único dueño |
-| A-21 | 5 | Validez de la IA | Todas las órdenes de la IA son aceptadas |
-| A-22 | 5 | Determinismo de la IA | Mismo estado → misma decisión |
-| A-23 | 5 | Escenario fijo | La IA ataca a la vecina débil esperada |
-| A-24 | 5 | Sin opciones | Si no hay ataque posible, la IA no hace nada ni falla |
-| A-25 | 6 | Victoria | Enemigo sin provincias → fin con victoria |
-| A-26 | 6 | Derrota | Jugador sin provincias → fin con derrota |
-| A-27 | 6 | Órdenes tras el fin | Rechazadas |
-| A-28 | 6 | Reinicio | El estado vuelve exactamente al inicial |
+## Estado actual
 
-Nota: los resultados de A-14 a A-16 dependen de la regla de combate del GDD (suposición); se ajustarán si el propietario la cambia.
+| Elemento | Estado |
+|---|---|
+| Pantalla inicial, mapa de provincias y selección (validación visual) | Validado a mano por el propietario en Godot 4.7.2 / Windows |
+| `tests/test_province_data.gd` | Escrito. **Ejecución en Godot sin confirmar** |
+| `tests/test_province_selection.gd` | Escrito. **Ejecución en Godot sin confirmar** |
+| Réplica en Python de la lógica de datos y selección | Ejecutada en la nube sin fallos; **no sustituye a Godot** |
+| Pruebas del sistema de territorio, ciudades, población, recursos, ejércitos, IA | **No existen**: esas mecánicas no están implementadas |
 
-## Pruebas manuales
+## 1. Pruebas existentes (prototipo de provincias, legado)
 
-Se realizan en Godot 4.7 en un PC con Windows.
+Cubren código que no se amplía. Se conservarán hasta que el propietario decida el destino del prototipo (D16).
 
-| ID | Hito | Pasos | Resultado esperado |
-|---|---|---|---|
-| M-01 | 0 | Importar `project.godot` y abrirlo | Sin errores ni avisos al cargar |
-| M-02 | 0 | F5 | Ventana 1280x720 con título "FRONTERAS DE HIERRO" y subtítulo "Prototipo temprano" |
-| M-03 | 0 | Redimensionar la ventana | El contenido sigue centrado y legible |
-| M-04 | 1 | Ejecutar (F5) y observar el mapa | 14 provincias visibles, sin huecos ni solapes, con fronteras oscuras y los 14 nombres legibles; 7 azules (jugador) y 7 rojas (enemigo); leyenda "Jugador: 7 / Enemigo: 7" y "Provincias: 14"; título y subtítulo visibles; sin errores en la consola |
-| M-05 | 2 | Clic izquierdo en una provincia (propia o enemiga) | Se resalta con contorno claro, conserva su color y el panel muestra nombre, propietario y vecinas |
-| M-06 | 2 | Clic en otra provincia | La selección y el panel cambian de inmediato |
-| M-07 | 2 | Clic en una zona vacía del mapa (p. ej. la esquina inferior derecha o el fondo) | Se limpia la selección y el panel invita a seleccionar |
-| M-07b | 2 | Clic sobre el panel de información | La selección no cambia |
-| M-07c | 2 | Clics repetidos cerca de fronteras | Siempre se selecciona una de las dos provincias vecinas (o ninguna si cae justo en el borde), sin errores en la consola |
-| M-07d | 2 | Revisión visual del panel | Panel a la derecha sin tapar nombres del mapa; texto legible; sin botones de acción |
-| M-08 | 3 | Atacar provincia adyacente enemiga | Combate resuelto; tropas actualizadas |
-| M-09 | 3 | Intentar atacar provincia no adyacente | Rechazado con mensaje o sin efecto |
-| M-10 | 4 | Ganar un ataque | La provincia cambia de color |
-| M-11 | 5 | Dejar la partida 2 minutos sin actuar | El enemigo ataca; sin errores |
-| M-12 | 6 | Conquistar todas las provincias enemigas | Aparece "Victoria" |
-| M-13 | 6 | Perder todas las provincias | Aparece "Derrota" |
-| M-14 | 6 | Reiniciar tras el fin | Partida nueva con el estado inicial |
-
-## Pruebas del hito 0 (cimientos)
-
-| Comprobación | Cómo | Estado |
+| ID | Archivo | Qué comprueba |
 |---|---|---|
-| `project.godot` apunta a `res://scenes/main.tscn` | Revisión estática | Hecho en la nube |
-| La escena existe y su formato es coherente | Revisión estática | Hecho en la nube |
-| Carga sin errores en Godot 4.7 | M-01, M-02, M-03 | **Pendiente** (requiere Godot) |
+| A-01 | test_province_data | Exactamente 14 provincias |
+| A-02 | test_province_data | Ids únicos y ASCII, nombres no vacíos, propietarios válidos 7-7, geometría renderizable |
+| A-03 | test_province_data | Vecinos existentes, sin autovecinas ni duplicados, adyacencia simétrica |
+| A-04 | test_province_data | Grafo conexo |
+| A-05 | test_province_data | Vecinos declarados = provincias que comparten arista |
+| A-06 | test_province_selection | Integridad de datos y etiquetas de propietario |
+| A-07 | test_province_selection | Punto interior → provincia correcta |
+| A-08 | test_province_selection | Puntos exteriores → ninguna |
+| A-09 | test_province_selection | Cerca de fronteras y en la frontera exacta: resultado estable, nunca una tercera provincia |
+| A-10 | test_province_selection | Cambio y limpieza de selección con señales |
+| A-11 | test_province_selection | Mapa movido, escalado y rotado |
+| A-12 | test_province_selection | Panel de información coincide con los datos; estado vacío |
 
-## Estado del hito 1 (mapa y provincias)
+Pruebas manuales ya realizadas por el propietario (validación visual): M-01 abrir el proyecto, M-02 F5 sin errores, M-03 mapa de 14 provincias legible, M-04 clic selecciona y resalta, M-05 panel de información, M-06 clic en vacío limpia la selección.
 
-| Comprobación | Cómo | Estado |
-|---|---|---|
-| Hito 0 en Godot 4.7.2 / Windows | M-01, M-02 | Validado por el propietario (informe del usuario) |
-| Datos del mapa (14 provincias, 7-7, vecinos simétricos, conexo, aristas compartidas) | Réplica en Python de las comprobaciones sobre `province_data.gd` | Ejecutado en la nube: correcto. No sustituye a Godot |
-| `tests/test_province_data.gd` | Comando de arriba | **Pendiente** en Godot (PC del propietario) |
-| Aspecto del mapa | M-04 | **Pendiente** (nadie lo ha visto ejecutándose) |
+> Los antiguos casos A-09 a A-28 (ataques, combate, captura, IA y victoria sobre provincias) quedan **descartados** junto con los hitos 3–7 antiguos.
 
-## Estado del hito 2 (selección e información)
+## 2. Pruebas futuras (no existen todavía)
 
-| Comprobación | Cómo | Estado |
-|---|---|---|
-| Lógica de selección (centros, puntos descentrados, vecindades, bordes, exteriores) | Réplica en Python sobre los datos reales | Ejecutado en la nube: correcto. No sustituye a Godot |
-| `tests/test_province_selection.gd` | Comando de arriba | **Pendiente** en Godot (PC del propietario) |
-| `tests/test_province_data.gd` | Comando de arriba | **Pendiente** en Godot (PC del propietario) |
-| Aspecto, clics reales y panel | M-05 a M-07d | **Pendiente** (nadie lo ha visto ejecutándose) |
+Cada bloque se escribe en el hito indicado y **solo cuando exista la mecánica**. Los valores concretos dependen de las decisiones abiertas (GDD §12).
+
+### Hito 3 — Cuadrícula de territorio
+| ID | Qué comprobar |
+|---|---|
+| T-01 | Creación con tamaño dado; consulta de terreno y propietario de cualquier celda válida |
+| T-02 | Coordenadas fuera de límites rechazadas sin error |
+| T-03 | Una celda de agua no admite propietario |
+| T-04 | Detección de frontera: una celda es de frontera si algún vecino ortogonal tiene otro propietario o es agua |
+| T-05 | Recuento de celdas por nación coherente tras secuencias de cambios (suma total conservada) |
+| T-06 | Continuidad del territorio de una nación (detecta enclaves separados) |
+| T-07 | Determinismo del mapa de prueba generado con semilla |
+
+### Hito 4 — Vista pixelada
+| ID | Qué comprobar |
+|---|---|
+| T-10 | El color de cada píxel de la imagen corresponde al propietario de su celda |
+| T-11 | Las celdas de frontera usan el tono de frontera |
+| T-12 | Cambiar una celda actualiza solo esa celda y sus cuatro vecinas |
+| T-13 | Conversión posición de ratón → celda correcta con el nodo movido, escalado o con zoom |
+| T-14 | Medición de tiempo de actualización (manual, en el PC) |
+| M-10 | Visual: aspecto pixelado limpio, fronteras coherentes, sin provincias seleccionables |
+
+### Hito 5 — Naciones y HUD
+| ID | Qué comprobar |
+|---|---|
+| T-20 | Cada nación tiene territorio inicial continuo; ninguna celda con dos propietarios |
+| T-21 | El HUD muestra datos iguales a los del estado |
+
+### Hito 6 — Simulación y expansión
+| ID | Qué comprobar |
+|---|---|
+| T-30 | Mismos pasos + misma semilla → mismo estado (hash) |
+| T-31 | La expansión solo reclama celdas de tierra adyacentes; no crea territorio desconectado |
+| T-32 | Conservación: total de celdas y de celdas por propietario coherentes |
+| T-33 | La pausa detiene el avance; reanudar continúa |
+
+### Hito 7 — Ciudades
+| ID | Qué comprobar |
+|---|---|
+| T-40 | Fundación válida e inválida según las condiciones de D4 |
+| T-41 | El tamaño inicial de una ciudad es el definido |
+| T-42 | Fundar o crecer una ciudad no cambia propietarios ni fronteras; expandir fronteras no cambia ciudades |
+| T-43 | Dos ciudades no ocupan la misma celda |
+
+### Hito 8 — Población y crecimiento urbano
+| ID | Qué comprobar |
+|---|---|
+| T-50 | Cambiar el reparto trabajadores/soldados solo afecta a la población nueva |
+| T-51 | El reparto suma siempre el 100 % y se conserva la población total |
+| T-52 | El crecimiento por unidad de población es decreciente con el tamaño |
+| T-53 | Subida automática de nivel al cruzar umbrales; después sigue creciendo más despacio |
+| T-54 | La ciudad no crece sin trabajadores asignados |
+
+### Hito 9 — Dinero y recursos
+| ID | Qué comprobar |
+|---|---|
+| T-60 | Existen exactamente dos recursos (dinero y recursos) |
+| T-61 | Producción de ciudades según nivel y trabajadores |
+| T-62 | Mantenimiento de trabajadores y soldados con recursos |
+| T-63 | Comportamiento definido cuando no alcanzan los recursos; saldos sin valores negativos no previstos |
+| T-64 | Construcciones: se rechazan sin dinero suficiente |
+
+### Hito 10 — Ejércitos y combate
+| ID | Qué comprobar |
+|---|---|
+| T-70 | Ataques inválidos rechazados (según reglas que se definan) |
+| T-71 | La previsión de ventaja coincide con el resultado (determinista) o con la distribución definida (con azar y semilla) |
+| T-72 | Los números previstos de pérdidas y probabilidad son coherentes y reproducibles |
+| T-73 | Destino de las ciudades en territorio conquistado (D12) |
+| M-70 | Visual: la previsión es comprensible antes de confirmar el ataque |
+
+### Hito 11 — Reclutamiento forzoso
+| ID | Qué comprobar |
+|---|---|
+| T-80 | Solo se convierte el porcentaje elegible |
+| T-81 | La población total se conserva |
+| T-82 | Las consecuencias definidas en D13 se aplican |
+
+### Hito 12 — IA
+| ID | Qué comprobar |
+|---|---|
+| T-90 | La IA solo emite órdenes válidas |
+| T-91 | Determinismo: mismo estado y semilla → misma decisión |
+| T-92 | Una simulación larga sin jugador no produce errores |
+
+### Hito 13 — Victoria, derrota y reinicio
+| ID | Qué comprobar |
+|---|---|
+| T-100 | Detección de victoria y derrota según D11 |
+| T-101 | Tras el final se rechazan órdenes |
+| T-102 | Reinicio restaura el estado inicial exacto |
+
+### Rendimiento y regresión
+- Medir en el PC del propietario el coste de un paso de simulación y de una actualización visual con el tamaño de mapa elegido (D1); registrar los números reales en este documento. No se fijan umbrales hasta tener mediciones.
+- Cada hito mantiene pasando las pruebas de los hitos anteriores que sigan vigentes.
+- Antes de ampliar el sistema de pruebas, evaluar extraer un ejecutor común para evitar repetir el código base de cada archivo de pruebas (hoy se repite en dos archivos).

@@ -1,38 +1,47 @@
 # Fronteras de Hierro
 
-Juego de estrategia 2D en tiempo real de conquista de territorios. Controlas una nación ficticia en un mapa dividido en provincias conectadas, mueves tropas, combates contra una facción enemiga controlada por IA e intentas ganar la guerra.
+Juego 2D de estrategia territorial en tiempo real, fácil de aprender y de jugar, muy cercano a la experiencia general de OpenFront pero con mecánicas propias y algo más de profundidad, sin ser un RTS táctico complejo.
 
-- **Motor:** Godot 4.7
-- **Lenguaje:** GDScript
-- **Plataforma:** PC con Windows
-- **Estilo:** pixel art, mapa estratégico visto desde arriba
-- **Inspiración:** los conceptos generales de OpenFront y Call of War. No se copian sus mapas, recursos, código, nombres ni interfaz.
+- **Motor:** Godot 4.7 · **Lenguaje:** GDScript · **Plataforma:** PC con Windows
+- **Estilo:** pixel art, mapa visto desde arriba, interfaz limpia y minimalista
+- **Inspiración:** conceptos generales de OpenFront. No se copian sus mapas, recursos, código, nombres ni interfaz.
 
-## Estado actual
+## Concepto actual (visión de diseño)
 
-**Hito 2 (selección e información de provincias) implementado; pendiente de validar en el PC del propietario.**
+> Esta sección describe lo **planificado**, no lo implementado.
 
-- Hito 0 (cimientos): validado manualmente en Godot 4.7.2 en Windows, según informó el propietario (importa, F5 arranca, sin errores).
-- Hito 1: mapa **estático** de 14 provincias ficticias (7 del jugador, 7 del enemigo) con fronteras, nombres, leyenda y contador. Los datos están en `scripts/data/province_data.gd` y el dibujo en `scripts/map/province_map.gd`.
-- Hito 2: **clic izquierdo** en una provincia la selecciona (contorno claro, color de propietario intacto) y un panel a la derecha muestra su nombre, propietario y provincias vecinas. Clic en una zona vacía limpia la selección. La detección usa los polígonos reales de los datos.
-- Pruebas automáticas en `tests/test_province_data.gd` (datos) y `tests/test_province_selection.gd` (selección y panel).
+- El mapa es el elemento principal: territorio y fronteras pixeladas, con varias naciones.
+- Cada nación es un territorio continuo formado por celdas; **no hay provincias seleccionables**.
+- El jugador funda **ciudades**, que se ven como agrupaciones de píxeles y crecen con el tiempo (cada vez más despacio) y suben de nivel.
+- La población se reparte entre **trabajadores y soldados** con un control deslizante en el HUD (solo afecta a la población nueva); existe un **reclutamiento forzoso**.
+- Solo hay **dos recursos**: dinero (construcciones) y recursos (mantenimiento de trabajadores y soldados).
+- Antes de atacar, el juego mostrará una previsión comprensible de ventaja y pérdidas.
+- La mecánica diferenciadora definitiva, el modelo de ejércitos y muchos números siguen **sin decidir**. Ver `docs/GDD.md`.
 
-**Todavía no hay jugabilidad**: no hay tropas, ataques, combate, captura, economía ni IA.
+## Estado real del proyecto
 
-> Desde la nube no hay ejecutable de Godot: ni las pruebas automáticas ni el aspecto del mapa se han ejecutado todavía. Las pruebas de los hitos 1 y 2 siguen sin confirmar en Godot. Ver `docs/TEST_PLAN.md`.
+**Fase actual: rediseño y planificación. No se ha escrito código nuevo.**
 
-**Dirección de diseño:** fácil de aprender, cercano a OpenFront en su bucle general, presentación limpia centrada en el mapa. La mecánica propia y el modelo de unidades están por decidir (ver `docs/GDD.md` §1b).
+Lo único implementado es el **prototipo anterior de provincias** (legado):
+- Pantalla inicial con el título y mapa estático de 14 provincias (7 del jugador, 7 del enemigo).
+- Clic izquierdo para seleccionar una provincia y panel con su nombre, propietario y vecinas.
+- El propietario validó a mano en Godot 4.7.2 la pantalla inicial, el mapa y la selección.
+- Existen pruebas automáticas (`tests/`), pero **no están confirmadas como ejecutadas** en Godot.
+
+Este prototipo **no se amplía**: no hay tropas, combate, captura, economía, ciudades ni IA. Se conservará hasta que exista un sustituto y el propietario decida su destino.
+
+Nada de lo descrito en el concepto actual existe todavía. Siguiente paso: respuestas del propietario a las decisiones abiertas y, después, el hito 3 (datos del territorio). Ver `docs/ROADMAP.md`.
 
 ## Cómo abrir el proyecto
 
 1. Instala Godot 4.7 (versión estándar, no .NET).
 2. Clona este repositorio o descárgalo.
-3. En el gestor de proyectos de Godot pulsa **Importar** y elige el archivo `project.godot`.
-4. Pulsa **F5** (Ejecutar proyecto). Debe aparecer una pantalla oscura con el título del juego.
+3. En el gestor de proyectos de Godot pulsa **Importar** y elige `project.godot`.
+4. Pulsa **F5**. Aparece el mapa de provincias del prototipo anterior.
 
-La primera vez Godot generará la carpeta `.godot/` (caché local, ignorada por git).
+La primera vez Godot genera la carpeta `.godot/` (caché local, ignorada por git).
 
-## Pruebas automáticas
+## Pruebas automáticas (prototipo anterior)
 
 Desde la raíz del proyecto (sustituye `godot` por la ruta de tu ejecutable de Godot 4.7):
 
@@ -41,31 +50,32 @@ godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada comando ejecuta un archivo de pruebas. Imprime `PASS`/`FAIL` por prueba y termina con código 0 si todo pasa o 1 si algo falla. Si es la primera vez que abres el proyecto, ábrelo antes una vez en el editor para que Godot genere la caché `.godot/`.
+Cada comando ejecuta un archivo; imprime `PASS`/`FAIL` y termina con código 0 si todo pasa o 1 si algo falla. También se pueden ejecutar desde el editor (abrir el script → **Archivo → Ejecutar**) y leer el panel **Salida**.
 
 ## Estructura
 
 | Ruta | Contenido |
 |---|---|
-| `scenes/` | Escenas de Godot (`.tscn`) |
-| `scripts/data/` | Datos autoritativos del mapa (`province_data.gd`) |
-| `scripts/map/` | Dibujo del mapa y selección (`province_map.gd`) |
-| `scripts/ui/` | Panel de información (`province_info_panel.gd`) |
-| `tests/` | Pruebas automáticas (sin plugins) |
-| `assets/` | Arte y sonido (aún vacío; se crea con el primer recurso) |
-| `docs/` | Documentación del diseño y del desarrollo |
+| `scenes/` | Escenas de Godot (`main.tscn`) |
+| `scripts/data/` | Datos del mapa de provincias (legado) |
+| `scripts/map/` | Dibujo y selección del mapa de provincias (legado) |
+| `scripts/ui/` | Panel de información de provincias (legado) |
+| `tests/` | Pruebas automáticas sin plugins |
+| `assets/` | Aún no existe; se creará con el primer recurso |
+| `docs/` | Documentación |
 
 ## Documentación
 
-- [`docs/GDD.md`](docs/GDD.md): diseño del juego (decisiones confirmadas y suposiciones).
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): hitos de desarrollo con criterios de finalización.
-- [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md): pruebas manuales y automáticas.
+- [`docs/GDD.md`](docs/GDD.md): diseño del juego (confirmado, propuesto y abierto) y decisiones abiertas.
+- [`docs/REDESIGN_PLAN.md`](docs/REDESIGN_PLAN.md): evaluación del código, enfoques técnicos del territorio pixelado, arquitectura recomendada y riesgos.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md): hitos en orden de dependencia con criterios medibles.
+- [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md): pruebas existentes y necesidades futuras.
 - [`CLAUDE.md`](CLAUDE.md): instrucciones persistentes para las sesiones de Claude Code.
 
 ## Proceso de desarrollo
 
-- Trabajo por **hitos pequeños** en el orden de `docs/ROADMAP.md`; cada hito se pide y se revisa por separado.
-- Cada hito se desarrolla en una rama propia y se revisa antes de fusionarse. Nunca se trabaja directamente sobre `main`.
-- La lógica del juego (combate, propiedad, IA, victoria) se separa de la interfaz para poder probarla de forma automática.
-- Todo hito se cierra con un informe honesto de qué se probó y qué no.
-- La documentación y los comentarios están en español.
+- Hitos pequeños en el orden de `docs/ROADMAP.md`; cada uno se pide y se revisa por separado, y no empieza hasta que sus decisiones abiertas estén respondidas.
+- Desarrollo en una rama aislada; nunca se trabaja directamente sobre `main`.
+- La lógica del juego se separa de la interfaz para poder probarla de forma automática.
+- Cada hito termina con un informe honesto de qué se probó y qué no.
+- Documentación, comentarios y textos del juego en español; identificadores de código en inglés.
