@@ -68,3 +68,14 @@ func spend_money(nation_id: int, amount: int) -> bool:
 	if amount > 0:
 		balances_changed.emit()
 	return true
+
+
+## Descuenta recursos con las mismas reglas que spend_money: false, sin cambiar nada, si la
+## nación no existe, la cantidad es negativa o el saldo no alcanza.
+func spend_resources(nation_id: int, amount: int) -> bool:
+	if amount < 0 or not _resources.has(nation_id) or _resources[nation_id] < amount:
+		return false
+	_resources[nation_id] -= amount
+	if amount > 0:
+		balances_changed.emit()
+	return true

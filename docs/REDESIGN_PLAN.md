@@ -137,12 +137,13 @@ Las dependencias van en una sola dirección (de abajo hacia arriba en la tabla).
 | 4 | Vista pixelada, fronteras derivadas, ratón → celda; medir rendimiento — **implementado sin cámara; 14 PASS del propietario; medición de rendimiento por hacer** | 3 | D1 (cámara) |
 | 5 | Fundamentos de la conquista: operación `conquer_cells` validada y atómica — **hecho; 18 PASS del propietario** | 4 | — (el combate/autorización: D3) |
 | 5b | Naciones y HUD base (antes «hito 5») — **hecho; 10 PASS del propietario** | 4 | D2 (valores provisionales) |
-| 6 | **Ciudades y economía básica** (ciudades iniciales, fundación, crecimiento por niveles, dinero y recursos) — **implementado; pruebas por ejecutar en Godot** | 5b | D4, D6, D14 (valores provisionales) |
-| 7 | Reloj de simulación global y expansión territorial (con comprobación de continuidad) — aplazado desde el antiguo hito 6 | 5, 6 | D3, D10 |
-| 8 | Población, trabajadores, reparto y crecimiento urbano | 6 | D5, D6, D15 |
-| 9 | Mantenimiento de trabajadores y soldados y construcciones | 8 | D14 |
-| 10 | Cifra de soldados, ataques (zona de ataque con flecha opcional) y previsión de combate | 6, 8 | D7, D8, D12, D18 |
-| 11 | Reclutamiento forzoso | 8, 10 | D13 |
+| 6 | **Ciudades y economía básica** (ciudades iniciales, fundación, crecimiento por niveles, dinero y recursos) — **hecho; 21 PASS del propietario** | 5b | D4, D6, D14 (valores provisionales) |
+| 7 | **Población, trabajadores y mantenimiento** (reparto de la población nueva, prioridad de crecimiento, movilización progresiva, déficit gradual) — **implementado; pruebas por ejecutar en Godot** | 6 | D5, D6, D13, D14, D15, D19 (valores provisionales) |
+| — | Reloj de simulación global y pausa — **pendiente de redefinición**; la expansión territorial automática (antiguo hito 7) queda **descartada** | 5, 6 | D10 |
+| 8 | (absorbido por el hito 7) | — | — |
+| 9 | Construcciones y producción según trabajadores | 7 | D14 |
+| 10 | Cifra de soldados, ataques (zona de ataque con flecha opcional) y previsión de combate | 6, 7 | D7, D8, D12, D18 |
+| 11 | (absorbido por el hito 7 como movilización progresiva) | — | D13 |
 | 12 | IA | 10 | — |
 | 13 | Victoria, derrota y reinicio | 12 | D11 |
 | 14 | Pulido y cierre del MVP | 13 | — |
@@ -242,3 +243,17 @@ Propuestas técnicas provisionales; el propietario puede revertirlas.
 - **Visual:** rombo de píxeles (distancia Manhattan ≤ radio del nivel), recortado a la tierra del propietario, dibujado con rectángulos de una celda en un solo `_draw` (sin nodos por píxel), con redibujo solo al cambiar ciudades o propietarios. `MIN_CITY_DISTANCE` debe ser mayor que el doble del radio máximo para que no se solapen (una prueba lo comprueba).
 - **Entrada:** `territory_map_view.gd` gana la señal `cell_clicked` y el indicador `selection_enabled`; en modo de fundación el clic ya no selecciona. Los controles nuevos capturan el clic (el botón) o lo ignoran (etiquetas), así que no se funda a través de ellos. No se ha tocado nada de la selección existente.
 - **Pendiente de medir/validar en Godot:** disposición del botón y los textos, legibilidad de las ciudades pequeñas a escala 3, ritmo de crecimiento y de ingresos.
+
+## Decisiones técnicas del hito 7 (población, movilización y mantenimiento)
+
+Propuestas técnicas provisionales; el propietario puede revertirlas.
+
+- **Piezas:** `Population` (`scripts/world/population.gd`, lógica sin nodos), `population_balance.gd` (todas las constantes, provisionales) y `population_panel.gd` (HUD que solo lee y llama a órdenes). `Economy` gana `spend_resources` (mismas reglas que `spend_money`). `CityManager` gana solo la señal `ticked`; su producción, crecimiento y tests no cambian.
+- **Modelo mínimo sin duplicar datos:** población **nacional** (dos cifras por nación: trabajadores y soldados). La ciudad no guarda población; contribuye por nivel a la capacidad y al crecimiento de su propietario, que sigue derivándose de la celda central. Así una conquista traslada la contribución sin código adicional y los totales no pueden desincronizarse. Se descartó una población por ciudad con asignación de trabajadores porque el diseño actual no prevé asignar trabajadores concretos a ciudades (D5).
+- **Reloj único:** `Population` se engancha a `CityManager.ticked` (emitida tras producir y crecer), de modo que producción, población y mantenimiento comparten el paso fijo y el orden es determinista (la producción del tick ya está pagada cuando se cobra el mantenimiento). Alternativa descartada: un segundo acumulador de tiempo, que podría desfasarse. No es el reloj global del juego (pausa y velocidad siguen sin decidir, D10).
+- **Aritmética entera sin pérdidas:** el crecimiento y los costes fraccionarios se expresan en milésimas con el resto acumulado entre ticks; el reparto de nacidos entre trabajadores y soldados usa un resto en porcentaje, de modo que `nuevos trabajadores + nuevos soldados = nacidos` siempre y el reparto acumulado es exactamente `floor(nacidos * porcentaje / 100)`. El resto de crecimiento se limita a 999 para que liberar capacidad no provoque una ráfaga.
+- **Movilización:** reserva fija al empezar (porcentaje de los trabajadores actuales, hacia abajo) y conversión a ritmo constante `floor(total * tick / duración)`, que suma exactamente el total en el último tick. Una sola por nación: es la forma más simple de impedir que dos órdenes recluten a las mismas personas. Si un déficit mata trabajadores, la reserva se recorta.
+- **Déficit con deuda (no con un contador de ticks sueltos):** una primera versión contaba ticks seguidos sin pagar; se descartó porque los costes fraccionarios dan cargos de 0 o 1 recurso de forma irregular y un reparto de recursos entre ticks podía esconder una escasez real. Con deuda acotada, el déficit dura mientras falte saldar lo debido, la deuda no puede crecer sin límite (evita una espiral imposible de revertir) y el saldo nunca es negativo.
+- **Comprobación del equilibrio:** además de las pruebas, se contrastaron las cifras con una réplica de la lógica en Python (escrita para el diseño, no es una prueba de Godot ni la sustituye): sin déficit en 2.000 ticks con repartos del 0 al 100 % y movilización del 50 %; un déficit provocado se corrige solo en unas decenas de ticks.
+- **Interfaz:** panel a la derecha del mapa (columna de 148 px que antes estaba vacía) y casilla de prioridad dentro del panel de información existente, que ahora se ancla al borde inferior y crece hacia arriba para no salirse de la ventana. Pendiente de validar visualmente (tamaños de fuente y ajuste de líneas no se han visto).
+- **Límites:** sin producción según trabajadores (D14), sin consecuencias militares del déficit (dependen del combate), sin pausa (D10).

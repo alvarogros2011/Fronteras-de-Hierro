@@ -1,9 +1,13 @@
 ## Panel compacto con la información de la celda seleccionada (hito 4): coordenadas,
-## terreno y propietario. Solo lee de TerritoryGrid; no tiene ningún control que cambie datos.
+## terreno y propietario. Solo lee de TerritoryGrid. Desde el hito 7, si la celda pertenece a una
+## ciudad del jugador, añade un control para activar o quitar su prioridad de crecimiento de
+## población (solo cambia el crecimiento de población: nunca territorio, dinero ni nivel).
 extends PanelContainer
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
 const CityManager := preload("res://scripts/world/city_manager.gd")
+const Population := preload("res://scripts/world/population.gd")
+const PopulationPanel := preload("res://scripts/ui/population_panel.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
 const NO_CELL := Vector2i(-1, -1)
@@ -12,15 +16,29 @@ const EMPTY_TEXT := "Haz clic en una celda de tierra para inspeccionarla."
 var grid: TerritoryGrid
 ## Ciudades (hito 6). Si se asigna, se añade la información de la ciudad que cubra la celda.
 var cities: CityManager
+## Población (hito 7) y nación del jugador. Si ambos están asignados, las ciudades del jugador
+## muestran el control de prioridad de crecimiento.
+var population: Population
+var player_id: int = TerritoryGrid.INVALID
 
 var _label: Label
+var _priority_button: CheckButton
+var _shown_city_id: int = CityManager.NO_CITY
 
 
 func _ready() -> void:
+	var box := VBoxContainer.new()
+	add_child(box)
 	_label = Label.new()
 	_label.add_theme_font_size_override("font_size", 14)
 	_label.add_theme_color_override("font_color", Color(0.85, 0.87, 0.9))
-	add_child(_label)
+	box.add_child(_label)
+	_priority_button = CheckButton.new()
+	_priority_button.focus_mode = Control.FOCUS_NONE
+	_priority_button.add_theme_font_size_override("font_size", 12)
+	_priority_button.visible = false
+	_priority_button.toggled.connect(_on_priority_toggled)
+	box.add_child(_priority_button)
 	show_cell(NO_CELL)
 
 
@@ -54,12 +72,35 @@ static func format_rate(per_tick: int) -> String:
 	return ("%.1f" % per_second).replace(".", ",")
 
 
+## Texto del control de prioridad: "Prioridad de población · +0,15/s" (aporte bruto de la ciudad).
+static func priority_text(source: Population, city_id: int) -> String:
+	return "Prioridad de población · +%s/s" % PopulationPanel.format_milli_rate(source.city_growth_milli(city_id))
+
+
 func show_cell(cell: Vector2i) -> void:
 	if _label == null:
 		return
 	var text := describe(grid, cell)
+	var city_id := CityManager.NO_CITY
 	if cities != null and grid != null and grid.is_valid_coord(cell.x, cell.y):
-		var city_id := cities.city_covering(cell)
+		city_id = cities.city_covering(cell)
 		if city_id != CityManager.NO_CITY:
 			text += "\n" + describe_city(grid, cities, city_id)
 	_label.text = text
+	_shown_city_id = CityManager.NO_CITY
+	_priority_button.visible = false
+	if city_id != CityManager.NO_CITY and population != null and cities.get_owner(city_id) == player_id:
+		_shown_city_id = city_id
+		_priority_button.visible = true
+		_priority_button.text = priority_text(population, city_id)
+		_priority_button.set_pressed_no_signal(population.is_city_priority(city_id))
+
+
+## Control de prioridad de crecimiento (visible solo con una ciudad del jugador seleccionada).
+func priority_toggle() -> CheckButton:
+	return _priority_button
+
+
+func _on_priority_toggled(pressed: bool) -> void:
+	if _shown_city_id != CityManager.NO_CITY and population != null:
+		population.set_city_priority(player_id, _shown_city_id, pressed)

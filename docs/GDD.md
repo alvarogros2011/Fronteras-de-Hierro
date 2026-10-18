@@ -5,7 +5,7 @@ Leyenda:
 - **[P]** Propuesta recomendada por Claude, pendiente de aprobación.
 - **[A]** Abierto: sin decidir. Cada decisión abierta tiene un código (D1, D2…) listado en §12.
 
-> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5), la leyenda con estadísticas territoriales por nación (hito 5b) —las cuatro suites de pruebas de los hitos 3–5b fueron ejecutadas por el propietario en Godot 4.7.2: 63 PASS— y **ciudades y economía básica (hito 6, sin ejecutar ni validar en Godot)**; no hay combate, población ni ejércitos. El resto de §5–§9 es diseño.
+> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5), la leyenda con estadísticas territoriales por nación (hito 5b) —las cuatro suites de pruebas de los hitos 3–5b fueron ejecutadas por el propietario en Godot 4.7.2: 63 PASS— **ciudades y economía básica (hito 6; 21 PASS ejecutadas por el propietario, que comprobó que las ciudades aparecen y crecen)** y **población, movilización y mantenimiento (hito 7, sin ejecutar ni validar en Godot)**; no hay combate ni ejércitos que se muevan. El resto de §5–§9 es diseño.
 
 ## 1. Concepto
 
@@ -144,22 +144,22 @@ Fuera del MVP: multijugador, guardado de partida, más recursos (excluidos por d
 | D1 | Provisional: 320x180, agua/tierra, mapa determinista (hito 3). Abierto: cámara (zoom/desplazamiento), mapa aleatorio, más terrenos | Hito 4 (cámara) |
 | D2 | Provisional: 4 naciones (jugador + 3 de IA; campo `controller` human/ai). Abierto: cuántas en el MVP y quién las controla | Tras el hito 5b |
 | D3 | Fórmula y coste de los ataques; cómo crece el territorio tras atacar; cómo se expande hacia tierra vacía | Hito 7 (aplazado) |
-| D4 | Provisional (hito 6): coste 100, distancia mínima 9, fundación inmediata. Abierto: valores definitivos, tiempo de fundación, límite de ciudades | Revisión en el equilibrado |
-| D5 | Asignación de trabajadores a ciudades; población global o por ciudad | Hito 8 |
-| D6 | Provisional (hito 6): 4 niveles, umbrales 30/60/120 ticks, rombo de píxeles. Abierto: relación con la población | Hito 8 |
+| D4 | Provisional (hito 6): coste 100, distancia mínima 9, fundación **inmediata** (el tiempo de fundación confirmado **no está implementado**: pendiente registrado). Abierto: valores definitivos, tiempo de fundación, límite de ciudades | Revisión en el equilibrado |
+| D5 | Provisional (hito 7): población **nacional**, sin asignar trabajadores a ciudades concretas (fuera del diseño actual). Abierto: producción según trabajadores | Hito 9 |
+| D6 | Provisional (hito 6): 4 niveles, umbrales 30/60/120 ticks, rombo de píxeles. Hito 7: el nivel fija capacidad y crecimiento de población, pero la población no acelera el crecimiento visual. Abierto: relación definitiva | Ninguno directo |
 | D7 | Dónde se guarda y cómo se agrupa la cifra de soldados | Hito 10 |
 | D8 | Combate determinista o con azar; significado de la probabilidad de victoria | Hito 10 |
 | D9 | Mecánica diferenciadora definitiva | Ninguno directo; afecta a la prioridad |
 | D10 | Ritmo del tiempo real: pausa, control de velocidad, duración objetivo de la partida | Hito 7 |
 | D11 | Condiciones de victoria y derrota | Hito 13 |
 | D12 | Destino de las ciudades cuando cambia el propietario de su territorio | Hito 10 |
-| D13 | Reclutamiento forzoso: porcentaje elegible, duración, penalizaciones | Hito 11 |
-| D14 | Provisional (hito 6): producción por nivel de ciudad. Abierto: consumo, mantenimiento, construcciones | Hito 9 |
-| D15 | Control deslizante: global de la nación o por ciudad | Hito 8 |
+| D13 | Provisional (hito 7): movilización de hasta el 50 % de los trabajadores en 30 ticks, sin penalizaciones propias. Abierto: valores definitivos y penalizaciones | Revisión en el equilibrado |
+| D14 | Provisional (hitos 6 y 7): producción por nivel de ciudad y mantenimiento por persona con déficit gradual. Abierto: producción según trabajadores, construcciones | Hito 9 |
+| D15 | Provisional (hito 7): el control de reparto es **global de la nación**. Abierto: ¿por ciudad? | Ninguno directo |
 | D16 | Retirada del prototipo de provincias: cuando el nuevo mapa visual y su interacción estén validados a mano por el propietario | Tras el hito 4–5 |
 | D17 | Nombres: mundo, naciones y ciudades (hoy hay nombres provisionales de naciones) | Sin bloqueo |
 | D18 | Cómo se selecciona y visualiza la zona de ataque (flecha u otra herramienta) | Hito 10 |
-| D19 | Prioridad de población: efecto, coste y límites | Hito 8 |
+| D19 | Provisional (hito 7): prioridad por ciudad, x2 al crecimiento de población, sin coste ni límite. Abierto: coste y límites definitivos | Revisión en el equilibrado |
 
 ## 13. Prototipo anterior de provincias (legado)
 
@@ -183,7 +183,7 @@ Este prototipo **no se amplía** y no define el diseño actual: las provincias s
 
 ## Ciudades y economía básica (hito 6)
 
-Implementado, con pruebas escritas pero **sin ejecutar ni validar en Godot**. Todos los números son **[P] provisionales**, centralizados en `scripts/data/economy_balance.gd`, y se ajustarán al equilibrar.
+Implementado. El propietario ejecutó en Godot 4.7.2 sus 21 pruebas (21 PASS) y comprobó que las ciudades iniciales aparecen y crecen visualmente. Todos los números son **[P] provisionales**, centralizados en `scripts/data/economy_balance.gd`, y se ajustarán al equilibrar.
 
 - **[C]** Solo dos recursos: dinero y recursos. No hay tercer recurso (el dinero servirá también, más adelante, para los pagos de los tratados de paz).
 - **[P]** Cada nación empieza con una **ciudad de nivel 1** (sin ser capital ni tener bonificaciones), 50 de dinero y 0 de recursos. Las ciudades iniciales están en el territorio inicial de cada nación.
@@ -192,4 +192,34 @@ Implementado, con pruebas escritas pero **sin ejecutar ni validar en Godot**. To
 - **[P]** Producción por segundo y ciudad según nivel: dinero 2/3/5/8 y recursos 1/2/3/5. Se paga al propietario actual de la ciudad.
 - **[P]** Si una celda con ciudad cambia de propietario (conquista), la ciudad pasa al nuevo propietario con su nivel y progreso; no se destruye. Es una decisión provisional que **adelanta una respuesta a D12** (destino de las ciudades) solo en lo mínimo; la ocupación militar provisional no existe todavía y no se ha acoplado.
 - **[P]** HUD: dinero y recursos del jugador arriba a la derecha, con su ingreso por segundo; el panel de celda añade propietario, nivel, producción y crecimiento de la ciudad que cubra la celda seleccionada.
-- **No hay** mantenimiento, población, trabajadores, soldados ni prioridad de población; **tampoco expansión territorial automática**.
+- Población, trabajadores, soldados, prioridad de población y mantenimiento se añadieron después, en el hito 7 (ver abajo); **tampoco hay expansión territorial automática**. Pendiente: la fundación es instantánea y el tiempo de fundación confirmado no está implementado.
+
+## Población, movilización y mantenimiento (hito 7)
+
+Implementado, con pruebas escritas pero **sin ejecutar ni validar en Godot**. Todos los números son **[P] provisionales**, centralizados en `scripts/data/population_balance.gd`. Nada de esto crea combate, ejércitos que se muevan ni cambia fronteras: **la población, la economía y el mantenimiento nunca modifican el territorio** (solo `conquer_cells`).
+
+**Modelo.** La población es **nacional**: por nación se guardan trabajadores y soldados; total, trabajadores disponibles (sin reservar), capacidad y crecimiento se derivan. Las ciudades no guardan población: cada ciudad activa (con propietario) contribuye según su nivel al crecimiento y a la capacidad de su propietario. Una ciudad conquistada contribuye al nuevo dueño. Los soldados son una **cifra nacional** (no hay unidades dibujadas); su reparto por frentes pertenece al futuro sistema de ejércitos.
+
+| Concepto | Regla | Valor provisional |
+|---|---|---|
+| Población inicial | Igual para las cuatro naciones, configurable por nación | 30 trabajadores + 6 soldados |
+| Crecimiento (por ciudad y tick) | Según nivel 1/2/3/4; las fracciones se acumulan | 0,15 / 0,20 / 0,25 / 0,30 personas |
+| Capacidad (por ciudad activa) | Tope de población nacional = suma de las suyas; si se supera (p. ej. por perder una ciudad) nadie desaparece por ello | 50 / 90 / 150 / 240 |
+| Prioridad de crecimiento | Casilla por ciudad (solo en ciudades del jugador). Multiplica el crecimiento de población de **esa** ciudad; varias a la vez actúan cada una por separado (marcarlas todas equivale a duplicar el crecimiento nacional); sin coste ni límite por ahora. Si la ciudad cambia de dueño, la prioridad del anterior deja de aplicarse. No toca territorio, dinero ni niveles | x2 |
+| Reparto de la población nueva | % a soldados (el resto a trabajadores, siempre suman 100). Solo afecta a los nacidos a partir de ese momento. Los nacidos de un tick se reparten con un resto acumulado: nadie se pierde ni se duplica | 20 % soldados |
+| Movilización | Orden sobre un % de los trabajadores actuales: se reservan ya (redondeo hacia abajo, al menos 1 persona) y se convierten en soldados a ritmo constante. Solo una a la vez por nación; la población total no cambia; los nacidos durante el proceso siguen el reparto vigente | hasta 50 %, en 30 ticks |
+| Mantenimiento | Cada persona consume «recursos» cada tick (con el resto fraccionario acumulado, sin redondear a favor ni en contra) | trabajador 0,012; soldado 0,025 |
+| Prioridad de mantenimiento | Qué grupo cobra primero cuando no alcanzan los recursos: **Economía** (trabajadores) o **Ejército** (soldados). El otro recibe lo que quede | Economía primero |
+| Déficit | Lo que no se puede pagar queda como **deuda** del grupo (límite: 3 ticks de su coste); la deuda se salda antes que el coste nuevo | — |
+
+**Consecuencias exactas del déficit** (por grupo con deuda, en este orden):
+1. Desde el primer tick con deuda: **la nación no genera población nueva** y el HUD muestra «Déficit: sin recursos para … Sin crecimiento.».
+2. Tras **5 ticks seguidos** con deuda: el grupo pierde cada tick un **1 %** (mínimo 1 persona) de sus miembros hasta saldar la deuda; el HUD muestra «Déficit grave…». Trabajadores: mueren o emigran; soldados: desertan. **No son bajas de combate** (el combate no existe).
+3. Si se vuelve a poder pagar, la deuda se salda, el déficit termina y se reanuda el crecimiento. Si se movilizaba, la reserva se recorta para no superar nunca a los trabajadores que quedan.
+Los saldos de dinero y recursos **nunca** son negativos: el mantenimiento paga solo lo que hay. El dinero no interviene en el mantenimiento.
+
+**Equilibrio inicial** (comprobado por prueba): a población máxima el coste cabe en la producción de las ciudades del mismo nivel con cualquier mezcla razonable (por ejemplo, mitad trabajadores y mitad soldados); solo una población casi totalmente de soldados excede la producción (un soldado cuesta más que un trabajador). El juego por defecto, con las cuatro naciones, no entra en déficit en 600 ticks aunque el jugador reparta al 50 % y movilice el 25 % cada 40 ticks; un déficit provocado (población mayor que la producción) se corrige solo por las pérdidas graduales y la subida de nivel de las ciudades.
+
+**Límites conocidos:** la producción de las ciudades **no depende todavía de los trabajadores** (solo del nivel; D14), así que ahora mismo los trabajadores solo cuestan recursos y la población sirve de base al futuro ejército. Las consecuencias del déficit sobre la fuerza militar dependen del combate (hito 10) y no están implementadas. No hay pausa del tiempo (D10).
+
+**HUD.** Panel «Población» a la derecha del mapa (resumen de población, trabajadores y soldados; crecimiento; deslizador y porcentajes de la población nueva; deslizador y botón de movilización con barra de progreso y pendientes; coste de mantenimiento frente a producción, estado suficiente/insuficiente, botón de prioridad de mantenimiento y aviso de déficit). La casilla de prioridad de crecimiento está en el panel de información de la ciudad del jugador seleccionada. Todo se lee de los datos reales.

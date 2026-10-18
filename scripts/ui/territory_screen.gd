@@ -1,7 +1,7 @@
-## Pantalla principal (hitos 4, 5b y 6): une la cuadrícula, la vista pixelada, la leyenda con
-## estadísticas, el resumen del jugador, el panel de información, las ciudades y la economía.
-## Crea la única TerritoryGrid, la Economy y el CityManager y se los entrega a los demás.
-## Ninguno de ellos modifica el territorio.
+## Pantalla principal (hitos 4, 5b, 6 y 7): une la cuadrícula, la vista pixelada, la leyenda con
+## estadísticas, el resumen del jugador, el panel de información, las ciudades, la economía y la
+## población. Crea la única TerritoryGrid, la Economy, el CityManager y la Population y se los
+## entrega a los demás. Ninguno de ellos modifica el territorio.
 ##
 ## Las estadísticas territoriales se recalculan desde la cuadrícula cuando esta emite
 ## ownership_changed, como mucho una vez por fotograma. La economía (saldos) se refresca al
@@ -18,6 +18,8 @@ const Legend := preload("res://scripts/ui/territory_legend.gd")
 const Economy := preload("res://scripts/world/economy.gd")
 const CityManager := preload("res://scripts/world/city_manager.gd")
 const CityLayer := preload("res://scripts/world/city_layer_view.gd")
+const Population := preload("res://scripts/world/population.gd")
+const PopulationPanel := preload("res://scripts/ui/population_panel.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
 ## Tope de segundos de juego por fotograma (evita un salto enorme tras una pausa de la ventana).
@@ -26,6 +28,7 @@ const MAX_FRAME_DELTA := 0.5
 var grid: TerritoryGrid
 var economy: Economy
 var cities: CityManager
+var population: Population
 var founding_mode: bool = false
 
 var _player_id: int = TerritoryGrid.INVALID
@@ -38,6 +41,7 @@ var _player_id: int = TerritoryGrid.INVALID
 @onready var _found_button: Button = %BotonFundar
 @onready var _message_label: Label = %Mensaje
 @onready var _city_layer: CityLayer = %Ciudades
+@onready var _population_panel: PopulationPanel = %Poblacion
 
 
 func _ready() -> void:
@@ -48,8 +52,11 @@ func _ready() -> void:
 	economy = Economy.new(grid.get_nation_ids())
 	cities = CityManager.new(grid, economy)
 	cities.place_initial_cities()
+	population = Population.new(cities, economy, grid.get_nation_ids())
 	_info.grid = grid
 	_info.cities = cities
+	_info.population = population
+	_info.player_id = _player_id
 	_view.selection_changed.connect(_info.show_cell)
 	_view.cell_clicked.connect(_on_cell_clicked)
 	_view.set_grid(grid)
@@ -57,6 +64,8 @@ func _ready() -> void:
 	grid.ownership_changed.connect(_on_ownership_changed)
 	economy.balances_changed.connect(_refresh_economy)
 	cities.changed.connect(_on_cities_changed)
+	population.changed.connect(_on_population_changed)
+	_population_panel.setup(population, cities, _player_id)
 	_found_button.pressed.connect(_on_found_button_pressed)
 	refresh_stats()
 	_set_founding_ui()
@@ -101,6 +110,12 @@ func _refresh_economy() -> void:
 
 func _on_cities_changed() -> void:
 	_refresh_economy()
+	_info.show_cell(_view.selected_cell)
+
+
+## La población cambia cada tick y con las órdenes: se refresca el panel de la celda
+## seleccionada (estado de la prioridad de crecimiento de su ciudad).
+func _on_population_changed() -> void:
 	_info.show_cell(_view.selected_cell)
 
 

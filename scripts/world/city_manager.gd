@@ -22,6 +22,9 @@ const Balance := preload("res://scripts/data/economy_balance.gd")
 ## Se emite al fundar una ciudad, al subir de nivel y al recolocar las iniciales.
 ## La vista la usa para redibujar; no lleva datos.
 signal changed
+## Se emite al final de cada tick de simulación, ya pagada la producción. Es el reloj único del
+## que cuelgan otros sistemas (población, mantenimiento) para avanzar en el mismo paso fijo.
+signal ticked
 
 const FOUND_OK := 0
 const FOUND_ERR_UNKNOWN_NATION := 1
@@ -315,3 +318,4 @@ func _tick() -> void:
 		_economy.add(owner_id, money[owner_id], resources[owner_id])
 	if leveled:
 		changed.emit()
+	ticked.emit()

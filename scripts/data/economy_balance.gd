@@ -1,5 +1,6 @@
 ## Valores de equilibrio de ciudades y economía (hito 6). TODOS son PROVISIONALES: sirven para
-## que el prototipo sea jugable y se ajustarán al equilibrar. Es el único sitio donde cambiarlos.
+## que el prototipo sea jugable y se ajustarán al equilibrar. Es el único sitio donde cambiarlos
+## (los de población, movilización y mantenimiento del hito 7 están en population_balance.gd).
 ##
 ## Todas las cifras son enteras y se aplican por tick (paso fijo de TICK_SECONDS segundos de
 ## tiempo de juego), de modo que la simulación es determinista y no depende de los fotogramas.
