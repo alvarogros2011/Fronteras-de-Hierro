@@ -311,7 +311,7 @@ func set_new_soldier_percent(nation_id: int, percent: int) -> bool:
 func set_city_priority(nation_id: int, city_id: int, enabled: bool) -> bool:
 	if not _nations.has(nation_id) or not _cities.has_city(city_id) or _cities.get_owner(city_id) != nation_id:
 		return false
-	var was := _priority.has(city_id) and _priority[city_id] == nation_id
+	var was: bool = _priority.has(city_id) and _priority[city_id] == nation_id
 	if enabled:
 		_priority[city_id] = nation_id
 	else:
