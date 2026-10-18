@@ -17,11 +17,12 @@ godot --headless --path . --script res://tests/test_territory_grid.gd
 godot --headless --path . --script res://tests/test_territory_map_view.gd
 godot --headless --path . --script res://tests/test_territory_conquest.gd
 godot --headless --path . --script res://tests/test_territory_hud.gd
+godot --headless --path . --script res://tests/test_city_economy.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`.
 
 ## Estado actual
 
@@ -29,13 +30,15 @@ Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 
 |---|---|
 | Pantalla inicial, mapa de provincias y selección (validación visual) | Validado a mano por el propietario en Godot 4.7.2 / Windows |
 | `tests/territory_grid_tests.gd` + ejecutores `tests/test_territory_grid.gd` (headless) y `tests/run_territory_tests.tscn` (F6) (hito 3, sistema nuevo) | Ejecutados a mano por el propietario en Godot 4.7.2: **21 PASS, 0 FAIL** |
-| `tests/territory_map_view_tests.gd` + `tests/test_territory_map_view.gd` + `tests/run_view_tests.tscn` (hito 4, 14 pruebas V-01…V-14) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
+| `tests/territory_map_view_tests.gd` + `tests/test_territory_map_view.gd` + `tests/run_view_tests.tscn` (hito 4, 14 pruebas V-01…V-14) | Ejecutados a mano por el propietario en Godot 4.7.2: **14 PASS** (comunicado por el propietario; Claude no ejecutó Godot) |
 | `tests/test_province_data.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | `tests/test_province_selection.gd` | Escrito. **Ejecución en Godot sin confirmar** |
 | Réplica en Python del algoritmo del mapa inicial (herramienta de diseño: tierra 27.324 celdas, 4 territorios de 441, sin adyacencias entre naciones, borde de agua) y de la lógica de provincias | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye** |
-| `tests/territory_conquest_tests.gd` + `tests/test_territory_conquest.gd` + `tests/run_conquest_tests.tscn` (hito 5, 18 pruebas C-01…C-18) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
-| `tests/territory_hud_tests.gd` + `tests/test_territory_hud.gd` + `tests/run_hud_tests.tscn` (hito 5b, 10 pruebas H-01…H-10) | Escritos. **Ejecución en Godot sin confirmar** |
-| Pruebas del sistema de territorio, ciudades, población, recursos, ejércitos, IA | **No existen**: esas mecánicas no están implementadas |
+| `tests/territory_conquest_tests.gd` + `tests/test_territory_conquest.gd` + `tests/run_conquest_tests.tscn` (hito 5, 18 pruebas C-01…C-18) | Ejecutados a mano por el propietario en Godot 4.7.2: **18 PASS** (comunicado por el propietario) |
+| `tests/territory_hud_tests.gd` + `tests/test_territory_hud.gd` + `tests/run_hud_tests.tscn` (hito 5b, 10 pruebas H-01…H-10) | Ejecutados a mano por el propietario en Godot 4.7.2: **10 PASS** (comunicado por el propietario) |
+| **Validación local de las cuatro suites de los hitos 3–5b** | El propietario comunicó 21 + 14 + 18 + 10 = **63 PASS, 0 FAIL** en Godot 4.7.2. Ejecutado por el propietario en su PC, **no por Claude**. Además abrió el mapa y comprobó que al hacer clic en una celda aparece su información |
+| `tests/city_economy_tests.gd` + `tests/test_city_economy.gd` + `tests/run_city_tests.tscn` (hito 6, 21 pruebas CE-01…CE-21) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
+| Pruebas de población, mantenimiento, ejércitos, IA | **No existen**: esas mecánicas no están implementadas |
 
 ## 1. Pruebas existentes del territorio (hito 3, sistema nuevo)
 
@@ -178,7 +181,46 @@ Cubren los antiguos T-20 y T-21 (la continuidad inicial ya la cubre G-12). Mapa 
 | M-32 | Visual: el resumen del jugador (arriba a la derecha) y el recuadro blanco del jugador en la leyenda se entienden sin ocultar el mapa |
 | M-33 | Con las cifras iniciales: cada nación 441 celdas y ~1,6 % (la réplica de diseño del hito 3 da 27.324 de tierra); no es un dato confirmado en Godot |
 
-### Hito 6 — Simulación y expansión
+### Hito 6 — Ciudades y economía básica (escritas, sin ejecutar en Godot)
+
+Mapa controlado (`load_from_data`): tierra x 10..39, y 10..29; jugador x 10..24; IA 1 x 25..34; resto sin reclamar. Usan además el mapa por defecto (ciudades iniciales) y la escena `territory_main.tscn` (integración). Las de rechazo comprueban que ni dinero, ni ciudades, ni propietarios, ni terreno cambian.
+
+| ID | Qué comprueba |
+|---|---|
+| CE-01 | Constantes de equilibrio coherentes (coste > 0, saldo inicial < coste, distancia mínima > 2 × radio visual máximo, tablas por nivel, umbrales crecientes) |
+| CE-02 | Mapa por defecto: 4 ciudades iniciales (una por nación) en su posición de inicio, en tierra de su nación, nivel 1, IDs únicos, deterministas |
+| CE-03 | Mapa controlado: búsqueda determinista dentro del territorio; naciones sin tierra no reciben ciudad; recolocar da lo mismo |
+| CE-04 | Economía: saldo inicial, operaciones negativas o inválidas rechazadas, saldo nunca negativo, señal solo en operaciones aplicadas |
+| CE-05 | Fundación válida: ciudad nueva (propietario, celda, nivel 1), se descuenta exactamente `FOUND_COST`, una sola señal |
+| CE-06 | Rechazo en agua, fuera del mapa, territorio ajeno y tierra sin reclamar |
+| CE-07 | Rechazo de posición duplicada y de posición demasiado próxima (también a ciudades de otras naciones) |
+| CE-08 | Distancia Chebyshev: límite − 1 rechazado, límite exacto aceptado |
+| CE-09 | Rechazo sin dinero suficiente; con el dinero justo se acepta y queda 0 |
+| CE-10 | Una fundación inválida no descuenta dinero, no cambia territorio, no crea ciudades parciales ni consume IDs; todos los códigos tienen mensaje |
+| CE-11 | Nación inexistente (`OWNER_NONE`, 99) rechazada |
+| CE-12 | Crecimiento temporal y cambios de nivel (umbrales crecientes, nivel máximo, saltos grandes con sobrante) |
+| CE-13 | Independencia de los fotogramas (pasos de 10 s, 1 s y 0,25 s dan lo mismo; delta ≤ 0 ignorado; fracciones acumuladas) |
+| CE-14 | Crecer no cambia propietarios ni terreno, no emite `ownership_changed` y la mancha queda en el territorio propio |
+| CE-15 | Producción de dinero y recursos según nivel; varias ciudades suman; la tasa mejora al subir de nivel |
+| CE-16 | Solo se paga al propietario; una ciudad sin propietario no produce, no crece ni se dibuja, pero no se destruye |
+| CE-17 | Cambio de propietario de la celda central (`conquer_cells`): la ciudad pasa al nuevo dueño, conserva nivel y progreso, y la producción se redirige |
+| CE-18 | Mancha visual: 5/13/25/41 celdas por nivel, acotada, recortada en el borde del territorio y sin invadir otra nación ni el agua |
+| CE-19 | `city_covering`/`city_id_at` y texto de la ciudad (propietario, nivel, producción por segundo, crecimiento, nivel máximo) |
+| CE-20 | Pantalla: arranca con 4 ciudades; el HUD muestra la economía; botón y modo de fundación; clic inválido sin cobro y modo activo; clic válido funda y cobra; sin selección en modo fundación; fuera del modo el clic selecciona |
+| CE-21 | Las cuatro suites anteriores (archivos de pruebas y escenas F6) siguen presentes |
+
+| ID | Pendiente (manual en Godot) |
+|---|---|
+| M-40 | Ejecutar `test_city_economy.gd` (o F6 en `run_city_tests.tscn`) y confirmar 21 PASS; repetir las cuatro suites anteriores (63 PASS) |
+| M-41 | F5: se ven 4 ciudades pequeñas (cruz de 5 píxeles clara con el centro blanco) en el centro de cada territorio, sin ocultar fronteras |
+| M-42 | Arriba a la derecha aparece «Dinero 50 (+2/s) · Recursos 0 (+1/s)» y el dinero sube 2 por segundo |
+| M-43 | Con 100 de dinero (~25 s): «Fundar ciudad» → clic en territorio azul a ≥ 9 celdas de la ciudad: aparece la ciudad y baja el dinero en 100 |
+| M-44 | Clics inválidos (agua, territorio ajeno, cerca de una ciudad, sin dinero): mensaje a la izquierda, sin cobro, el modo sigue activo; `Esc` y el botón lo cancelan |
+| M-45 | Clic sobre el botón o el panel de información no funda ni selecciona nada en el mapa |
+| M-46 | Seleccionar una celda de una ciudad muestra propietario, nivel, producción y crecimiento; tras ~30 s sube a nivel 2 y crece la mancha |
+| M-47 | El panel de información de 4 líneas no se solapa con el borde inferior ni con la leyenda |
+
+### Hito 7 — Simulación y expansión (aplazado; antes «hito 6»)
 | ID | Qué comprobar |
 |---|---|
 | T-30 | Mismos pasos + misma semilla → mismo estado (hash) |
@@ -186,14 +228,6 @@ Cubren los antiguos T-20 y T-21 (la continuidad inicial ya la cubre G-12). Mapa 
 | T-32 | Conservación: total de celdas y de celdas por propietario coherentes |
 | T-33 | La pausa detiene el avance; reanudar continúa |
 | T-34 | Comprobación reutilizable de continuidad del territorio de una nación (detecta enclaves separados) |
-
-### Hito 7 — Ciudades
-| ID | Qué comprobar |
-|---|---|
-| T-40 | Fundación válida e inválida según las condiciones de D4 |
-| T-41 | El tamaño inicial de una ciudad es el definido |
-| T-42 | Fundar o crecer una ciudad no cambia propietarios ni fronteras; expandir fronteras no cambia ciudades |
-| T-43 | Dos ciudades no ocupan la misma celda |
 
 ### Hito 8 — Población y crecimiento urbano
 | ID | Qué comprobar |
@@ -204,10 +238,10 @@ Cubren los antiguos T-20 y T-21 (la continuidad inicial ya la cubre G-12). Mapa 
 | T-53 | Subida automática de nivel al cruzar umbrales; después sigue creciendo más despacio |
 | T-54 | La ciudad no crece sin trabajadores asignados |
 
-### Hito 9 — Dinero y recursos
+### Hito 9 — Mantenimiento y construcciones
 | ID | Qué comprobar |
 |---|---|
-| T-60 | Existen exactamente dos recursos (dinero y recursos) |
+| T-60 | Existen exactamente dos recursos (dinero y recursos); la producción básica por nivel ya se prueba en el hito 6 |
 | T-61 | Producción de ciudades según nivel y trabajadores |
 | T-62 | Mantenimiento de trabajadores y soldados con recursos |
 | T-63 | Comportamiento definido cuando no alcanzan los recursos; saldos sin valores negativos no previstos |
@@ -283,3 +317,14 @@ Cubren los antiguos T-20 y T-21 (la continuidad inicial ya la cubre G-12). Mapa 
 | Aspecto de la leyenda y del resumen | F5 en el editor | **Pendiente** (validación visual del propietario) |
 | Pruebas de los hitos 3, 4 y 5 tras el cambio | Comandos de arriba | Hito 3 confirmado antes de este cambio (21 PASS); hay que repetirlo. Hitos 4 y 5: sin ejecutar |
 | Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** |
+
+## Estado del hito 6 (ciudades y economía básica)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| Validación local previa de los hitos 3–5b | Suites ejecutadas por el propietario | 21 + 14 + 18 + 10 = 63 PASS, comunicado por el propietario (Godot 4.7.2); **no ejecutado por Claude** |
+| Clic en una celda muestra su información | Comprobación manual del propietario | Comunicada por el propietario |
+| `tests/test_city_economy.gd` (21 pruebas) | `godot --headless --path . --script res://tests/test_city_economy.gd` | **Pendiente** en Godot (PC del propietario) |
+| Suites anteriores tras el cambio | Comandos de arriba | **Pendiente** de repetir; el hito 6 solo añade a `territory_map_view.gd` (señal `cell_clicked`, `selection_enabled`), `territory_info_panel.gd`, `territory_screen.gd` y `territory_main.tscn` |
+| Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** (no hay Godot en la nube) |
+| Aspecto y manejo (M-41…M-47) | F5 en el editor | **Pendiente** (validación del propietario) |

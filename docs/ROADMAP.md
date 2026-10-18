@@ -13,13 +13,13 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 | 2 | Selección e información de provincias (legado) | Hecho; validado a mano; pruebas automáticas sin confirmar |
 | R | Rediseño: documentación y planificación | Hecho (este cambio; sin código) |
 | 3 | Datos del territorio (cuadrícula) | Hecho; 21 PASS, 0 FAIL ejecutadas por el propietario en Godot 4.7.2 |
-| 4 | Vista pixelada del territorio | Implementado (`territory_map_view.gd`, `scenes/territory_main.tscn`); pruebas escritas, **pendientes de ejecutar y validar visualmente en Godot** |
-| 5 | Fundamentos de la conquista territorial (operación `conquer_cells`) | Implementado en `territory_grid.gd`; pruebas escritas, **pendientes de ejecutar en Godot** |
-| 5b | Naciones y HUD base (antes «hito 5») | Implementado (leyenda con estadísticas territoriales, resumen del jugador); pruebas escritas, **pendientes de ejecutar y validar visualmente en Godot** |
-| 6 | Simulación por pasos y expansión territorial | Pendiente; requiere D3, D10 |
-| 7 | Ciudades: fundación y representación | Pendiente; requiere D4, D6 |
+| 4 | Vista pixelada del territorio | Hecho; 14 PASS ejecutadas por el propietario en Godot 4.7.2; el propietario comprobó que el clic en una celda muestra su información (el aspecto general no se ha registrado como validado) |
+| 5 | Fundamentos de la conquista territorial (operación `conquer_cells`) | Hecho; 18 PASS ejecutadas por el propietario en Godot 4.7.2 |
+| 5b | Naciones y HUD base (antes «hito 5») | Hecho; 10 PASS ejecutadas por el propietario en Godot 4.7.2 (la validación visual detallada de la leyenda no se ha registrado) |
+| 6 | **Ciudades y economía básica** (ciudades iniciales, fundación, crecimiento por niveles, dinero y recursos) | Implementado; pruebas escritas, **pendientes de ejecutar y validar en Godot** |
+| 7 | Simulación por pasos y expansión territorial (aplazado desde el antiguo hito 6) | Pendiente; requiere D3, D10. Sin expansión automática hasta decidirlo |
 | 8 | Población, trabajadores y crecimiento urbano | Pendiente; requiere D5, D6, D15, D19 |
-| 9 | Dinero y recursos | Pendiente; requiere D14 |
+| 9 | Mantenimiento y construcciones (los dos recursos ya existen desde el hito 6) | Pendiente; requiere D14 |
 | 10 | Ejércitos, ataques y previsión de combate | Pendiente; requiere D7, D8, D12, D18 |
 | 11 | Reclutamiento forzoso | Pendiente; requiere D13 |
 | 12 | IA enemiga | Pendiente |
@@ -45,7 +45,7 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
   - Dos instancias producen la misma configuración.
   - `try_set_owner` acepta casos válidos y rechaza nación inexistente, agua y coordenadas inválidas sin alterar el estado.
   - Pruebas automáticas en `tests/test_territory_grid.gd`.
-- **Aplazado a otros hitos:** detección de fronteras (hito 4, cuando haya que dibujarlas) y comprobación reutilizable de continuidad del territorio (hito 6, con la expansión).
+- **Aplazado a otros hitos:** detección de fronteras (hito 4, cuando haya que dibujarlas) y comprobación reutilizable de continuidad del territorio (hito 7, con la expansión).
 
 ## Hito 4 — Vista pixelada del territorio
 **Estado: implementado en la nube sin Godot; pendiente de pruebas y validación visual del propietario.** Se hizo una versión sin cámara (sin zoom ni desplazamiento): escala fija 3 (960x540) centrada en la ventana; D1 (cámara) sigue abierto. Incluye resaltado, selección y panel de información como herramientas de inspección; no se puede modificar el territorio. No se midió el tiempo de actualización (no hay Godot en la nube): sigue pendiente en el PC (ver `docs/REDESIGN_PLAN.md` §4).
@@ -76,20 +76,25 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
   - Sin selección de provincias ni botones de acciones inexistentes.
 - **Decisiones provisionales:** el porcentaje usa una decimal con coma; «controlador» provisional hasta decidir D2 (cuántas naciones y quién las controla).
 
-## Hito 6 — Simulación por pasos y expansión territorial
-- Reloj de simulación con pasos fijos y pausa; expansión de fronteras según la regla decidida en D3, incluida una comprobación reutilizable de continuidad del territorio.
+## Hito 6 — Ciudades y economía básica
+**Estado: implementado en la nube sin Godot; pruebas escritas, no ejecutadas; validación local pendiente.** Sustituye en la secuencia al antiguo «hito 6» (simulación y expansión), que pasa al hito 7, y absorbe el antiguo «hito 7» (ciudades) y la parte básica del hito 9 (los dos recursos). La decisión de diseño más reciente del propietario es empezar por ciudades y economía.
+- **Ciudades** (`scripts/world/city_manager.gd`): id estable, centro en coordenadas de celda, nivel (1–4) y progreso de crecimiento. El propietario **no se guarda**: es el de la celda central en `TerritoryGrid`, así que cambia solo si esa celda se conquista y nunca puede desincronizarse. Una ciudad sin propietario queda inactiva (no se destruye).
+- **Ciudades iniciales:** una de nivel 1 por nación con territorio, en el punto central de su territorio inicial (o, si no sirve, la primera celda válida de una búsqueda determinista por anillos). No son capitales ni tienen bonificaciones.
+- **Fundación:** botón «Fundar ciudad» + clic en el mapa; `Esc` o el botón cancelan. Reglas: dentro del mapa, tierra, del jugador, sin ciudad ahí, distancia mínima (Chebyshev) a cualquier ciudad y dinero suficiente. Solo se cobra si todo se cumple; si no, mensaje breve y el modo sigue activo. La fundación es **inmediata** (el «breve tiempo de fundación» confirmado en el GDD queda para más adelante).
+- **Crecimiento:** por ticks fijos de tiempo de juego; al alcanzar un umbral (cada vez mayor) sube de nivel. Se dibuja como una mancha de píxeles (rombo) claros del color de la nación, siempre dentro de su territorio, en una capa aparte (`city_layer_view.gd`). Crecer **nunca** cambia propietarios.
+- **Economía** (`scripts/world/economy.gd`): dinero y recursos por nación (solo esos dos; saldos enteros no negativos). Cada ciudad activa produce según su nivel en cada tick. El HUD muestra el dinero y los recursos del jugador con su ingreso por segundo; el panel de información muestra propietario, nivel, producción y crecimiento de la ciudad seleccionada.
+- **Valores de equilibrio:** todos en `scripts/data/economy_balance.gd` y **provisionales** (ver `docs/GDD.md`).
+- **Criterios:** pruebas CE-01…CE-21 (`tests/test_city_economy.gd`, ver `docs/TEST_PLAN.md`); las cuatro suites anteriores siguen presentes y sin cambios.
+- **Fuera de alcance (no implementado):** población, trabajadores y soldados, prioridad de población, reclutamiento, ejércitos, combate, ocupación, tratados, IA económica, mantenimiento, otros terrenos, cámara y multijugador. Tampoco hay **expansión territorial automática**: el territorio solo cambia por `conquer_cells`.
+
+## Hito 7 — Simulación por pasos y expansión territorial (aplazado; antes «hito 6»)
+- Reloj de simulación con pasos fijos y pausa; expansión de fronteras según la regla decidida en D3, incluida una comprobación reutilizable de continuidad del territorio. (El hito 6 ya tiene sus propios ticks fijos para ciudades y economía; este hito decidiría el reloj global, la pausa y la velocidad.)
+- **No se implementa mientras D3 y D10 sigan abiertas.** Sigue vigente la regla: el territorio solo cambia por una conquista explícita, nunca por el tiempo ni por el crecimiento de ciudades.
 - **Criterios:**
   - Mismas entradas y misma semilla producen el mismo estado tras N pasos (prueba automática).
   - La expansión solo reclama celdas adyacentes y de tierra, no deja territorio desconectado y conserva el total de celdas (prueba automática, con la comprobación de continuidad).
   - La pausa detiene la simulación.
   - El resultado se ve fluido en el PC del propietario.
-
-## Hito 7 — Ciudades: fundación y representación
-- Capa de ciudades independiente del territorio: fundación por clic en una ubicación válida del propio territorio (cuesta dinero y tarda un breve tiempo), nivel inicial, dibujo como agrupación de píxeles que crece desde su centro.
-- **Criterios:**
-  - Fundar una ciudad solo funciona si se cumplen las condiciones de D4 (pruebas automáticas de casos válidos e inválidos).
-  - La ciudad no modifica el propietario ni las fronteras del territorio y viceversa (prueba automática).
-  - Una ciudad recién fundada ocupa el tamaño inicial acordado.
 
 ## Hito 8 — Población, trabajadores y crecimiento urbano
 - Población trabajadora y de soldados, control deslizante en el HUD, prioridad de población por ciudad (D19), crecimiento decreciente de ciudades y subida de nivel por umbrales.
@@ -99,8 +104,8 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
   - Al cruzar un umbral la ciudad sube de nivel automáticamente; después sigue creciendo más despacio (prueba automática).
   - El total de población se conserva en las conversiones.
 
-## Hito 9 — Dinero y recursos
-- Los dos recursos confirmados, producción en ciudades, mantenimiento de trabajadores y soldados, y construcciones según D14.
+## Hito 9 — Mantenimiento y construcciones
+- Los dos recursos y la producción básica en ciudades **ya existen desde el hito 6**. Este hito añade el mantenimiento de trabajadores y soldados, la producción según trabajadores y las construcciones según D14.
 - **Criterios:**
   - Existen exactamente dos recursos: dinero y recursos (prueba automática del modelo).
   - Los saldos no se vuelven negativos sin una regla explícita (prueba automática).

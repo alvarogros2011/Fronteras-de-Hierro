@@ -109,7 +109,7 @@ Una celda es de frontera si algún vecino ortogonal tiene propietario distinto (
 ## 5. Ciudades separadas del territorio
 
 Las ciudades **no** modifican el propietario de las celdas ni las fronteras. Se guardan en su propia capa:
-- `CityRegistry`: lista de ciudades con id, nación propietaria, celda ancla, nivel, tamaño (número de celdas) y trabajadores asignados (según D5).
+- `CityRegistry` (implementado en el hito 6 como `scripts/world/city_manager.gd`, con el propietario derivado de la cuadrícula en vez de guardado): lista de ciudades con id, celda ancla y nivel; más adelante tamaño y trabajadores asignados (según D5).
 - La forma de la ciudad (qué celdas ocupa) se deriva de su ancla, tamaño y una regla determinista (D6), y se pinta en una **textura superpuesta**, independiente de la del territorio. Así el crecimiento urbano y la expansión de fronteras son procesos distintos incluso visualmente.
 - Para consultas (¿hay una ciudad en esta celda?) puede mantenerse un array por celda con el id de ciudad, mantenido solo por `CityRegistry`.
 - Crecimiento con rendimientos decrecientes: cada celda adicional cuesta más población que la anterior; niveles por umbrales; tras subir de nivel el crecimiento sigue siendo posible pero más lento. Fórmulas y números: D6.
@@ -120,7 +120,7 @@ Las ciudades **no** modifican el propietario de las celdas ni las fronteras. Se 
 |---|---|---|---|
 | Territorio (`TerritoryGrid`) | Terreno, propietario por celda, fronteras derivadas | Nada | Saber de ciudades, población o ejércitos |
 | Naciones | Identidad (id, nombre, color, quién la controla) | Territorio (para el recuento) | Calcular economía |
-| Ciudades (`CityRegistry`) | Posición, nivel, tamaño visual, trabajadores asignados | Territorio (ancla válida y propietario) | Cambiar fronteras |
+| Ciudades (`CityRegistry`; hoy `CityManager`) | Posición, nivel, tamaño visual, trabajadores asignados (futuro) | Territorio (ancla válida y propietario) | Cambiar fronteras |
 | Población | Trabajadores y soldados; reparto de población nueva (control deslizante); conversión por reclutamiento forzoso | Ciudades, naciones | Dibujar o tocar territorio |
 | Economía | Dinero y recursos (solo dos); producción, mantenimiento, construcciones | Ciudades, población | Añadir recursos nuevos |
 | Ejército | Representación pendiente (D7); fuerza, previsión de combate, ataques | Territorio, población, naciones | Simular soldados individuales ni usar un único número global |
@@ -133,14 +133,14 @@ Las dependencias van en una sola dirección (de abajo hacia arriba en la tabla).
 
 | Hito | Contenido | Depende de | Decisiones previas |
 |---|---|---|---|
-| 3 | Datos del territorio (cuadrícula) con pruebas — **hecho; pruebas por ejecutar en Godot** | — | D1 (valores provisionales) |
-| 4 | Vista pixelada, fronteras derivadas, ratón → celda; medir rendimiento — **implementado sin cámara; pruebas y medición por hacer en Godot** | 3 | D1 (cámara) |
-| 5 | Fundamentos de la conquista: operación `conquer_cells` validada y atómica — **implementado; pruebas por ejecutar en Godot** | 4 | — (el combate/autorización: D3) |
-| 5b | Naciones y HUD base (antes «hito 5») — **implementado; pruebas por ejecutar en Godot** | 4 | D2 (valores provisionales) |
-| 6 | Reloj de simulación y expansión territorial (con comprobación de continuidad) | 5 | D3, D10 |
-| 7 | Ciudades: fundación y representación | 5 | D4, D6 |
-| 8 | Población, trabajadores, reparto y crecimiento urbano | 7 | D5, D6, D15 |
-| 9 | Dinero y recursos | 8 | D14 |
+| 3 | Datos del territorio (cuadrícula) con pruebas — **hecho; 21 PASS del propietario** | — | D1 (valores provisionales) |
+| 4 | Vista pixelada, fronteras derivadas, ratón → celda; medir rendimiento — **implementado sin cámara; 14 PASS del propietario; medición de rendimiento por hacer** | 3 | D1 (cámara) |
+| 5 | Fundamentos de la conquista: operación `conquer_cells` validada y atómica — **hecho; 18 PASS del propietario** | 4 | — (el combate/autorización: D3) |
+| 5b | Naciones y HUD base (antes «hito 5») — **hecho; 10 PASS del propietario** | 4 | D2 (valores provisionales) |
+| 6 | **Ciudades y economía básica** (ciudades iniciales, fundación, crecimiento por niveles, dinero y recursos) — **implementado; pruebas por ejecutar en Godot** | 5b | D4, D6, D14 (valores provisionales) |
+| 7 | Reloj de simulación global y expansión territorial (con comprobación de continuidad) — aplazado desde el antiguo hito 6 | 5, 6 | D3, D10 |
+| 8 | Población, trabajadores, reparto y crecimiento urbano | 6 | D5, D6, D15 |
+| 9 | Mantenimiento de trabajadores y soldados y construcciones | 8 | D14 |
 | 10 | Cifra de soldados, ataques (zona de ataque con flecha opcional) y previsión de combate | 6, 8 | D7, D8, D12, D18 |
 | 11 | Reclutamiento forzoso | 8, 10 | D13 |
 | 12 | IA | 10 | — |
@@ -172,13 +172,13 @@ Detalle completo en `docs/GDD.md` §12. En orden de urgencia:
 **Antes del hito 5b** (4 naciones es el valor provisional del hito 3)
 - **D2** — ¿Cuántas naciones en el MVP y quién las controla (una jugador, el resto IA)?
 
-**Antes del hito 6**
+**Antes del hito 7** (aplazado; el hito 6 es ciudades y economía)
 - **D3** — ¿Qué se gasta al expandir el territorio (tropas, dinero, nada) y es continuo o por órdenes?
 - **D10** — Ritmo del tiempo real: ¿pausa, velocidad variable, duración de partida?
 - **D16** — Ya decidido el plazo: se retira tras validar el nuevo mapa visual y su interacción en tu PC. Queda por elegir cómo (borrar, `legacy/` o rama).
 
-**Antes de los hitos 7–9**
-- **D4** — Condiciones para fundar ciudades.
+**Antes de los hitos 8–9** (el hito 6 usa valores provisionales de D4, D6 y D14)
+- **D4** — Condiciones definitivas para fundar ciudades.
 - **D19** — Efecto, coste y límites de la prioridad de población de una ciudad.
 - **D5 / D15** — ¿Cómo se asignan los trabajadores? ¿El control deslizante es global o por ciudad? ¿La población es global o por ciudad?
 - **D6** — Cómo se ve crecer una ciudad (forma, niveles, umbrales).
@@ -231,3 +231,14 @@ Propuestas técnicas provisionales; el propietario puede revertirlas.
 - **Registro de naciones:** se mantiene `NATIONS` con IDs, claves, nombres y colores intactos y se añade `controller` ("human"/"ai"), provisional hasta D2.
 - **Interfaz:** se reutiliza la leyenda del hito 4 (dos columnas de tres filas) con las cifras alineadas a la derecha y una etiqueta con el resumen del jugador; no se añaden paneles. `build_rows` y `player_summary` son funciones estáticas para poder probarlas sin nodos. El porcentaje es sobre la **tierra total** (incluida la sin reclamar), con una decimal.
 - **Pendiente:** validar visualmente que las dos columnas caben bajo el mapa y el aspecto de las cifras.
+
+## Decisiones técnicas del hito 6 (ciudades y economía básica)
+
+Propuestas técnicas provisionales; el propietario puede revertirlas.
+
+- **Tres piezas sin nodos:** `Economy` (saldos de dinero y recursos por nación, sin valores negativos), `CityManager` (ciudades, fundación, crecimiento, producción) y `economy_balance.gd` (todas las constantes de equilibrio). La capa visual (`city_layer_view.gd`) solo lee. `TerritoryGrid` no conoce las ciudades y las ciudades nunca escriben en la cuadrícula.
+- **Propietario derivado, no guardado:** el dueño de una ciudad es el de su celda central. Evita duplicar información y hace imposible que un cambio de propietario (`conquer_cells`, `try_set_owner`) deje la ciudad desincronizada. No se acopla a la lógica de combate ni a una señal. Consecuencia: si el centro queda en `OWNER_NONE` la ciudad queda inactiva (ni crece ni produce ni se dibuja), no se destruye. Limitación: si se recarga el terreno con `load_from_data` o `reset_to_default`, las ciudades no se revalidan solas (en agua serían inertes).
+- **Tiempo:** `advance(delta)` acumula segundos y ejecuta ticks fijos de `TICK_SECONDS` con aritmética entera; el resultado no depende de los fotogramas. La pantalla lo llama en `_physics_process` con un tope de 0,5 s por fotograma. No se ha creado un reloj global de simulación (hito 7).
+- **Visual:** rombo de píxeles (distancia Manhattan ≤ radio del nivel), recortado a la tierra del propietario, dibujado con rectángulos de una celda en un solo `_draw` (sin nodos por píxel), con redibujo solo al cambiar ciudades o propietarios. `MIN_CITY_DISTANCE` debe ser mayor que el doble del radio máximo para que no se solapen (una prueba lo comprueba).
+- **Entrada:** `territory_map_view.gd` gana la señal `cell_clicked` y el indicador `selection_enabled`; en modo de fundación el clic ya no selecciona. Los controles nuevos capturan el clic (el botón) o lo ignoran (etiquetas), así que no se funda a través de ellos. No se ha tocado nada de la selección existente.
+- **Pendiente de medir/validar en Godot:** disposición del botón y los textos, legibilidad de las ciudades pequeñas a escala 3, ritmo de crecimiento y de ingresos.

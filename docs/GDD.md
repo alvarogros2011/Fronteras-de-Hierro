@@ -5,7 +5,7 @@ Leyenda:
 - **[P]** Propuesta recomendada por Claude, pendiente de aprobación.
 - **[A]** Abierto: sin decidir. Cada decisión abierta tiene un código (D1, D2…) listado en §12.
 
-> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5) y la leyenda con estadísticas territoriales por nación (hito 5b), ambos sin ejecutar sus pruebas; no hay combate ni otras mecánicas. El resto de §5–§9 es diseño.
+> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5), la leyenda con estadísticas territoriales por nación (hito 5b) —las cuatro suites de pruebas de los hitos 3–5b fueron ejecutadas por el propietario en Godot 4.7.2: 63 PASS— y **ciudades y economía básica (hito 6, sin ejecutar ni validar en Godot)**; no hay combate, población ni ejércitos. El resto de §5–§9 es diseño.
 
 ## 1. Concepto
 
@@ -143,18 +143,18 @@ Fuera del MVP: multijugador, guardado de partida, más recursos (excluidos por d
 |---|---|---|
 | D1 | Provisional: 320x180, agua/tierra, mapa determinista (hito 3). Abierto: cámara (zoom/desplazamiento), mapa aleatorio, más terrenos | Hito 4 (cámara) |
 | D2 | Provisional: 4 naciones (jugador + 3 de IA; campo `controller` human/ai). Abierto: cuántas en el MVP y quién las controla | Tras el hito 5b |
-| D3 | Fórmula y coste de los ataques; cómo crece el territorio tras atacar; cómo se expande hacia tierra vacía | Hito 6 |
-| D4 | Condiciones exactas, coste y tiempo de fundación de ciudades | Hito 7 |
+| D3 | Fórmula y coste de los ataques; cómo crece el territorio tras atacar; cómo se expande hacia tierra vacía | Hito 7 (aplazado) |
+| D4 | Provisional (hito 6): coste 100, distancia mínima 9, fundación inmediata. Abierto: valores definitivos, tiempo de fundación, límite de ciudades | Revisión en el equilibrado |
 | D5 | Asignación de trabajadores a ciudades; población global o por ciudad | Hito 8 |
-| D6 | Representación del crecimiento urbano, niveles y umbrales | Hito 7–8 |
+| D6 | Provisional (hito 6): 4 niveles, umbrales 30/60/120 ticks, rombo de píxeles. Abierto: relación con la población | Hito 8 |
 | D7 | Dónde se guarda y cómo se agrupa la cifra de soldados | Hito 10 |
 | D8 | Combate determinista o con azar; significado de la probabilidad de victoria | Hito 10 |
 | D9 | Mecánica diferenciadora definitiva | Ninguno directo; afecta a la prioridad |
-| D10 | Ritmo del tiempo real: pausa, control de velocidad, duración objetivo de la partida | Hito 6 |
+| D10 | Ritmo del tiempo real: pausa, control de velocidad, duración objetivo de la partida | Hito 7 |
 | D11 | Condiciones de victoria y derrota | Hito 13 |
 | D12 | Destino de las ciudades cuando cambia el propietario de su territorio | Hito 10 |
 | D13 | Reclutamiento forzoso: porcentaje elegible, duración, penalizaciones | Hito 11 |
-| D14 | Producción, consumo, construcciones y costes del dinero y los recursos | Hito 9 |
+| D14 | Provisional (hito 6): producción por nivel de ciudad. Abierto: consumo, mantenimiento, construcciones | Hito 9 |
 | D15 | Control deslizante: global de la nación o por ciudad | Hito 8 |
 | D16 | Retirada del prototipo de provincias: cuando el nuevo mapa visual y su interacción estén validados a mano por el propietario | Tras el hito 4–5 |
 | D17 | Nombres: mundo, naciones y ciudades (hoy hay nombres provisionales de naciones) | Sin bloqueo |
@@ -180,3 +180,16 @@ Este prototipo **no se amplía** y no define el diseño actual: las provincias s
 
 - **[P]** La leyenda muestra por nación las **celdas de tierra** que controla y su **porcentaje de la tierra total** del mapa (agua excluida). Son estadísticas de territorio: no representan población, poder militar ni economía. La nación del jugador se marca en la leyenda y se resume arriba a la derecha.
 - **[P]** Las cifras se derivan siempre de la cuadrícula; no se guardan copias.
+
+## Ciudades y economía básica (hito 6)
+
+Implementado, con pruebas escritas pero **sin ejecutar ni validar en Godot**. Todos los números son **[P] provisionales**, centralizados en `scripts/data/economy_balance.gd`, y se ajustarán al equilibrar.
+
+- **[C]** Solo dos recursos: dinero y recursos. No hay tercer recurso (el dinero servirá también, más adelante, para los pagos de los tratados de paz).
+- **[P]** Cada nación empieza con una **ciudad de nivel 1** (sin ser capital ni tener bonificaciones), 50 de dinero y 0 de recursos. Las ciudades iniciales están en el territorio inicial de cada nación.
+- **[P]** Fundar una ciudad: el jugador pulsa «Fundar ciudad» y hace clic en una celda. Debe estar dentro del mapa, ser tierra del jugador, sin ciudad, a **al menos 9 celdas (Chebyshev) de cualquier ciudad** (propia o ajena) y el jugador debe tener **100 de dinero**. Solo se cobra cuando la fundación se completa; si no, mensaje breve y se puede reintentar o cancelar (`Esc`). **Inmediata** por ahora; el «breve tiempo de fundación» confirmado queda pendiente.
+- **[P]** Crecimiento: +1 punto por segundo de juego; niveles 1→2 a 30, 2→3 a 60 y 3→4 a 120 puntos (cada vez más lento); el nivel 4 es el máximo. Mancha de píxeles de 5, 13, 25 y 41 celdas (rombo de radio 1–4), dentro del territorio del propietario. **El crecimiento es visual y de nivel: nunca cambia propietarios ni conquista celdas.**
+- **[P]** Producción por segundo y ciudad según nivel: dinero 2/3/5/8 y recursos 1/2/3/5. Se paga al propietario actual de la ciudad.
+- **[P]** Si una celda con ciudad cambia de propietario (conquista), la ciudad pasa al nuevo propietario con su nivel y progreso; no se destruye. Es una decisión provisional que **adelanta una respuesta a D12** (destino de las ciudades) solo en lo mínimo; la ocupación militar provisional no existe todavía y no se ha acoplado.
+- **[P]** HUD: dinero y recursos del jugador arriba a la derecha, con su ingreso por segundo; el panel de celda añade propietario, nivel, producción y crecimiento de la ciudad que cubra la celda seleccionada.
+- **No hay** mantenimiento, población, trabajadores, soldados ni prioridad de población; **tampoco expansión territorial automática**.

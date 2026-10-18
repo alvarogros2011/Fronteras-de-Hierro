@@ -20,7 +20,7 @@ Juego 2D de estrategia territorial en tiempo real, fácil de aprender y de jugar
 
 ## Estado real del proyecto
 
-**Fase actual: construcción del sistema territorial nuevo. Hitos 3 (datos), 4 (vista pixelada e inspección) 5 (operación de conquista) y 5b (naciones y HUD) implementados; 4, 5 y 5b sin ejecutar ni validar en Godot.**
+**Fase actual: construcción del sistema territorial nuevo. Hitos 3 (datos), 4 (vista pixelada e inspección), 5 (operación de conquista) y 5b (naciones y HUD) hechos: el propietario ejecutó en Godot 4.7.2 las cuatro suites (21 + 14 + 18 + 10 = 63 PASS) y comprobó que el clic en una celda muestra su información. Hito 6 (ciudades y economía básica) implementado en la nube; sus pruebas están escritas pero sin ejecutar ni validar en Godot.**
 
 **Sistema nuevo (hito 3):** `scripts/world/territory_grid.gd` guarda el territorio como una cuadrícula de 320x180 celdas (terreno agua/tierra y propietario por celda en dos `PackedByteArray`), con 4 naciones provisionales (jugador y 3 rivales) y un mapa inicial determinista: una masa de tierra con costa irregular, cuatro pequeños territorios conectados y tierra sin reclamar. Los valores de la cuadrícula son **provisionales**. Sus pruebas (`tests/test_territory_grid.gd`) fueron ejecutadas a mano por el propietario en Godot 4.7.2: 21 PASS, 0 FAIL.
 
@@ -38,7 +38,9 @@ Este prototipo **no se amplía**: no hay tropas, combate, captura, economía, ci
 
 **Hito 5b (implementado; pruebas sin ejecutar):** la leyenda de debajo del mapa muestra, por nación, las **celdas de tierra que controla y su porcentaje de la tierra total** (agua excluida; la tierra sin reclamar tiene su fila), y una etiqueta arriba a la derecha resume la nación del jugador (Confederación de Alba). Las cifras se calculan desde `TerritoryGrid` (`count_land_by_owner`) y se recalculan cuando la cuadrícula emite `ownership_changed`; son estadísticas de territorio, no de población, poder ni economía. Pruebas: `tests/test_territory_hud.gd`.
 
-No existen todavía ciudades, población, recursos, ejércitos, expansión, ataques ni IA. Siguiente paso: ejecutar en Godot las pruebas de los hitos 3, 4, 5 y 5b y revisar el aspecto del mapa y la leyenda. Ver `docs/ROADMAP.md`.
+**Hito 6 (implementado; pruebas sin ejecutar):** cada nación empieza con una ciudad de nivel 1 y 50 de dinero. El botón **«Fundar ciudad»** (izquierda) activa un modo en el que el clic en tu territorio funda una ciudad (cuesta 100, distancia mínima de 9 celdas a cualquier ciudad; `Esc` cancela). Las ciudades crecen con el tiempo y suben de nivel (1–4) como una mancha de píxeles dentro de su territorio —**sin cambiar nunca el territorio**— y producen dinero y recursos. Arriba a la derecha se ve el dinero y los recursos del jugador con su ingreso por segundo; al seleccionar una ciudad, el panel inferior muestra propietario, nivel, producción y crecimiento. Todos los valores de equilibrio son **provisionales** y están en `scripts/data/economy_balance.gd`. Pruebas: `tests/test_city_economy.gd`.
+
+No existen todavía población, trabajadores ni soldados, mantenimiento, ejércitos, expansión territorial, ataques ni IA. Siguiente paso: ejecutar en Godot las pruebas del hito 6 (y repetir las anteriores) y revisar el aspecto. Ver `docs/ROADMAP.md`.
 
 ## Cómo abrir el proyecto
 
@@ -58,6 +60,7 @@ godot --headless --path . --script res://tests/test_territory_grid.gd
 godot --headless --path . --script res://tests/test_territory_map_view.gd
 godot --headless --path . --script res://tests/test_territory_conquest.gd
 godot --headless --path . --script res://tests/test_territory_hud.gd
+godot --headless --path . --script res://tests/test_city_economy.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
@@ -69,8 +72,8 @@ Cada comando ejecuta un archivo; imprime `PASS`/`FAIL` y termina con código 0 s
 | Ruta | Contenido |
 |---|---|
 | `scenes/` | Escenas de Godot: `territory_main.tscn` (principal, hito 4) y `main.tscn` (prototipo de provincias, legado) |
-| `scripts/world/` | Datos del territorio en cuadrícula (`territory_grid.gd`) y su vista pixelada (`territory_map_view.gd`), sistema nuevo |
-| `scripts/data/` | Datos del mapa de provincias (legado) |
+| `scripts/world/` | Datos del territorio en cuadrícula (`territory_grid.gd`) y su vista pixelada (`territory_map_view.gd`); ciudades (`city_manager.gd`, `city_layer_view.gd`) y saldos (`economy.gd`) del hito 6 |
+| `scripts/data/` | Valores de equilibrio de ciudades y economía (`economy_balance.gd`); datos del mapa de provincias (legado) |
 | `scripts/map/` | Dibujo y selección del mapa de provincias (legado) |
 | `scripts/ui/` | Pantalla, panel de información y leyenda del hito 4 (`territory_*.gd`); panel de provincias (legado) |
 | `tests/` | Pruebas automáticas sin plugins |

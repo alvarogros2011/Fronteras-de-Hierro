@@ -30,6 +30,9 @@ const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
 signal selection_changed(cell: Vector2i)
 ## Se emite al cambiar la celda resaltada por el ratón; NO_CELL = ninguna.
 signal hover_changed(cell: Vector2i)
+## Se emite en cada clic izquierdo con la celda pulsada (NO_CELL si cae fuera del mapa), incluso
+## si la selección está desactivada. La pantalla lo usa para el modo de fundación (hito 6).
+signal cell_clicked(cell: Vector2i)
 
 const NO_CELL := Vector2i(-1, -1)
 
@@ -46,6 +49,8 @@ const _NEIGHBORS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0
 var grid: TerritoryGrid
 var selected_cell: Vector2i = NO_CELL
 var hover_cell: Vector2i = NO_CELL
+## Si es false, los clics no cambian la selección (solo emiten cell_clicked).
+var selection_enabled: bool = true
 
 var _image: Image
 var _texture: ImageTexture
@@ -185,10 +190,13 @@ func pointer_moved(global_point: Vector2) -> void:
 	_set_hover(cell if is_selectable(cell) else NO_CELL)
 
 
-## Clic izquierdo: selecciona la celda de tierra bajo el punto; en agua o fuera del mapa
-## limpia la selección.
+## Clic izquierdo: emite cell_clicked y, si la selección está activada, selecciona la celda de
+## tierra bajo el punto; en agua o fuera del mapa limpia la selección.
 func pointer_pressed(global_point: Vector2) -> void:
 	var cell := cell_from_global(global_point)
+	cell_clicked.emit(cell)
+	if not selection_enabled:
+		return
 	_set_selected(cell if is_selectable(cell) else NO_CELL)
 
 
