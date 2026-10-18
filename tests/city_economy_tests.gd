@@ -307,7 +307,7 @@ func _test_invalid_changes_nothing() -> Array:
 	_expect(errors, grid.copy_owner_data() == owners_before and grid.copy_terrain_data() == terrain_before, true, "cuadrícula intacta")
 	var result := cities.found_city(PLAYER, Vector2i(12, 12))
 	_expect(errors, result["city_id"], 1, "los fallos no consumen IDs")
-	_expect(errors, cities.check_founding(PLAYER, Vector2i(20, 20)), CityManager.FOUND_OK, "check_founding devuelve OK")
+	_expect(errors, cities.check_founding(PLAYER, Vector2i(21, 21)), CityManager.FOUND_OK, "check_founding devuelve OK a la distancia mínima exacta (9) de la ciudad en (12, 12)")
 	_expect(errors, cities.city_count(), 1, "check_founding no crea nada")
 	# Todos los códigos tienen mensaje.
 	for code in range(0, 8):
