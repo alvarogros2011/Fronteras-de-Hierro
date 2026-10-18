@@ -19,11 +19,12 @@ godot --headless --path . --script res://tests/test_territory_conquest.gd
 godot --headless --path . --script res://tests/test_territory_hud.gd
 godot --headless --path . --script res://tests/test_city_economy.gd
 godot --headless --path . --script res://tests/test_population.gd
+godot --headless --path . --script res://tests/test_military.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`. Las del hito 7 (población y mantenimiento): `tests/population_tests.gd`, `tests/test_population.gd` y `tests/run_population_tests.tscn`.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`. Las del hito 7 (población y mantenimiento): `tests/population_tests.gd`, `tests/test_population.gd` y `tests/run_population_tests.tscn`. Las del hito 8 (organización militar): `tests/military_tests.gd`, `tests/test_military.gd` y `tests/run_military_tests.tscn`.
 
 ## Estado actual
 
@@ -39,8 +40,9 @@ Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 
 | `tests/territory_hud_tests.gd` + `tests/test_territory_hud.gd` + `tests/run_hud_tests.tscn` (hito 5b, 10 pruebas H-01…H-10) | Ejecutados a mano por el propietario en Godot 4.7.2: **10 PASS** (comunicado por el propietario) |
 | **Validación local de las cuatro suites de los hitos 3–5b** | El propietario comunicó 21 + 14 + 18 + 10 = **63 PASS, 0 FAIL** en Godot 4.7.2. Ejecutado por el propietario en su PC, **no por Claude**. Además abrió el mapa y comprobó que al hacer clic en una celda aparece su información |
 | `tests/city_economy_tests.gd` + `tests/test_city_economy.gd` + `tests/run_city_tests.tscn` (hito 6, 21 pruebas CE-01…CE-21) | Ejecutados a mano por el propietario en Godot 4.7.2: **21 PASS** (tras corregir una posición inválida en la prueba de fundación; comunicado por el propietario) |
-| `tests/population_tests.gd` + `tests/test_population.gd` + `tests/run_population_tests.tscn` (hito 7, 24 pruebas PO-01…PO-24) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
-| Pruebas de ejércitos, combate, IA | **No existen**: esas mecánicas no están implementadas |
+| `tests/population_tests.gd` + `tests/test_population.gd` + `tests/run_population_tests.tscn` (hito 7, 24 pruebas PO-01…PO-24) | Ejecutados a mano por el propietario en Godot 4.7.2: **24 PASS** (comunicado por el propietario; las seis suites suman 108 PASS) |
+| `tests/military_tests.gd` + `tests/test_military.gd` + `tests/run_military_tests.tscn` (hito 8, 18 pruebas MI-01…MI-18) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
+| Pruebas de combate, ataques, IA | **No existen**: esas mecánicas no están implementadas |
 
 ## 1. Pruebas existentes del territorio (hito 3, sistema nuevo)
 
@@ -222,7 +224,7 @@ Mapa controlado (`load_from_data`): tierra x 10..39, y 10..29; jugador x 10..24;
 | M-46 | Seleccionar una celda de una ciudad muestra propietario, nivel, producción y crecimiento; tras ~30 s sube a nivel 2 y crece la mancha |
 | M-47 | El panel de información de 4 líneas no se solapa con el borde inferior ni con la leyenda |
 
-### Hito 7 — Población, trabajadores y mantenimiento (escritas, sin ejecutar en Godot)
+### Hito 7 — Población, trabajadores y mantenimiento (24 PASS ejecutadas por el propietario en Godot 4.7.2)
 
 Mapa controlado como el del hito 6 (tierra x 10..39, y 10..29; jugador x 10..24; IA 1 x 25..34), con ciudades fundadas a mano y población inyectada, y tiempo con `CityManager.advance(n)` (n ticks exactos de 1 s). Una ciudad fundada en el tick 0 sube a nivel 2 en el tick 30, a 3 en el 90 y a 4 en el 210. Las cifras de los casos deterministas (nacidos, reparto, movilización, déficit) se contrastaron con una réplica de la lógica en Python (herramienta de diseño: **no es una prueba de Godot ni la sustituye**).
 
@@ -255,7 +257,7 @@ Mapa controlado como el del hito 6 (tierra x 10..39, y 10..29; jugador x 10..24;
 
 | ID | Pendiente (manual en Godot) |
 |---|---|
-| M-50 | Ejecutar `test_population.gd` (o F6 en `run_population_tests.tscn`) y confirmar 24 PASS; repetir las cinco suites anteriores (63 + 21 PASS) |
+| M-50 | (hecho por el propietario: 24 PASS de población y las cinco suites anteriores, 108 PASS en total) |
 | M-51 | F5: a la derecha del mapa aparece el panel «Población» con 36 de población (30 trabajadores y 6 soldados), sin tapar el mapa ni desbordar la ventana (columna de 148 px) |
 | M-52 | La población sube lentamente (≈ 1 persona cada 7 s) y se detiene al llegar al máximo de la ciudad (50 con una ciudad de nivel 1) |
 | M-53 | Deslizador «Población nueva»: los porcentajes se muestran y suman 100; al moverlo no cambian los trabajadores y soldados ya existentes |
@@ -263,6 +265,40 @@ Mapa controlado como el del hito 6 (tierra x 10..39, y 10..29; jugador x 10..24;
 | M-55 | Seleccionar una ciudad propia muestra la casilla «Prioridad de población» (y no en ciudades ajenas); activarla duplica el aporte mostrado y el crecimiento observado; el panel inferior no se sale de la ventana ni se solapa con la leyenda de forma molesta |
 | M-56 | Botón «Cobra 1.º: Economía/Ejército» alterna; para ver un déficit: movilizar repetidamente con reparto 100 % a soldados hasta que el coste supere la producción y comprobar el aviso en rojo, la pérdida gradual y la recuperación |
 | M-57 | Legibilidad de textos a 12 px y ajuste de líneas del panel; sensación de ritmo (crecimiento, movilización) |
+
+### Hito 8 — Organización militar (escritas, sin ejecutar en Godot)
+
+Mapa controlado como el del hito 7 (tierra x 10..39, y 10..29; jugador x 10..24; IA 1 x 25..34, sin reclamar x 35..39), con la ciudad del jugador en (12, 12) y población inyectada; mundo con ciudad de nivel 4 para la movilización; un mapa de esquinas para los objetivos fuera del mapa; y la escena principal para la prueba de pantalla. No se ha escrito ninguna réplica en otro lenguaje: la revisión fue estática.
+
+| ID | Qué comprueba |
+|---|---|
+| MI-01 | Las cuatro direcciones (índices, nombres, iniciales) son ortogonales y `target_cell` da la celda contigua correcta |
+| MI-02 | Crear sectores válidos en las cuatro direcciones: propietario, origen, dirección, objetivo, 0 soldados, ids únicos y señal; no asigna soldados ni cambia propietarios; `get_sector` devuelve copia |
+| MI-03 | Rechazo de origen de otra nación, sin reclamar, agua, fuera del mapa (x/y negativas, = ancho/alto), dirección −1/4 y naciones inexistentes; `validate_sector` coincide; la IA puede usar su territorio y no el ajeno |
+| MI-04 | Rechazo de objetivos en agua (borde oeste, norte y sur) y fuera del mapa (esquinas); desde la esquina hacia dentro sí vale |
+| MI-05 | Rechazo de duplicados (sin señal ni cambios); otro origen o otra dirección valen; tras eliminar se recrea con un id nuevo |
+| MI-06 | Seis sectores a lo largo de la frontera jugador–IA 1 con fuerzas distintas; objetivos sin reclamar y propios; el territorio y `ownership_changed` no se tocan |
+| MI-07 | Asignar, aumentar, reducir, usar justo el último disponible, fijar la misma cantidad (sin señal) y dejar un sector a 0; el total de `Population` no cambia |
+| MI-08 | Imposible asignar más de lo disponible (por set, por adjust y con cantidades enormes), cantidades negativas, sector inexistente; los rechazos no cambian nada; reservas independientes por nación |
+| MI-09 | Invariante tras cada orden de una secuencia fija: total = `Population.soldiers`, asignados = suma de sectores, asignados + disponibles = total; naciones inexistentes |
+| MI-10 | Eliminar devuelve los soldados a la reserva sin tocar la población, no se puede eliminar dos veces ni asignar a un sector eliminado, y lo liberado se reasigna |
+| MI-11 | Déficit de la IA 1 (250 trabajadores, 40 soldados, sin recursos) durante 60 ticks: tras cada tick el exceso sale del sector más nuevo y luego del antiguo (cifras exactas), nunca hay más asignados que soldados, no vuelven a la reserva, ningún sector se elimina y `enforce_soldier_limits` es idempotente |
+| MI-12 | Crear, asignar, reducir y eliminar no emiten señales de población, economía, ciudades ni territorio y dejan idénticos población, mantenimiento, economía, ciudades, propietarios y terreno; no se convierten trabajadores en soldados |
+| MI-13 | Movilización de 100 trabajadores con todo asignado: las órdenes no cambian lo asignado; los reservados aún no se pueden asignar; lo convertido solo aumenta la reserva (50 a mitad, 140 soldados en total al final); la población total no cambia; el reparto de población nueva no toca las asignaciones |
+| MI-14 | Una conquista de la celda de origen elimina el sector y devuelve sus soldados; el sector cuyo objetivo cambia de dueño sigue; una conquista ajena a los orígenes no cambia nada |
+| MI-15 | Textos del panel (resumen, plan, línea de la lista, detalle, botones) y mensajes de error de creación y asignación |
+| MI-16 | Pantalla: el panel y la capa existen y el panel captura el clic; clic en una celda propia = origen; elegir dirección; crear; la lista, el detalle y el resaltado; +5 con recorte a la reserva; −5; elegir en la lista; una celda ajena no permite crear y se explica; liberar elimina y devuelve todo; la población y el territorio no cambian |
+| MI-17 | Con sectores que se asignan, reajustan, eliminan y recrean durante 150 ticks (más movilización, prioridad de ciudad y reparto de población nueva), población, mantenimiento, dinero, recursos, ciudades, propietarios y terreno son idénticos tick a tick a los de un mundo de control sin sectores; `try_set_owner` y `conquer_cells` siguen rechazando el agua |
+| MI-18 | Las suites anteriores, sus escenas F6 y los archivos del hito siguen presentes |
+
+| ID | Pendiente (manual en Godot) |
+|---|---|
+| M-60 | Ejecutar `test_military.gd` (o F6 en `run_military_tests.tscn`) y confirmar 18 PASS; repetir las seis suites anteriores (108 PASS) |
+| M-61 | F5: a la izquierda del mapa aparece el panel «EJÉRCITO» bajo el botón «Fundar ciudad» sin tapar el mapa ni el mensaje de fundación y sin salirse de la ventana (probar con varios sectores y mensajes de error largos) |
+| M-62 | Seleccionar una celda propia, elegir una dirección y crear un sector: aparece el marcador (origen, línea y cifra) y la lista; con +1/+5 y −1/−5 la cifra cambia y los disponibles también |
+| M-63 | Clics en botones, lista y panel no seleccionan celdas del mapa; el modo de fundación sigue funcionando |
+| M-64 | Legibilidad de las cifras sobre el mapa (escala 3) y solapamiento con varios sectores contiguos; el recuadro del sector elegido se ve |
+| M-65 | Movilizar y comprobar que los disponibles suben a medida que se convierten trabajadores; provocar un déficit y comprobar que los asignados bajan sin errores |
 
 ### Simulación global, pausa y reloj (pendiente de redefinición; antes «hito 7»)
 | ID | Qué comprobar |
@@ -278,6 +314,8 @@ Mapa controlado como el del hito 6 (tierra x 10..39, y 10..29; jugador x 10..24;
 | T-64 | Construcciones: se rechazan sin dinero suficiente |
 
 ### Hito 10 — Ejércitos y combate
+(La asignación de soldados a sectores ya se prueba en MI-01…MI-18.)
+
 | ID | Qué comprobar |
 |---|---|
 | T-70 | Ataques inválidos rechazados (según reglas que se definan) |
@@ -360,8 +398,18 @@ La movilización progresiva se prueba en PO-11, PO-12, PO-13 y PO-17. Las penali
 | Comprobación | Cómo | Estado |
 |---|---|---|
 | Validación local previa (hitos 3–6) | Suites ejecutadas por el propietario | 21 + 14 + 18 + 10 = 63 PASS y 21 PASS de ciudades (tras corregir la posición de una prueba), comunicado por el propietario (Godot 4.7.2); **no ejecutado por Claude** |
-| `tests/test_population.gd` (24 pruebas) | `godot --headless --path . --script res://tests/test_population.gd` | **Pendiente** en Godot (PC del propietario) |
-| Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de repetir; el hito 7 añade a `economy.gd` (`spend_resources`), `city_manager.gd` (señal `ticked`), `territory_info_panel.gd`, `territory_screen.gd` y `territory_main.tscn` |
+| `tests/test_population.gd` (24 pruebas) | `godot --headless --path . --script res://tests/test_population.gd` | **24 PASS** ejecutadas por el propietario en Godot 4.7.2 (comunicado por el propietario) |
+| Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | Repetidas por el propietario (108 PASS en total); el hito 7 añadió a `economy.gd` (`spend_resources`), `city_manager.gd` (señal `ticked`), `territory_info_panel.gd`, `territory_screen.gd` y `territory_main.tscn` |
 | Réplica en Python de la lógica de población | Escrita para contrastar cifras y equilibrio | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye** |
 | Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** (no hay Godot en la nube) |
 | Aspecto y manejo (M-51…M-57) | F5 en el editor | **Pendiente** (validación del propietario) |
+
+## Estado del hito 8 (organización militar)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| Validación local previa (hitos 3–7) | Suites ejecutadas por el propietario | 21 + 14 + 18 + 10 + 21 + 24 = 108 PASS, comunicado por el propietario (Godot 4.7.2); **no ejecutado por Claude** |
+| `tests/test_military.gd` (18 pruebas) | `godot --headless --path . --script res://tests/test_military.gd` | **Pendiente** en Godot (PC del propietario) |
+| Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de repetir; el hito 8 solo cambia `territory_screen.gd` y `territory_main.tscn` (nuevos nodos, creación de `Military` y conexiones; el área del mensaje de fundación se acortó de 144 a 72 px de alto); `Population`, `Economy`, `CityManager` y `TerritoryGrid` no se tocan |
+| Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** (no hay Godot en la nube). Sin réplicas en otros lenguajes |
+| Aspecto y manejo (M-61…M-65) | F5 en el editor | **Pendiente** (validación del propietario) |

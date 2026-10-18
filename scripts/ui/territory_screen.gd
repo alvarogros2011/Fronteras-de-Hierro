@@ -1,7 +1,7 @@
-## Pantalla principal (hitos 4, 5b, 6 y 7): une la cuadrícula, la vista pixelada, la leyenda con
-## estadísticas, el resumen del jugador, el panel de información, las ciudades, la economía y la
-## población. Crea la única TerritoryGrid, la Economy, el CityManager y la Population y se los
-## entrega a los demás. Ninguno de ellos modifica el territorio.
+## Pantalla principal (hitos 4, 5b, 6, 7 y 8): une la cuadrícula, la vista pixelada, la leyenda con
+## estadísticas, el resumen del jugador, el panel de información, las ciudades, la economía, la
+## población y la organización militar. Crea la única TerritoryGrid, la Economy, el CityManager, la
+## Population y el Military y se los entrega a los demás. Ninguno de ellos modifica el territorio.
 ##
 ## Las estadísticas territoriales se recalculan desde la cuadrícula cuando esta emite
 ## ownership_changed, como mucho una vez por fotograma. La economía (saldos) se refresca al
@@ -20,6 +20,9 @@ const CityManager := preload("res://scripts/world/city_manager.gd")
 const CityLayer := preload("res://scripts/world/city_layer_view.gd")
 const Population := preload("res://scripts/world/population.gd")
 const PopulationPanel := preload("res://scripts/ui/population_panel.gd")
+const Military := preload("res://scripts/world/military.gd")
+const MilitaryPanel := preload("res://scripts/ui/military_panel.gd")
+const SectorLayer := preload("res://scripts/world/sector_layer_view.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
 ## Tope de segundos de juego por fotograma (evita un salto enorme tras una pausa de la ventana).
@@ -29,6 +32,7 @@ var grid: TerritoryGrid
 var economy: Economy
 var cities: CityManager
 var population: Population
+var military: Military
 var founding_mode: bool = false
 
 var _player_id: int = TerritoryGrid.INVALID
@@ -42,6 +46,8 @@ var _player_id: int = TerritoryGrid.INVALID
 @onready var _message_label: Label = %Mensaje
 @onready var _city_layer: CityLayer = %Ciudades
 @onready var _population_panel: PopulationPanel = %Poblacion
+@onready var _military_panel: MilitaryPanel = %Militar
+@onready var _sector_layer: SectorLayer = %Sectores
 
 
 func _ready() -> void:
@@ -53,6 +59,8 @@ func _ready() -> void:
 	cities = CityManager.new(grid, economy)
 	cities.place_initial_cities()
 	population = Population.new(cities, economy, grid.get_nation_ids())
+	# Military se crea antes que su panel: así corrige las asignaciones antes de que se lean.
+	military = Military.new(grid, population)
 	_info.grid = grid
 	_info.cities = cities
 	_info.population = population
@@ -66,6 +74,10 @@ func _ready() -> void:
 	cities.changed.connect(_on_cities_changed)
 	population.changed.connect(_on_population_changed)
 	_population_panel.setup(population, cities, _player_id)
+	_military_panel.setup(military, population, grid, _player_id)
+	_sector_layer.setup(grid, military, _player_id)
+	_view.selection_changed.connect(_military_panel.set_origin)
+	_military_panel.sector_selected.connect(_sector_layer.set_highlight)
 	_found_button.pressed.connect(_on_found_button_pressed)
 	refresh_stats()
 	_set_founding_ui()

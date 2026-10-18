@@ -5,7 +5,7 @@ Leyenda:
 - **[P]** Propuesta recomendada por Claude, pendiente de aprobación.
 - **[A]** Abierto: sin decidir. Cada decisión abierta tiene un código (D1, D2…) listado en §12.
 
-> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5), la leyenda con estadísticas territoriales por nación (hito 5b) —las cuatro suites de pruebas de los hitos 3–5b fueron ejecutadas por el propietario en Godot 4.7.2: 63 PASS— **ciudades y economía básica (hito 6; 21 PASS ejecutadas por el propietario, que comprobó que las ciudades aparecen y crecen)** y **población, movilización y mantenimiento (hito 7, sin ejecutar ni validar en Godot)**; no hay combate ni ejércitos que se muevan. El resto de §5–§9 es diseño.
+> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5), la leyenda con estadísticas territoriales por nación (hito 5b) —las cuatro suites de pruebas de los hitos 3–5b fueron ejecutadas por el propietario en Godot 4.7.2: 63 PASS— **ciudades y economía básica (hito 6; 21 PASS ejecutadas por el propietario, que comprobó que las ciudades aparecen y crecen)** y **población, movilización y mantenimiento (hito 7; 24 PASS ejecutadas por el propietario)** y **organización militar con sectores y asignación de soldados (hito 8, sin ejecutar ni validar en Godot)**; no hay combate ni ejércitos que se muevan. El resto de §5–§9 es diseño.
 
 ## 1. Concepto
 
@@ -113,7 +113,7 @@ Leyenda:
 - **[C]** Cuando se defina el combate, el juego mostrará una previsión comprensible de las posibilidades de victoria y las pérdidas estimadas.
 - **[C]** Los ejércitos se representan inicialmente mediante una **cifra de soldados**. No se crean regimientos ni entidades individuales de soldados.
 - **[C]** En el futuro, el jugador podrá concentrar un ataque en una zona concreta del mapa, con ayuda opcional de una flecha de dirección (ver §5, D18).
-- **[A]** D7: dónde se guarda y cómo se agrupa la cifra de soldados (por nación, por ciudad, por zona de ataque…). La directriz anterior de "no usar un único número global" queda pendiente de reconciliar con esta decisión.
+- **[P]** D7 (provisional, hito 8): el total es una cifra nacional y el jugador lo reparte entre sectores de despliegue; ver «Organización militar (hito 8)». **[A]** Abierto: otras agrupaciones (por ciudad) y cómo se combina todo en un ataque. La directriz anterior de "no usar un único número global" se reconcilia así: hay un total nacional, pero la fuerza útil es la de cada sector.
 - **[A]** D8: combate determinista o con azar (si hay azar, cómo se expresa la "probabilidad de victoria").
 - **[P]** Independientemente de D7/D8, el cálculo de la previsión será una función pura y comprobable, separada de la interfaz.
 
@@ -147,7 +147,7 @@ Fuera del MVP: multijugador, guardado de partida, más recursos (excluidos por d
 | D4 | Provisional (hito 6): coste 100, distancia mínima 9, fundación **inmediata** (el tiempo de fundación confirmado **no está implementado**: pendiente registrado). Abierto: valores definitivos, tiempo de fundación, límite de ciudades | Revisión en el equilibrado |
 | D5 | Provisional (hito 7): población **nacional**, sin asignar trabajadores a ciudades concretas (fuera del diseño actual). Abierto: producción según trabajadores | Hito 9 |
 | D6 | Provisional (hito 6): 4 niveles, umbrales 30/60/120 ticks, rombo de píxeles. Hito 7: el nivel fija capacidad y crecimiento de población, pero la población no acelera el crecimiento visual. Abierto: relación definitiva | Ninguno directo |
-| D7 | Dónde se guarda y cómo se agrupa la cifra de soldados | Hito 10 |
+| D7 | Provisional (hito 8): el total de soldados es **nacional** (`Population`) y el jugador lo reparte entre **sectores** de una celda; el resto es la reserva. Abierto: si hay otras agrupaciones (por ciudad), cómo se combinan en un ataque y si un sector crece a varias celdas | Hito 10 |
 | D8 | Combate determinista o con azar; significado de la probabilidad de victoria | Hito 10 |
 | D9 | Mecánica diferenciadora definitiva | Ninguno directo; afecta a la prioridad |
 | D10 | Ritmo del tiempo real: pausa, control de velocidad, duración objetivo de la partida | Hito 7 |
@@ -160,6 +160,7 @@ Fuera del MVP: multijugador, guardado de partida, más recursos (excluidos por d
 | D17 | Nombres: mundo, naciones y ciudades (hoy hay nombres provisionales de naciones) | Sin bloqueo |
 | D18 | Cómo se selecciona y visualiza la zona de ataque (flecha u otra herramienta) | Hito 10 |
 | D19 | Provisional (hito 7): prioridad por ciudad, x2 al crecimiento de población, sin coste ni límite. Abierto: coste y límites definitivos | Revisión en el equilibrado |
+| D20 | Provisional (hito 8): sin límite de sectores por nación, sin coste en dinero ni recursos, objetivo de una sola celda y sin condición diplomática para apuntar a otra nación (planificar no es atacar). Abierto: límite o coste de sectores, frentes de varias celdas y qué exige realmente una guerra (declaración formal, tratados, treguas) | Hito 10 |
 
 ## 13. Prototipo anterior de provincias (legado)
 
@@ -196,9 +197,9 @@ Implementado. El propietario ejecutó en Godot 4.7.2 sus 21 pruebas (21 PASS) y 
 
 ## Población, movilización y mantenimiento (hito 7)
 
-Implementado, con pruebas escritas pero **sin ejecutar ni validar en Godot**. Todos los números son **[P] provisionales**, centralizados en `scripts/data/population_balance.gd`. Nada de esto crea combate, ejércitos que se muevan ni cambia fronteras: **la población, la economía y el mantenimiento nunca modifican el territorio** (solo `conquer_cells`).
+Implementado; el propietario ejecutó sus 24 pruebas en Godot 4.7.2 (24 PASS; la validación visual del panel no se ha registrado). Todos los números son **[P] provisionales**, centralizados en `scripts/data/population_balance.gd`. Nada de esto crea combate, ejércitos que se muevan ni cambia fronteras: **la población, la economía y el mantenimiento nunca modifican el territorio** (solo `conquer_cells`).
 
-**Modelo.** La población es **nacional**: por nación se guardan trabajadores y soldados; total, trabajadores disponibles (sin reservar), capacidad y crecimiento se derivan. Las ciudades no guardan población: cada ciudad activa (con propietario) contribuye según su nivel al crecimiento y a la capacidad de su propietario. Una ciudad conquistada contribuye al nuevo dueño. Los soldados son una **cifra nacional** (no hay unidades dibujadas); su reparto por frentes pertenece al futuro sistema de ejércitos.
+**Modelo.** La población es **nacional**: por nación se guardan trabajadores y soldados; total, trabajadores disponibles (sin reservar), capacidad y crecimiento se derivan. Las ciudades no guardan población: cada ciudad activa (con propietario) contribuye según su nivel al crecimiento y a la capacidad de su propietario. Una ciudad conquistada contribuye al nuevo dueño. Los soldados son una **cifra nacional** (no hay unidades dibujadas); desde el hito 8 el jugador reparte esa cifra entre sectores (ver «Organización militar (hito 8)»).
 
 | Concepto | Regla | Valor provisional |
 |---|---|---|
@@ -223,3 +224,27 @@ Los saldos de dinero y recursos **nunca** son negativos: el mantenimiento paga s
 **Límites conocidos:** la producción de las ciudades **no depende todavía de los trabajadores** (solo del nivel; D14), así que ahora mismo los trabajadores solo cuestan recursos y la población sirve de base al futuro ejército. Las consecuencias del déficit sobre la fuerza militar dependen del combate (hito 10) y no están implementadas. No hay pausa del tiempo (D10).
 
 **HUD.** Panel «Población» a la derecha del mapa (resumen de población, trabajadores y soldados; crecimiento; deslizador y porcentajes de la población nueva; deslizador y botón de movilización con barra de progreso y pendientes; coste de mantenimiento frente a producción, estado suficiente/insuficiente, botón de prioridad de mantenimiento y aviso de déficit). La casilla de prioridad de crecimiento está en el panel de información de la ciudad del jugador seleccionada. Todo se lee de los datos reales.
+
+## Organización militar (hito 8)
+
+Implementado, con pruebas escritas (MI-01…MI-18) pero **sin ejecutar ni validar en Godot**. Es una capa de **planificación**: no hay combate, bajas, avance de tropas, invasiones, ocupación, declaración de guerra, tratados ni IA militar. **El territorio solo cambia por `conquer_cells`: crear sectores o asignar soldados nunca cambia fronteras.**
+
+**Modelo.** Un **sector** es una orden de despliegue: id estable (no se reutiliza), nación, celda de **origen**, **dirección** ortogonal (norte, este, sur, oeste; sin diagonales), celda **objetivo** contigua en esa dirección y **soldados asignados**. El objetivo es una sola celda en esta versión; se guarda aparte del origen y la dirección para poder ampliarlo después a un frente de varias celdas.
+
+| Regla | Detalle |
+|---|---|
+| Creación | El origen está dentro del mapa y es de la nación; el objetivo contiguo está dentro del mapa y es tierra; no existe ya un sector con el mismo origen y dirección. Orden de comprobación: nación, dirección, origen en el mapa, origen propio, objetivo en el mapa, objetivo tierra, duplicado |
+| Objetivo | Puede ser tierra propia, sin reclamar o de otra nación. Apuntar a otra nación **no inicia una guerra** ni exige nada diplomático (D20) |
+| Varios sectores | Se pueden crear tantos como se quiera (también el mismo origen en otras direcciones y otros orígenes en la misma dirección), así que se pueden concentrar fuerzas en distintos puntos de una misma frontera |
+| Soldados | Fuente de verdad: `Population.soldiers`. No se duplica el contador. Disponibles (reserva) = soldados − suma de los asignados de la nación. Asignar o liberar **no crea ni elimina soldados** y no convierte trabajadores |
+| Asignación | Fijar, aumentar o reducir la cantidad de un sector; no se admite más que la reserva ni cantidades negativas; la redistribución nunca causa bajas |
+| Eliminar | Retira todos los soldados del sector (vuelven a la reserva) y lo elimina |
+| Economía | Los sectores no producen ni consumen dinero ni recursos; el mantenimiento sigue dependiendo de los soldados nacionales |
+
+**Cuando bajan los soldados** (deserción por déficit de recursos u otro sistema de población): al final de ese cambio, si lo asignado supera el total real, el exceso se quita **empezando por el sector más nuevo** (id mayor) y siguiendo hacia los más antiguos; cada sector pierde como mucho lo que tiene. Los sectores no se eliminan (pueden quedar con 0) y esos soldados **no** vuelven a la reserva porque ya no existen. Es una decisión provisional y determinista.
+
+**Cuando se pierde el origen** (una conquista le quita la celda de origen a la nación): el sector se elimina y sus soldados vuelven a la reserva. Si solo cambia de dueño el objetivo, el sector sigue.
+
+**Interfaz.** Panel «EJÉRCITO» en la columna izquierda: soldados totales, asignados y disponibles; el **origen** es la celda seleccionada en el mapa (si no es propia se explica por qué no se puede crear); cuatro botones N/E/S/O; «Crear sector»; lista de sectores; detalle (origen, objetivo, dirección, a quién pertenece el objetivo y soldados); botones −5 −1 +1 +5 (los incrementos se recortan a lo que hay) y «Liberar y eliminar». En el mapa, cada sector es un marcador discreto: celda de origen, línea hasta la celda objetivo y la cifra de soldados; el elegido lleva un recuadro. Los paneles capturan el clic, así que no seleccionan el mapa por error. **Límites visuales conocidos:** con muchos sectores contiguos las cifras pueden solaparse y en el peor caso el panel puede acercarse al borde inferior; el aspecto se tratará en la fase visual.
+
+**No implementado (hitos posteriores):** combate, probabilidades de victoria y bajas, avance automático, invasión o cambios de propietario, ocupación militar provisional (deberá mantenerse separada de la propiedad territorial), declaración de guerra, tratados, paz blanca o treguas, IA que cree sectores, flecha de ataque (D18).

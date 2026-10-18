@@ -17,11 +17,11 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 | 5 | Fundamentos de la conquista territorial (operación `conquer_cells`) | Hecho; 18 PASS ejecutadas por el propietario en Godot 4.7.2 |
 | 5b | Naciones y HUD base (antes «hito 5») | Hecho; 10 PASS ejecutadas por el propietario en Godot 4.7.2 (la validación visual detallada de la leyenda no se ha registrado) |
 | 6 | **Ciudades y economía básica** (ciudades iniciales, fundación, crecimiento por niveles, dinero y recursos) | Hecho; 21 PASS ejecutadas por el propietario en Godot 4.7.2 (tras corregir una posición inválida en una prueba); el propietario comprobó que las ciudades iniciales aparecen y crecen visualmente y le gusta la dirección visual. Pendiente: fundación instantánea (ver «Pendientes registrados») |
-| 7 | **Población, trabajadores y mantenimiento** (población por nación generada por las ciudades, reparto de la población nueva, prioridad de crecimiento, movilización progresiva, mantenimiento con déficit gradual) | Implementado; pruebas escritas, **pendientes de ejecutar y validar en Godot** |
+| 7 | **Población, trabajadores y mantenimiento** (población por nación generada por las ciudades, reparto de la población nueva, prioridad de crecimiento, movilización progresiva, mantenimiento con déficit gradual) | Hecho; 24 PASS ejecutadas por el propietario en Godot 4.7.2 (comunicado por el propietario al pedir el hito 8; la validación visual del panel no se ha registrado) |
 | — | Simulación por pasos con pausa y reloj global (antes «hito 7») | **Pendiente de redefinición.** La parte de **expansión territorial automática queda descartada** (contradice la regla de conquista); pausa y velocidad (D10) siguen abiertas |
-| 8 | ~~Población, trabajadores y crecimiento urbano~~ | **Absorbido por el hito 7** (el crecimiento decreciente por tamaño y la relación nivel↔población, D6, siguen abiertos) |
+| 8 | **Organización militar y asignación de soldados** (sectores de despliegue de una celda y cuatro direcciones, reserva de soldados, panel militar y marcadores en el mapa; sin combate) | Implementado; pruebas MI-01…MI-18 escritas, **pendientes de ejecutar y validar en Godot** |
 | 9 | Construcciones y producción según trabajadores (el mantenimiento ya está en el hito 7) | Pendiente; requiere D14 |
-| 10 | Ejércitos, ataques y previsión de combate | Pendiente; requiere D7, D8, D12, D18 |
+| 10 | Ejércitos, ataques y previsión de combate (sobre los sectores del hito 8) | Pendiente; requiere D8, D12, D18 y lo que quede de D7 |
 | 11 | ~~Reclutamiento forzoso~~ | **Absorbido por el hito 7** como movilización progresiva (porcentaje elegible, duración y penalizaciones definitivas, D13, siguen abiertos) |
 | 12 | IA enemiga | Pendiente |
 | 13 | Victoria, derrota y reinicio | Pendiente; requiere D11 |
@@ -98,16 +98,23 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 - **Reloj único:** `CityManager` emite `ticked` tras cada tick y la población avanza en ese mismo paso. No se ha creado un reloj global (queda con la simulación pendiente de redefinir).
 - **Valores:** todos en `scripts/data/population_balance.gd`, **provisionales**; con ellos el juego por defecto no entra en déficit (comprobado por prueba y por una réplica en Python) y un déficit provocado se corrige solo.
 - **Criterios:** pruebas PO-01…PO-24 (`tests/test_population.gd`, ver `docs/TEST_PLAN.md`); las cinco suites anteriores siguen presentes y sin cambios en sus aserciones.
-- **Fuera de alcance (no implementado):** ataques y movimiento de ejércitos, asignación de soldados a frentes, ocupación militar provisional, fuerza militar y bajas por batalla, tratados y treguas, IA, multijugador, producción según trabajadores, construcciones, nuevos terrenos y **expansión territorial automática**. El crecimiento de ciudades, la población, la economía y el mantenimiento nunca modifican las fronteras: solo `conquer_cells`.
-- **Dependencias futuras documentadas:** el efecto del déficit sobre la fuerza militar o la eficacia del ejército depende del combate (hito 10); los soldados son una cifra nacional (D7 sigue abierta sobre su reparto por frente).
+- **Fuera de alcance (no implementado; la asignación de soldados a sectores llegó en el hito 8):** ataques y movimiento de ejércitos, ocupación militar provisional, fuerza militar y bajas por batalla, tratados y treguas, IA, multijugador, producción según trabajadores, construcciones, nuevos terrenos y **expansión territorial automática**. El crecimiento de ciudades, la población, la economía y el mantenimiento nunca modifican las fronteras: solo `conquer_cells`.
+- **Dependencias futuras documentadas:** el efecto del déficit sobre la fuerza militar o la eficacia del ejército depende del combate (hito 10); los soldados son una cifra nacional y desde el hito 8 se reparten entre sectores (D7 queda provisional).
 
 ## Simulación por pasos, pausa y reloj global (pendiente de redefinición; antes «hito 7»)
 - **Descartado:** la expansión territorial automática de fronteras. Contradice la regla confirmada de que el territorio solo cambia por una conquista explícita. Tampoco hace falta la comprobación de continuidad que se planeó para ella (puede volver con la conquista si se necesita).
 - **Pendiente de redefinir:** reloj global con pasos fijos, pausa en el modo individual y control de velocidad (D10). Hoy cada sistema avanza con los ticks fijos de `CityManager` (que la población comparte mediante la señal `ticked`); no hay pausa.
 - **Criterios (si se retoma):** mismas entradas y misma semilla dan el mismo estado tras N pasos; la pausa detiene toda la simulación; ningún paso cambia propietarios.
 
-## Hito 8 — (absorbido por el hito 7)
-Población, trabajadores, control de reparto y prioridad de crecimiento se implementaron en el hito 7. Quedan abiertas, sin implementar: la relación entre población y nivel/crecimiento visual de la ciudad (D6), el crecimiento por unidad de población estrictamente decreciente con el tamaño y qué trabajadores producen qué (D5).
+## Hito 8 — Organización militar y asignación de soldados
+**Estado: implementado en la nube sin Godot; pruebas escritas (MI-01…MI-18), no ejecutadas; validación local pendiente.** Antes de este hito el «hito 8» antiguo (población y crecimiento urbano) estaba absorbido por el 7; se reutiliza el número. Primera capa militar: **preparar** el despliegue, no combatir. Detalle del modelo y las reglas: `docs/GDD.md`, «Organización militar (hito 8)».
+- **Sector militar** (`scripts/world/military.gd`): orden de despliegue con id estable, nación, celda de origen (propia), dirección ortogonal (norte, este, sur, oeste), celda objetivo contigua (tierra) y soldados asignados. Rechaza: nación o dirección inválidas, origen fuera del mapa o no propio, objetivo fuera del mapa o en agua, y duplicados (mismo origen y dirección). Se pueden crear varios sectores a lo largo de una frontera. El objetivo puede ser tierra propia, sin reclamar o de otra nación; **crear un sector no inicia ninguna guerra**.
+- **Asignación:** los soldados asignados siguen siendo parte de `Population.soldiers`; no hay contador nacional duplicado. Reserva disponible = soldados − asignados. Crear, asignar, aumentar, reducir y eliminar un sector son solo apuntes: no crean ni destruyen soldados, no tocan trabajadores, dinero ni recursos y no cambian fronteras. No se puede asignar más de lo disponible.
+- **Coherencia:** si el total de soldados baja (deserción por déficit), el exceso asignado se quita de forma determinista empezando por el sector más nuevo; los sectores no se eliminan. Si el origen de un sector se conquista, el sector se elimina y sus soldados vuelven a la reserva.
+- **Interfaz:** panel «EJÉRCITO» en la columna izquierda (soldados totales / asignados / disponibles; origen = celda propia seleccionada en el mapa; botones N/E/S/O; «Crear sector»; lista de sectores; detalle con origen, objetivo, dirección y soldados; botones −5 −1 +1 +5; «Liberar y eliminar») y marcadores discretos en el mapa (`scripts/world/sector_layer_view.gd`): origen, línea hacia el objetivo y la cifra de soldados. Sin soldados dibujados. Aspecto funcional, no pulido.
+- **Criterios:** pruebas MI-01…MI-18 (`tests/test_military.gd`, ver `docs/TEST_PLAN.md`); las seis suites anteriores siguen presentes y sin cambios en sus aserciones.
+- **Fuera de alcance (no implementado):** resolución de combates, probabilidades y bajas, avance automático, invasiones o cambios de propietario, ocupación militar provisional, declaración formal de guerra, negociaciones/tratados/treguas, IA militar, multijugador, nuevos terrenos y expansión territorial automática. Estas mecánicas se desarrollarán después manteniendo separada la propiedad territorial del control militar provisional.
+- **Dejado preparado:** el sector guarda `target` aparte del origen y la dirección para poder ampliarlo a un frente de varias celdas; `Military` no sabe de combate ni de diplomacia, así que el hito 10 puede añadir ataques sobre los sectores sin reescribirlos.
 
 ## Hito 9 — Construcciones y producción según trabajadores
 - El mantenimiento de trabajadores y soldados **ya existe desde el hito 7**; la producción de las ciudades sigue dependiendo solo de su nivel (hito 6). Este hito añadiría construcciones según D14 y, si se decide, producción según trabajadores.
@@ -116,7 +123,7 @@ Población, trabajadores, control de reparto y prioridad de crecimiento se imple
   - Si la producción depende de los trabajadores, la prueba comprueba la relación sin romper el equilibrio inicial del hito 7.
 
 ## Hito 10 — Ejércitos, ataques y previsión de combate
-- Cifra de soldados según D7, ataques según D3/D8 (incluida la selección de la zona de ataque y su flecha opcional, D18) y previsión visible de ventaja, probabilidad de victoria y pérdidas estimadas.
+- Parte de los sectores del hito 8 (cifra de soldados por sector, D7 provisional), ataques según D3/D8 (incluida la selección de la zona de ataque y su flecha opcional, D18) y previsión visible de ventaja, probabilidad de victoria y pérdidas estimadas.
 - **Criterios:**
   - Los ataques inválidos se rechazan (pruebas automáticas).
   - La previsión se calcula con una función pura y coincide con el resultado cuando el combate es determinista, o con la distribución definida si hay azar (pruebas automáticas).
@@ -151,6 +158,6 @@ La conversión progresiva de un porcentaje de trabajadores en soldados se implem
 - **Tiempo de medición** de la vista pixelada en el PC (hito 4) y validación visual del panel de población (hito 7).
 
 ## Notas de orden
-- El 3→4→5 es obligatorio. La secuencia vigente es 6 (ciudades) → 7 (población y mantenimiento) → 9 (construcciones) → 10 (ejércitos y combate); los antiguos 8 y 11 quedaron dentro del 7.
+- El 3→4→5 es obligatorio. La secuencia vigente es 6 (ciudades) → 7 (población y mantenimiento) → 8 (organización militar) → 9 (construcciones) → 10 (ejércitos, ataques y combate); el antiguo 11 quedó dentro del 7 y la expansión territorial automática sigue descartada.
 - Un hito no empieza hasta que sus decisiones abiertas tengan respuesta.
 - Más allá del MVP (sin planificar): mapas adicionales, más naciones, diplomacia, investigación, guardado de partida.

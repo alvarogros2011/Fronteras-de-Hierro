@@ -123,7 +123,7 @@ Las ciudades **no** modifican el propietario de las celdas ni las fronteras. Se 
 | Ciudades (`CityRegistry`; hoy `CityManager`) | Posición, nivel, tamaño visual, trabajadores asignados (futuro) | Territorio (ancla válida y propietario) | Cambiar fronteras |
 | Población | Trabajadores y soldados; reparto de población nueva (control deslizante); conversión por reclutamiento forzoso | Ciudades, naciones | Dibujar o tocar territorio |
 | Economía | Dinero y recursos (solo dos); producción, mantenimiento, construcciones | Ciudades, población | Añadir recursos nuevos |
-| Ejército | Representación pendiente (D7); fuerza, previsión de combate, ataques | Territorio, población, naciones | Simular soldados individuales ni usar un único número global |
+| Ejército (`Military`, hito 8: sectores y asignación; combate pendiente) | Reparto de los soldados de `Population` entre sectores de despliegue; en el futuro fuerza, previsión de combate y ataques | Territorio (lectura), población (lectura de soldados) | Escribir en el territorio, duplicar el contador de soldados, simular soldados individuales |
 | Simulación | Reloj de pasos fijos y orden de actualización de las capas | Todas | Dibujar |
 | Presentación | Vistas y HUD que leen el estado; transmiten las órdenes | Estado de la simulación | Contener reglas del juego |
 
@@ -138,11 +138,11 @@ Las dependencias van en una sola dirección (de abajo hacia arriba en la tabla).
 | 5 | Fundamentos de la conquista: operación `conquer_cells` validada y atómica — **hecho; 18 PASS del propietario** | 4 | — (el combate/autorización: D3) |
 | 5b | Naciones y HUD base (antes «hito 5») — **hecho; 10 PASS del propietario** | 4 | D2 (valores provisionales) |
 | 6 | **Ciudades y economía básica** (ciudades iniciales, fundación, crecimiento por niveles, dinero y recursos) — **hecho; 21 PASS del propietario** | 5b | D4, D6, D14 (valores provisionales) |
-| 7 | **Población, trabajadores y mantenimiento** (reparto de la población nueva, prioridad de crecimiento, movilización progresiva, déficit gradual) — **implementado; pruebas por ejecutar en Godot** | 6 | D5, D6, D13, D14, D15, D19 (valores provisionales) |
+| 7 | **Población, trabajadores y mantenimiento** (reparto de la población nueva, prioridad de crecimiento, movilización progresiva, déficit gradual) — **hecho; 24 PASS del propietario** | 6 | D5, D6, D13, D14, D15, D19 (valores provisionales) |
 | — | Reloj de simulación global y pausa — **pendiente de redefinición**; la expansión territorial automática (antiguo hito 7) queda **descartada** | 5, 6 | D10 |
-| 8 | (absorbido por el hito 7) | — | — |
+| 8 | **Organización militar** (sectores de una celda en cuatro direcciones, reserva y asignación de soldados, panel y marcadores) — **implementado; pruebas por ejecutar en Godot** | 7 | D7 y D20 (valores provisionales) |
 | 9 | Construcciones y producción según trabajadores | 7 | D14 |
-| 10 | Cifra de soldados, ataques (zona de ataque con flecha opcional) y previsión de combate | 6, 7 | D7, D8, D12, D18 |
+| 10 | Ataques sobre los sectores (zona de ataque con flecha opcional) y previsión de combate | 6, 7, 8 | D8, D12, D18 (y lo que quede de D7 y D20) |
 | 11 | (absorbido por el hito 7 como movilización progresiva) | — | D13 |
 | 12 | IA | 10 | — |
 | 13 | Victoria, derrota y reinicio | 12 | D11 |
@@ -257,3 +257,15 @@ Propuestas técnicas provisionales; el propietario puede revertirlas.
 - **Comprobación del equilibrio:** además de las pruebas, se contrastaron las cifras con una réplica de la lógica en Python (escrita para el diseño, no es una prueba de Godot ni la sustituye): sin déficit en 2.000 ticks con repartos del 0 al 100 % y movilización del 50 %; un déficit provocado se corrige solo en unas decenas de ticks.
 - **Interfaz:** panel a la derecha del mapa (columna de 148 px que antes estaba vacía) y casilla de prioridad dentro del panel de información existente, que ahora se ancla al borde inferior y crece hacia arriba para no salirse de la ventana. Pendiente de validar visualmente (tamaños de fuente y ajuste de líneas no se han visto).
 - **Límites:** sin producción según trabajadores (D14), sin consecuencias militares del déficit (dependen del combate), sin pausa (D10).
+
+## Decisiones técnicas del hito 8 (organización militar)
+
+Propuestas técnicas provisionales; el propietario puede revertirlas.
+
+- **Piezas:** `Military` (`scripts/world/military.gd`, lógica sin nodos), `military_panel.gd` (HUD que solo lee y llama a órdenes) y `sector_layer_view.gd` (marcadores; solo lee). No hay constantes de equilibrio nuevas ni autoloads. `Population`, `Economy`, `CityManager` y `TerritoryGrid` **no se han modificado**; `Military` solo escucha sus señales (`Population.changed`, `TerritoryGrid.ownership_changed`).
+- **Sin duplicar el contador de soldados:** `Military` guarda únicamente cuánto de los soldados de `Population` está asignado a cada sector. El total sale siempre de `Population.soldiers`, así que un cambio de población (deserción, movilización) es visible al instante y no puede desincronizarse. La reserva es total − asignados (nunca negativa).
+- **Corrección ante pérdidas:** se evaluó eliminar sectores o repartir el recorte proporcionalmente; se eligió quitar el exceso del sector más nuevo hacia atrás porque es determinista, sin redondeos, fácil de explicar y no destruye órdenes. Se ejecuta al recibir `Population.changed`, que se emite al final de cada tick y de cada orden, de modo que entre un cambio y su corrección no hay ninguna lectura de la interfaz (el panel se conecta después que `Military`).
+- **Territorio ajeno a los sectores:** el sector no guarda quién es el dueño del objetivo; se lee de `TerritoryGrid` en cada consulta (`target_owner`). Si el origen deja de ser de la nación, el sector se elimina (no tiene sentido una orden desde una celda perdida); la poda cuelga de `ownership_changed`. Nada de esto escribe en la cuadrícula.
+- **Ampliable:** `target` es un campo propio del sector (hoy una celda). Para un frente de varias celdas bastará sustituirlo por una lista; combate, avance y ocupación se añadirán en `Military` o en módulos que lo lean, sin tocar `TerritoryGrid` (el territorio seguirá cambiando solo por `conquer_cells`; la ocupación provisional deberá ser un estado aparte).
+- **Interfaz:** panel en la columna izquierda bajo el botón de fundar y su mensaje (se acortó el área del mensaje de fundación para dejar sitio), con el patrón del panel de población (controles con nombre, textos estáticos probables). El origen es la selección del mapa que ya existía. **Pendiente de validar visualmente:** altura del panel con muchos sectores, solapamiento de cifras en el mapa y legibilidad a 12 px.
+- **Límites:** sin combate, bajas, avance, invasión, ocupación, guerra formal, tratados ni IA; sin pausa (D10).
