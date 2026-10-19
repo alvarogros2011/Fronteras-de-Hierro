@@ -7,6 +7,7 @@ extends PanelContainer
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
 const CityManager := preload("res://scripts/world/city_manager.gd")
 const Population := preload("res://scripts/world/population.gd")
+const Occupation := preload("res://scripts/world/occupation.gd")
 const PopulationPanel := preload("res://scripts/ui/population_panel.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
@@ -20,6 +21,8 @@ var cities: CityManager
 ## muestran el control de prioridad de crecimiento.
 var population: Population
 var player_id: int = TerritoryGrid.INVALID
+## Ocupación militar (hito 9). Si se asigna, una celda ocupada lo indica (la propiedad oficial no cambia).
+var occupation: Occupation = null
 
 var _label: Label
 var _priority_button: CheckButton
@@ -54,14 +57,27 @@ static func describe(source: TerritoryGrid, cell: Vector2i) -> String:
 	return "Celda (%d, %d) · %s\nPropietario: %s" % [cell.x, cell.y, terrain, owner_name]
 
 
-## Texto de una ciudad: propietario, nivel, producción por segundo y crecimiento.
+## Línea de ocupación de una celda: «Ocupada por X (provisional)», o "" si nadie la ocupa. La
+## propiedad oficial se muestra aparte y no cambia por la ocupación.
+static func describe_occupation(source: TerritoryGrid, occupied_by: Occupation, cell: Vector2i) -> String:
+	if source == null or occupied_by == null or not occupied_by.is_occupied(cell):
+		return ""
+	var nation := source.get_nation(occupied_by.occupier_at(cell))
+	return "Ocupada por %s (provisional)" % (nation["name"] if not nation.is_empty() else "otra nación")
+
+
+## Texto de una ciudad: propietario, nivel, producción por segundo y crecimiento. Si su centro está
+## ocupado, avisa de que la producción está suspendida.
 static func describe_city(source: TerritoryGrid, manager: CityManager, city_id: int) -> String:
 	var city := manager.get_city(city_id)
 	var nation := source.get_nation(city["owner"])
 	var owner_name: String = nation["name"] if not nation.is_empty() else "Sin propietario"
 	var growth := "nivel máximo" if city["needed"] == 0 else "crecimiento %d/%d" % [city["progress"], city["needed"]]
-	return "Ciudad #%d · %s · nivel %d\nProduce +%s dinero/s, +%s recursos/s · %s" % [city_id, owner_name, city["level"],
+	var text := "Ciudad #%d · %s · nivel %d\nProduce +%s dinero/s, +%s recursos/s · %s" % [city_id, owner_name, city["level"],
 			format_rate(city["money_rate"]), format_rate(city["resource_rate"]), growth]
+	if city["occupied"]:
+		text += "\nCiudad ocupada: producción suspendida"
+	return text
 
 
 ## Cantidad por tick convertida a por segundo ("2" o "0,5").
@@ -81,6 +97,9 @@ func show_cell(cell: Vector2i) -> void:
 	if _label == null:
 		return
 	var text := describe(grid, cell)
+	var occupation_line := describe_occupation(grid, occupation, cell)
+	if occupation_line != "":
+		text += "\n" + occupation_line
 	var city_id := CityManager.NO_CITY
 	if cities != null and grid != null and grid.is_valid_coord(cell.x, cell.y):
 		city_id = cities.city_covering(cell)

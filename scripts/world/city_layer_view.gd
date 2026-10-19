@@ -12,6 +12,8 @@ const CityManager := preload("res://scripts/world/city_manager.gd")
 
 const BODY_LIGHTEN := 0.55
 const CENTER_COLOR := Color(1, 1, 1, 1)
+## Centro de una ciudad ocupada (hito 9): su producción está suspendida.
+const OCCUPIED_CENTER_COLOR := Color(1.0, 0.55, 0.15, 1)
 
 var _grid: TerritoryGrid
 var _cities: CityManager
@@ -37,4 +39,4 @@ func _draw() -> void:
 		for cell in _cities.visual_cells(city_id):
 			draw_rect(Rect2(Vector2(cell), Vector2.ONE), body)
 		var center: Vector2i = _cities.get_city(city_id)["cell"]
-		draw_rect(Rect2(Vector2(center), Vector2.ONE), CENTER_COLOR)
+		draw_rect(Rect2(Vector2(center), Vector2.ONE), OCCUPIED_CENTER_COLOR if _cities.is_occupied(city_id) else CENTER_COLOR)

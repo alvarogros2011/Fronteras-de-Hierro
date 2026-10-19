@@ -11,12 +11,19 @@
 ## Datos guardados por ciudad: id (estable, nunca se reutiliza), celda del centro, nivel y
 ## progreso de crecimiento. Todo lo demás se deriva. Valores de equilibrio: economy_balance.gd.
 ##
+## Ocupación (hito 9): si el centro de una ciudad está ocupado por otra nación (Occupation, opcional),
+## la ciudad SUSPENDE su producción de dinero y recursos mientras dure la ocupación (regla provisional):
+## no se transfiere al ocupante ni la cobra su dueño. Su propietario sigue siendo el oficial (la
+## cuadrícula) y su crecimiento de nivel continúa. Al terminar la ocupación la producción se reanuda
+## sola. Tampoco se puede fundar una ciudad en una celda ocupada.
+##
 ## Tiempo: advance(delta) acumula segundos y ejecuta ticks fijos de TICK_SECONDS, de modo que
 ## el resultado depende del tiempo transcurrido y no del número de fotogramas.
 extends RefCounted
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
 const Economy := preload("res://scripts/world/economy.gd")
+const Occupation := preload("res://scripts/world/occupation.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
 ## Se emite al fundar una ciudad, al subir de nivel y al recolocar las iniciales.
@@ -34,11 +41,13 @@ const FOUND_ERR_NOT_OWNED := 4  # la celda no pertenece a la nación que funda
 const FOUND_ERR_OCCUPIED := 5  # ya hay una ciudad exactamente ahí
 const FOUND_ERR_TOO_CLOSE := 6
 const FOUND_ERR_NO_FUNDS := 7
+const FOUND_ERR_ENEMY_OCCUPATION := 8  # la celda es propia pero está ocupada por otra nación
 
 const NO_CITY := -1
 
 var _grid: TerritoryGrid
 var _economy: Economy
+var _occupation: Occupation = null
 var _cities: Dictionary = {}  # id -> {"id", "cell", "level", "progress"}
 var _by_cell: Dictionary = {}  # Vector2i del centro -> id
 var _next_id: int = 1
@@ -48,6 +57,18 @@ var _accumulator: float = 0.0
 func _init(grid: TerritoryGrid, economy: Economy) -> void:
 	_grid = grid
 	_economy = economy
+
+
+## Conecta la ocupación (hito 9). Los cambios de ocupación emiten `changed`: la producción y el
+## dibujo de las ciudades dependen de ella. Se llama una sola vez, al montar la partida.
+func set_occupation(occupation: Occupation) -> void:
+	_occupation = occupation
+	if _occupation != null:
+		_occupation.changed.connect(_on_occupation_changed)
+
+
+func _on_occupation_changed() -> void:
+	changed.emit()
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +88,13 @@ func has_city(city_id: int) -> bool:
 	return _cities.has(city_id)
 
 
+## ¿Está ocupado por otra nación el centro de la ciudad? (producción suspendida; false si no existe)
+func is_occupied(city_id: int) -> bool:
+	if not _cities.has(city_id) or _occupation == null:
+		return false
+	return _occupation.is_occupied(_cities[city_id]["cell"])
+
+
 ## Nación propietaria de la ciudad (la de su celda central), o INVALID si la ciudad no existe.
 func get_owner(city_id: int) -> int:
 	if not _cities.has(city_id):
@@ -77,12 +105,13 @@ func get_owner(city_id: int) -> int:
 
 ## Copia de los datos de una ciudad (vacío si no existe): id, owner, cell, level, progress,
 ## needed (puntos para el siguiente nivel; 0 en el nivel máximo), money_rate y resource_rate
-## (por tick). Modificarla no afecta a la ciudad.
+## (por tick; 0 mientras la ciudad está ocupada) y occupied. Modificarla no afecta a la ciudad.
 func get_city(city_id: int) -> Dictionary:
 	if not _cities.has(city_id):
 		return {}
 	var city: Dictionary = _cities[city_id]
 	var level: int = city["level"]
+	var occupied := is_occupied(city_id)
 	return {
 		"id": city_id,
 		"owner": get_owner(city_id),
@@ -90,8 +119,9 @@ func get_city(city_id: int) -> Dictionary:
 		"level": level,
 		"progress": city["progress"],
 		"needed": growth_needed(level),
-		"money_rate": Balance.MONEY_PER_TICK[level],
-		"resource_rate": Balance.RESOURCES_PER_TICK[level],
+		"money_rate": 0 if occupied else Balance.MONEY_PER_TICK[level],
+		"resource_rate": 0 if occupied else Balance.RESOURCES_PER_TICK[level],
+		"occupied": occupied,
 	}
 
 
@@ -114,11 +144,12 @@ static func growth_needed(level: int) -> int:
 
 
 ## Producción por tick de todas las ciudades activas de la nación: {"money": int, "resources": int}.
+## Las ciudades ocupadas no producen.
 func income_for(nation_id: int) -> Dictionary:
 	var money := 0
 	var resources := 0
 	for city_id: int in _cities:
-		if get_owner(city_id) == nation_id:
+		if get_owner(city_id) == nation_id and not is_occupied(city_id):
 			var level: int = _cities[city_id]["level"]
 			money += Balance.MONEY_PER_TICK[level]
 			resources += Balance.RESOURCES_PER_TICK[level]
@@ -172,6 +203,8 @@ static func error_message(code: int) -> String:
 			return "Demasiado cerca de otra ciudad (mínimo %d celdas)." % Balance.MIN_CITY_DISTANCE
 		FOUND_ERR_NO_FUNDS:
 			return "Dinero insuficiente (cuesta %d)." % Balance.FOUND_COST
+		FOUND_ERR_ENEMY_OCCUPATION:
+			return "La celda está ocupada por otra nación."
 	return "Error desconocido."
 
 
@@ -223,8 +256,8 @@ func _is_valid_initial_cell(nation_id: int, cell: Vector2i) -> bool:
 # ---------------------------------------------------------------------------
 
 ## Comprueba si `nation_id` puede fundar una ciudad en `cell` sin cambiar nada. Devuelve FOUND_OK
-## o el primer error, en este orden: nación, límites, tierra, propiedad, ciudad existente,
-## distancia mínima y dinero.
+## o el primer error, en este orden: nación, límites, tierra, propiedad, ocupación enemiga,
+## ciudad existente, distancia mínima y dinero.
 func check_founding(nation_id: int, cell: Vector2i) -> int:
 	if not _grid.has_nation(nation_id):
 		return FOUND_ERR_UNKNOWN_NATION
@@ -234,6 +267,8 @@ func check_founding(nation_id: int, cell: Vector2i) -> int:
 		return FOUND_ERR_NOT_LAND
 	if _grid.get_cell_owner(cell.x, cell.y) != nation_id:
 		return FOUND_ERR_NOT_OWNED
+	if _occupation != null and _occupation.is_occupied(cell):
+		return FOUND_ERR_ENEMY_OCCUPATION
 	if _by_cell.has(cell):
 		return FOUND_ERR_OCCUPIED
 	if _is_too_close(cell):
@@ -292,7 +327,7 @@ func advance(delta: float) -> int:
 	return ticks
 
 
-## Un tick: cada ciudad con propietario produce para él y gana crecimiento (subiendo de nivel
+## Un tick: cada ciudad con propietario (y sin ocupar) produce para él, y todas ganan crecimiento (subiendo de nivel
 ## al alcanzar el umbral; el sobrante de progreso se conserva). Nunca toca la cuadrícula.
 func _tick() -> void:
 	var money := {}
@@ -304,8 +339,9 @@ func _tick() -> void:
 			continue
 		var city: Dictionary = _cities[city_id]
 		var level: int = city["level"]
-		money[owner_id] = money.get(owner_id, 0) + Balance.MONEY_PER_TICK[level]
-		resources[owner_id] = resources.get(owner_id, 0) + Balance.RESOURCES_PER_TICK[level]
+		if not is_occupied(city_id):
+			money[owner_id] = money.get(owner_id, 0) + Balance.MONEY_PER_TICK[level]
+			resources[owner_id] = resources.get(owner_id, 0) + Balance.RESOURCES_PER_TICK[level]
 		if level < Balance.MAX_LEVEL:
 			city["progress"] += Balance.GROWTH_PER_TICK
 			while city["level"] < Balance.MAX_LEVEL and city["progress"] >= growth_needed(city["level"]):

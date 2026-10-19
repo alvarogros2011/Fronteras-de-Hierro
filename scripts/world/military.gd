@@ -29,8 +29,11 @@
 ##
 ## Ampliación prevista (no implementada): un sector apuntará a varias celdas contiguas (frente
 ## más ancho); hoy "target" es una sola celda y se guarda aparte del origen y la dirección para
-## poder sustituirla por una lista sin cambiar el resto. Combate, avance y ocupación son de
-## hitos posteriores. Ni IA ni multijugador crean sectores todavía.
+## poder sustituirla por una lista sin cambiar el resto. Ni IA ni multijugador crean sectores todavía.
+##
+## Hito 9: este sistema sigue sin saber de combate. Las ofensivas viven en Offensives, que usa los
+## soldados asignados al sector como fuerza atacante y registra las bajas del atacante mediante
+## apply_casualties (única vía de combate que cambia la asignación de un sector).
 extends RefCounted
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -249,6 +252,24 @@ func adjust_sector_soldiers(sector_id: int, delta: int) -> int:
 	if amount < 0:
 		return ASSIGN_ERR_NEGATIVE
 	return set_sector_soldiers(sector_id, amount)
+
+
+## Baja de combate (hito 9): el sector pierde hasta `losses` soldados y la nación los pierde de
+## verdad (Population.remove_soldiers), así que ni se duplican ni quedan asignados soldados que ya no
+## existen. Primero se recorta el sector y después la población: la corrección por «total menor que lo
+## asignado» no encuentra exceso y no toca otros sectores de la nación. Devuelve las bajas aplicadas
+## (0 si el sector no existe o losses <= 0; nunca más de los soldados del sector).
+func apply_casualties(sector_id: int, losses: int) -> int:
+	if not _sectors.has(sector_id) or losses <= 0:
+		return 0
+	var sector: Dictionary = _sectors[sector_id]
+	var applied := mini(mini(losses, sector["soldiers"]), maxi(0, _population.soldiers(sector["owner"])))
+	if applied <= 0:
+		return 0
+	sector["soldiers"] -= applied
+	_population.remove_soldiers(sector["owner"], applied)
+	changed.emit()
+	return applied
 
 
 ## Retira todos los soldados del sector y lo elimina: vuelven a la reserva, no desaparecen de la

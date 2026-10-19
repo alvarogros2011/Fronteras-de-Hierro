@@ -10,16 +10,27 @@
 ## se vea) en la primera de cuatro posiciones (derecha, izquierda, debajo, encima del objetivo)
 ## que no choque con otra cifra ya colocada; si no cabe en ninguna, esa cifra no se dibuja (el
 ## número exacto de cada sector sigue en la lista del panel). Se dibuja en un único _draw y solo
-## se redibuja cuando cambian los sectores, los propietarios o la selección.
+## se redibuja cuando cambian los sectores, los propietarios, la selección o las ofensivas.
+##
+## Ofensivas (hito 9): un sector que ataca o que atacó se dibuja distinto. La línea sale del origen y
+## llega al FRENTE (hasta donde ha avanzado), en el color de ataque; el frente lleva un recuadro y, si
+## el ataque sigue activo, una punta de flecha hacia la celda a la que apunta ahora. Un ataque
+## detenido conserva la línea hasta el frente y un pequeño cuadrado de «alto» en su color apagado. Su
+## cifra de soldados se coloca junto a la celda siguiente al frente (no junto al objetivo original).
 extends Node2D
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
 const Military := preload("res://scripts/world/military.gd")
+const Offensives := preload("res://scripts/world/offensives.gd")
 
 const ORIGIN_LIGHTEN := 0.35
 const TARGET_LIGHTEN := 0.7
 const LINE_WIDTH := 0.6
 const SELECT_COLOR := Color(1, 1, 1, 0.95)
+## Color del sector en ataque (naranja vivo) y del ataque detenido (el mismo, apagado).
+const ATTACK_COLOR := Color(1.0, 0.55, 0.15)
+const STOPPED_COLOR := Color(0.62, 0.5, 0.4, 0.9)
+const ATTACK_LINE_WIDTH := 0.9
 const TEXT_COLOR := Color(1, 1, 1)
 const TEXT_OUTLINE_COLOR := Color(0, 0, 0, 0.9)
 const EMPTY_TEXT_COLOR := Color(0.75, 0.75, 0.75)
@@ -30,15 +41,19 @@ const LABEL_GAP := 0.4
 
 var _grid: TerritoryGrid
 var _military: Military
+var _offensives: Offensives = null
 var _highlight_id: int = Military.NO_SECTOR
 ## Nación cuyos sectores se dibujan (solo los del jugador).
 var _nation_id: int = TerritoryGrid.INVALID
 
 
-func setup(grid: TerritoryGrid, military: Military, nation_id: int) -> void:
+func setup(grid: TerritoryGrid, military: Military, nation_id: int, offensives: Offensives = null) -> void:
 	_grid = grid
 	_military = military
 	_nation_id = nation_id
+	_offensives = offensives
+	if _offensives != null:
+		_offensives.changed.connect(queue_redraw)
 	_military.changed.connect(queue_redraw)
 	_grid.ownership_changed.connect(queue_redraw)
 	queue_redraw()
@@ -76,11 +91,19 @@ func label_layout(char_size: Vector2) -> Dictionary:
 	for sector_id: int in ordered:
 		var sector := _military.get_sector(sector_id)
 		var size := Vector2(char_size.x * str(sector["soldiers"]).length(), char_size.y)
-		var rect := _free_rect(sector["target"], size, taken, sector_id == _highlight_id)
+		var rect := _free_rect(label_cell(sector_id), size, taken, sector_id == _highlight_id)
 		if rect.size != Vector2.ZERO:
 			layout[sector_id] = rect
 			taken.append(rect)
 	return layout
+
+
+## Celda junto a la que se coloca la cifra del sector: la siguiente al frente si tiene ofensiva (activa o
+## detenida) y, si no, su celda objetivo.
+func label_cell(sector_id: int) -> Vector2i:
+	if _offensives != null and _offensives.sector_state(sector_id) != Offensives.STATE_READY:
+		return _offensives.current_target(sector_id)
+	return _military.get_sector(sector_id)["target"]
 
 
 ## Primera posición libre para una cifra de tamaño `size` junto a la celda objetivo, o un Rect2
@@ -109,7 +132,11 @@ func _draw() -> void:
 		return
 	var color: Color = _grid.get_nation(_nation_id)["color"]
 	for sector_id: int in _military.get_sector_ids(_nation_id):
-		_draw_marker(_military.get_sector(sector_id), color, sector_id == _highlight_id)
+		var state := Offensives.STATE_READY if _offensives == null else _offensives.sector_state(sector_id)
+		if state == Offensives.STATE_READY:
+			_draw_marker(_military.get_sector(sector_id), color, sector_id == _highlight_id)
+		else:
+			_draw_offensive(_military.get_sector(sector_id), _offensives.get_offensive(sector_id), color, sector_id == _highlight_id)
 	var font: Font = ThemeDB.fallback_font
 	var scale_factor := global_scale
 	if font == null or scale_factor.x == 0.0 or scale_factor.y == 0.0:
@@ -142,4 +169,30 @@ func _draw_marker(sector: Dictionary, color: Color, selected: bool) -> void:
 	draw_colored_polygon(PackedVector2Array([to + forward * 0.5, to - forward * 0.5 + side, to - forward * 0.5 - side]), line_color)
 	if selected:
 		var area := Rect2(Vector2(origin), Vector2.ONE).merge(Rect2(Vector2(target), Vector2.ONE))
+		draw_rect(area.grow(0.5), SELECT_COLOR, false, 0.5)
+
+
+## Sector con ofensiva: origen, línea hasta el frente y, según el estado, punta de flecha hacia la celda
+## siguiente (atacando) o cuadrado de «alto» (detenido). El recuadro del frente marca el progreso.
+func _draw_offensive(sector: Dictionary, offensive: Dictionary, color: Color, selected: bool) -> void:
+	var origin: Vector2i = sector["origin"]
+	var front: Vector2i = offensive["front"]
+	var next_cell: Vector2i = offensive["next_cell"]
+	var active: bool = offensive["state"] == Offensives.STATE_ACTIVE
+	var line_color := ATTACK_COLOR if active else STOPPED_COLOR
+	var from := Vector2(origin) + Vector2(0.5, 0.5)
+	var to := Vector2(front) + Vector2(0.5, 0.5)
+	draw_rect(Rect2(Vector2(origin), Vector2.ONE), color.lightened(ORIGIN_LIGHTEN))
+	draw_line(from, to, line_color, ATTACK_LINE_WIDTH)
+	draw_rect(Rect2(Vector2(front), Vector2.ONE).grow(0.35), line_color, false, 0.4)
+	var forward := Vector2(next_cell - front)
+	if active:
+		var tip := Vector2(next_cell) + Vector2(0.5, 0.5)
+		var side := Vector2(forward.y, forward.x).abs() * 0.6
+		draw_colored_polygon(PackedVector2Array([tip + forward * 0.6, tip - forward * 0.4 + side, tip - forward * 0.4 - side]), line_color)
+	else:
+		var stop_center := Vector2(front) + Vector2(0.5, 0.5) + forward * 0.9
+		draw_rect(Rect2(stop_center - Vector2(0.35, 0.35), Vector2(0.7, 0.7)), line_color)
+	if selected:
+		var area := Rect2(Vector2(origin), Vector2.ONE).merge(Rect2(Vector2(next_cell), Vector2.ONE))
 		draw_rect(area.grow(0.5), SELECT_COLOR, false, 0.5)

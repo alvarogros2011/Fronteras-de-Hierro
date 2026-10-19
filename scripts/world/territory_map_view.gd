@@ -13,6 +13,10 @@
 ##   Entre dos naciones queda una línea de 2 celdas (una de cada lado) sin huecos.
 ##   Frontera entre nación y tierra sin reclamar, y costa de una nación: línea de 1 celda
 ##   en la propia nación. La costa de la tierra sin reclamar usa el tono de costa.
+##   - Celda ocupada militarmente (hito 9, si se asigna `occupation`): en tablero de ajedrez, las
+##     celdas con (x + y) par en un tono claro del color del OCUPANTE y las demás con el color de la
+##     nación propietaria (con su borde). Se ve de un vistazo que no es una conquista consolidada ni
+##     el color liso de ninguna nación. La ocupación nunca cambia el propietario ni las fronteras.
 ##
 ## Coordenadas: la imagen se dibuja en (0, 0) del nodo con 1 unidad por celda; posición y
 ## escala del nodo la colocan en pantalla. cell_from_local / cell_from_global invierten
@@ -25,6 +29,7 @@
 extends Node2D
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
+const Occupation := preload("res://scripts/world/occupation.gd")
 
 ## Se emite al cambiar la selección; cell == NO_CELL indica selección vacía.
 signal selection_changed(cell: Vector2i)
@@ -40,6 +45,8 @@ const COLOR_WATER := Color(0.10, 0.16, 0.25)
 const COLOR_LAND := Color(0.37, 0.39, 0.36)
 const COLOR_SHORE := Color(0.30, 0.32, 0.30)
 const BORDER_DARKEN := 0.35
+## Aclarado del color del ocupante en las celdas del tablero de ocupación.
+const OCCUPATION_LIGHTEN := 0.3
 const HOVER_COLOR := Color(1, 1, 1, 0.30)
 const SELECT_FILL_COLOR := Color(1, 1, 1, 0.30)
 const SELECT_RING_COLOR := Color(1, 1, 1, 0.90)
@@ -47,6 +54,9 @@ const SELECT_RING_COLOR := Color(1, 1, 1, 0.90)
 const _NEIGHBORS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var grid: TerritoryGrid
+## Ocupación militar (hito 9). Opcional: sin ella, el dibujo es el de siempre. Quien la modifique debe
+## repintar las celdas afectadas con refresh_cell (Occupation.cells_changed las anuncia).
+var occupation: Occupation = null
 var selected_cell: Vector2i = NO_CELL
 var hover_cell: Vector2i = NO_CELL
 ## Si es false, los clics no cambian la selección (solo emiten cell_clicked).
@@ -96,7 +106,13 @@ func cell_color(x: int, y: int) -> Color:
 	if owner_id == TerritoryGrid.OWNER_NONE:
 		return COLOR_SHORE if _touches_water(x, y) else COLOR_LAND
 	var base: Color = grid.get_nation(owner_id)["color"]
-	return base.darkened(BORDER_DARKEN) if is_border(x, y) else base
+	var owner_color := base.darkened(BORDER_DARKEN) if is_border(x, y) else base
+	if occupation != null and (x + y) % 2 == 0:
+		var occupier := occupation.occupier_at(Vector2i(x, y))
+		if occupier != TerritoryGrid.OWNER_NONE and grid.has_nation(occupier):
+			var occupier_color: Color = grid.get_nation(occupier)["color"]
+			return occupier_color.lightened(OCCUPATION_LIGHTEN)
+	return owner_color
 
 
 func _touches_water(x: int, y: int) -> bool:

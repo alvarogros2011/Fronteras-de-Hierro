@@ -1,7 +1,9 @@
-## Pantalla principal (hitos 4, 5b, 6, 7 y 8): une la cuadrícula, la vista pixelada, la leyenda con
+## Pantalla principal (hitos 4, 5b, 6, 7, 8 y 9): une la cuadrícula, la vista pixelada, la leyenda con
 ## estadísticas, el resumen del jugador, el panel de información, las ciudades, la economía, la
-## población y la organización militar. Crea la única TerritoryGrid, la Economy, el CityManager, la
-## Population y el Military y se los entrega a los demás. Ninguno de ellos modifica el territorio.
+## población, la organización militar y las ofensivas. Crea la única TerritoryGrid, la Economy, el
+## CityManager, la Population, el Military, la Occupation, el WarState y las Offensives y se los entrega
+## a los demás. Solo las ofensivas cambian el territorio, y solo conquistando tierra sin reclamar con
+## TerritoryGrid.conquer_cells; ocupar tierra de otra nación no cambia propietarios (Occupation).
 ##
 ## Las estadísticas territoriales se recalculan desde la cuadrícula cuando esta emite
 ## ownership_changed, como mucho una vez por fotograma. La economía (saldos) se refresca al
@@ -23,6 +25,9 @@ const PopulationPanel := preload("res://scripts/ui/population_panel.gd")
 const Military := preload("res://scripts/world/military.gd")
 const MilitaryPanel := preload("res://scripts/ui/military_panel.gd")
 const SectorLayer := preload("res://scripts/world/sector_layer_view.gd")
+const Occupation := preload("res://scripts/world/occupation.gd")
+const WarState := preload("res://scripts/world/war_state.gd")
+const Offensives := preload("res://scripts/world/offensives.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
 ## Tope de segundos de juego por fotograma (evita un salto enorme tras una pausa de la ventana).
@@ -33,6 +38,9 @@ var economy: Economy
 var cities: CityManager
 var population: Population
 var military: Military
+var occupation: Occupation
+var wars: WarState
+var offensives: Offensives
 var founding_mode: bool = false
 
 var _player_id: int = TerritoryGrid.INVALID
@@ -52,16 +60,23 @@ var _player_id: int = TerritoryGrid.INVALID
 
 func _ready() -> void:
 	grid = TerritoryGrid.new()
+	occupation = Occupation.new(grid)
+	wars = WarState.new()
 	for nation_id: int in grid.get_nation_ids():
 		if grid.get_nation(nation_id)["controller"] == "human":
 			_player_id = nation_id
 	economy = Economy.new(grid.get_nation_ids())
 	cities = CityManager.new(grid, economy)
+	cities.set_occupation(occupation)
 	cities.place_initial_cities()
 	population = Population.new(cities, economy, grid.get_nation_ids())
 	# Military se crea antes que su panel: así corrige las asignaciones antes de que se lean.
 	military = Military.new(grid, population)
+	# Las ofensivas avanzan tras la población en cada tick (se conectan después a CityManager.ticked).
+	offensives = Offensives.new(grid, population, military, cities, occupation, wars)
+	_view.occupation = occupation
 	_info.grid = grid
+	_info.occupation = occupation
 	_info.cities = cities
 	_info.population = population
 	_info.player_id = _player_id
@@ -74,8 +89,11 @@ func _ready() -> void:
 	cities.changed.connect(_on_cities_changed)
 	population.changed.connect(_on_population_changed)
 	_population_panel.setup(population, cities, _player_id)
-	_military_panel.setup(military, population, grid, _player_id)
-	_sector_layer.setup(grid, military, _player_id)
+	_military_panel.setup(military, population, grid, _player_id, offensives, wars, occupation)
+	_sector_layer.setup(grid, military, _player_id, offensives)
+	occupation.cells_changed.connect(_repaint_cells)
+	offensives.territory_changed.connect(_repaint_cells)
+	occupation.changed.connect(_on_occupation_changed)
 	_view.selection_changed.connect(_military_panel.set_origin)
 	_military_panel.sector_selected.connect(_sector_layer.set_highlight)
 	_found_button.pressed.connect(_on_found_button_pressed)
@@ -103,6 +121,16 @@ func _process(_delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	cities.advance(minf(delta, MAX_FRAME_DELTA))
+
+
+## Repinta en el mapa las celdas cuyo propietario u ocupación cambiaron (la vista no se entera sola).
+func _repaint_cells(cells: Array) -> void:
+	for cell: Vector2i in cells:
+		_view.refresh_cell(cell.x, cell.y)
+
+
+func _on_occupation_changed() -> void:
+	_info.show_cell(_view.selected_cell)
 
 
 # ---------------------------------------------------------------------------

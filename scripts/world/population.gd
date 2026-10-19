@@ -28,8 +28,9 @@
 ##    déficit se deba a una deuda (y no a un tick suelto sin pagar) evita que un reparto irregular
 ##    de los recursos entre ticks lo oculte.
 ##
-## Valores de equilibrio: population_balance.gd. Combate, bajas por batalla y reparto de soldados
-## entre frentes NO existen todavía.
+## Valores de equilibrio: population_balance.gd. Las bajas de combate (hito 9) llegan solo por
+## remove_soldiers: quitan soldados, nunca trabajadores, y la población total se deriva sola.
+## El reparto de soldados entre frentes vive en Military (hito 8) y el combate en Offensives.
 extends RefCounted
 
 const Economy := preload("res://scripts/world/economy.gd")
@@ -354,6 +355,20 @@ func start_mobilization(nation_id: int, percent: int) -> int:
 	data["mob_elapsed"] = 0
 	changed.emit()
 	return MOB_OK
+
+
+## Baja de combate (hito 9): quita hasta `amount` soldados de la nación (nunca trabajadores) y
+## devuelve cuántos quitó (0 si la nación no existe o amount <= 0). No toca la movilización en
+## curso ni los trabajadores; los totales se derivan, así que la población total baja lo mismo.
+## Quien reparte soldados por sectores (Military) ajusta sus asignaciones al recibir `changed`.
+func remove_soldiers(nation_id: int, amount: int) -> int:
+	if not _nations.has(nation_id) or amount <= 0:
+		return 0
+	var removed := mini(amount, _nations[nation_id]["soldiers"])
+	if removed > 0:
+		_nations[nation_id]["soldiers"] -= removed
+		changed.emit()
+	return removed
 
 
 # ---------------------------------------------------------------------------

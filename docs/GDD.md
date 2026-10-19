@@ -5,7 +5,7 @@ Leyenda:
 - **[P]** Propuesta recomendada por Claude, pendiente de aprobación.
 - **[A]** Abierto: sin decidir. Cada decisión abierta tiene un código (D1, D2…) listado en §12.
 
-> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5), la leyenda con estadísticas territoriales por nación (hito 5b) —las cuatro suites de pruebas de los hitos 3–5b fueron ejecutadas por el propietario en Godot 4.7.2: 63 PASS— **ciudades y economía básica (hito 6; 21 PASS ejecutadas por el propietario, que comprobó que las ciudades aparecen y crecen)** y **población, movilización y mantenimiento (hito 7; 24 PASS ejecutadas por el propietario)** y **organización militar con sectores y asignación de soldados (hito 8, sin ejecutar ni validar en Godot)**; no hay combate ni ejércitos que se muevan. El resto de §5–§9 es diseño.
+> El concepto cambió respecto a la primera versión de este documento (mapa de 14 provincias con ataques entre provincias). Esa versión pasó a ser un **prototipo legado** (§13). Todo lo que sigue describe la visión actual. **Implementado hasta ahora:** la base de datos del territorio en cuadrícula (hito 3), su vista pixelada con selección de celdas (hito 4, sin validar en Godot) la operación de conquista de celdas (hito 5), la leyenda con estadísticas territoriales por nación (hito 5b) —las cuatro suites de pruebas de los hitos 3–5b fueron ejecutadas por el propietario en Godot 4.7.2: 63 PASS— **ciudades y economía básica (hito 6; 21 PASS ejecutadas por el propietario, que comprobó que las ciudades aparecen y crecen)** y **población, movilización y mantenimiento (hito 7; 24 PASS ejecutadas por el propietario)** **organización militar con sectores y asignación de soldados (hito 8, validada a mano por el propietario)** y **ataques, combate determinista, invasiones progresivas, ocupación provisional y estado de guerra (hito 9, sin ejecutar ni validar en Godot)**. El resto de §5–§9 es diseño.
 
 ## 1. Concepto
 
@@ -66,9 +66,9 @@ Leyenda:
 **Abierto [A]**
 - D1: cámara con zoom y desplazamiento; si el mapa llegará a generarse de forma aleatoria; más tipos de terreno (los valores de arriba son provisionales).
 - D2: número definitivo de naciones y quién controla cada una (4 es provisional).
-- D3: fórmula y coste exactos de los ataques y cómo crece el territorio tras un ataque.
-- D12: qué ocurre con una ciudad cuando su celda cambia de propietario.
-- D18: cómo se selecciona y visualiza la zona de ataque.
+- D3: provisional (hito 9): fórmula determinista y valores en `combat_balance.gd`; la tierra sin reclamar se conquista celda a celda con `conquer_cells` y la de otra nación solo se ocupa. Abierto: coste de atacar, fórmula definitiva y cómo se transfiere lo ocupado (tratados).
+- D12: qué ocurre con una ciudad cuando su celda cambia de propietario. Provisional (hito 9): una ciudad ocupada suspende su producción y sigue siendo de su dueño; si la celda se conquista, pasa al conquistador (hito 6).
+- D18: cómo se selecciona y visualiza la zona de ataque. Provisional (hito 9): el sector avanza en línea recta desde su origen; sin flecha de selección ni frentes de varias celdas.
 
 ## 6. Ciudades y población
 
@@ -114,7 +114,7 @@ Leyenda:
 - **[C]** Los ejércitos se representan inicialmente mediante una **cifra de soldados**. No se crean regimientos ni entidades individuales de soldados.
 - **[C]** En el futuro, el jugador podrá concentrar un ataque en una zona concreta del mapa, con ayuda opcional de una flecha de dirección (ver §5, D18).
 - **[P]** D7 (provisional, hito 8): el total es una cifra nacional y el jugador lo reparte entre sectores de despliegue; ver «Organización militar (hito 8)». **[A]** Abierto: otras agrupaciones (por ciudad) y cómo se combina todo en un ataque. La directriz anterior de "no usar un único número global" se reconcilia así: hay un total nacional, pero la fuerza útil es la de cada sector.
-- **[A]** D8: combate determinista o con azar (si hay azar, cómo se expresa la "probabilidad de victoria").
+- **[P]** D8 (provisional, hito 9): combate **determinista**; la previsión es el propio resultado, no una probabilidad. **[A]** Abierto: si habrá azar más adelante y cómo se expresaría una probabilidad de victoria.
 - **[P]** Independientemente de D7/D8, el cálculo de la previsión será una función pura y comprobable, separada de la interfaz.
 
 ## 9. HUD y controles
@@ -143,24 +143,26 @@ Fuera del MVP: multijugador, guardado de partida, más recursos (excluidos por d
 |---|---|---|
 | D1 | Provisional: 320x180, agua/tierra, mapa determinista (hito 3). Abierto: cámara (zoom/desplazamiento), mapa aleatorio, más terrenos | Hito 4 (cámara) |
 | D2 | Provisional: 4 naciones (jugador + 3 de IA; campo `controller` human/ai). Abierto: cuántas en el MVP y quién las controla | Tras el hito 5b |
-| D3 | Fórmula y coste de los ataques; cómo crece el territorio tras atacar; cómo se expande hacia tierra vacía | Hito 7 (aplazado) |
+| D3 | Provisional (hito 9): fórmula determinista (`combat_balance.gd`), sin coste; la tierra sin reclamar se conquista celda a celda con una ofensiva y la de otra nación solo se ocupa. Abierto: coste, fórmula definitiva, transferencia por tratado | Revisión en el equilibrado |
 | D4 | Provisional (hito 6): coste 100, distancia mínima 9, fundación **inmediata** (el tiempo de fundación confirmado **no está implementado**: pendiente registrado). Abierto: valores definitivos, tiempo de fundación, límite de ciudades | Revisión en el equilibrado |
 | D5 | Provisional (hito 7): población **nacional**, sin asignar trabajadores a ciudades concretas (fuera del diseño actual). Abierto: producción según trabajadores | Hito 9 |
 | D6 | Provisional (hito 6): 4 niveles, umbrales 30/60/120 ticks, rombo de píxeles. Hito 7: el nivel fija capacidad y crecimiento de población, pero la población no acelera el crecimiento visual. Abierto: relación definitiva | Ninguno directo |
-| D7 | Provisional (hito 8): el total de soldados es **nacional** (`Population`) y el jugador lo reparte entre **sectores** de una celda; el resto es la reserva. Abierto: si hay otras agrupaciones (por ciudad), cómo se combinan en un ataque y si un sector crece a varias celdas | Hito 10 |
-| D8 | Combate determinista o con azar; significado de la probabilidad de victoria | Hito 10 |
+| D7 | Provisional (hitos 8–9): el total de soldados es **nacional** (`Population`) y el jugador lo reparte entre **sectores** de una celda; el resto es la reserva; un ataque usa los soldados asignados al sector. Abierto: otras agrupaciones (por ciudad) y sectores de varias celdas | Revisión en el equilibrado |
+| D8 | Provisional (hito 9): determinista, sin azar. Abierto: si habrá azar y qué significaría la probabilidad de victoria | Revisión en el equilibrado |
 | D9 | Mecánica diferenciadora definitiva | Ninguno directo; afecta a la prioridad |
 | D10 | Ritmo del tiempo real: pausa, control de velocidad, duración objetivo de la partida | Hito 7 |
 | D11 | Condiciones de victoria y derrota | Hito 13 |
-| D12 | Destino de las ciudades cuando cambia el propietario de su territorio | Hito 10 |
+| D12 | Provisional (hito 9): una ciudad con el centro ocupado suspende su producción (no la cobra nadie) y no cambia de dueño; si la celda se conquista pasa al conquistador. Abierto: destruir, capturar con pérdida de nivel, etc. | Diplomacia / equilibrado |
 | D13 | Provisional (hito 7): movilización de hasta el 50 % de los trabajadores en 30 ticks, sin penalizaciones propias. Abierto: valores definitivos y penalizaciones | Revisión en el equilibrado |
 | D14 | Provisional (hitos 6 y 7): producción por nivel de ciudad y mantenimiento por persona con déficit gradual. Abierto: producción según trabajadores, construcciones | Hito 9 |
 | D15 | Provisional (hito 7): el control de reparto es **global de la nación**. Abierto: ¿por ciudad? | Ninguno directo |
 | D16 | Retirada del prototipo de provincias: cuando el nuevo mapa visual y su interacción estén validados a mano por el propietario | Tras el hito 4–5 |
 | D17 | Nombres: mundo, naciones y ciudades (hoy hay nombres provisionales de naciones) | Sin bloqueo |
-| D18 | Cómo se selecciona y visualiza la zona de ataque (flecha u otra herramienta) | Hito 10 |
+| D18 | Provisional (hito 9): avance en línea recta desde el origen del sector. Abierto: cómo se selecciona y visualiza la zona de ataque (flecha u otra herramienta) y frentes más anchos | Mejora futura |
 | D19 | Provisional (hito 7): prioridad por ciudad, x2 al crecimiento de población, sin coste ni límite. Abierto: coste y límites definitivos | Revisión en el equilibrado |
-| D20 | Provisional (hito 8): sin límite de sectores por nación, sin coste en dinero ni recursos, objetivo de una sola celda y sin condición diplomática para apuntar a otra nación (planificar no es atacar). Abierto: límite o coste de sectores, frentes de varias celdas y qué exige realmente una guerra (declaración formal, tratados, treguas) | Hito 10 |
+| D20 | Provisional (hito 8): sin límite de sectores por nación, sin coste en dinero ni recursos, objetivo de una sola celda y sin condición diplomática para apuntar a otra nación (planificar no es atacar). Abierto: límite o coste de sectores, frentes de varias celdas y qué exige realmente una guerra (declaración formal, tratados, treguas) | Diplomacia |
+| D21 | Provisional (hito 9): **la guerra empieza sola** cuando una ofensiva ataca el territorio oficial de otra nación; atacar tierra sin reclamar no la declara; no hay forma de terminarla. **Pendiente de confirmar antes del sistema diplomático definitivo** (declaración formal, causas, paz, tregua) | Diplomacia |
+| D22 | Provisional (hito 9): una ofensiva **conquista** (con `conquer_cells`) la tierra sin reclamar que vence, porque no hay nación rival que ceda; la de otra nación solo se **ocupa**. La decisión está centralizada en `Offensives`. Abierto: coste de reclamar tierra libre, resistencia de la tierra sin reclamar (`UNCLAIMED_DEFENSE` = 0) y quién y cómo consolida las ocupaciones | Diplomacia / equilibrado |
 
 ## 13. Prototipo anterior de provincias (legado)
 
@@ -175,7 +177,7 @@ Este prototipo **no se amplía** y no define el diseño actual: las provincias s
 
 - **[C]** El territorio solo cambia de propietario como consecuencia de una **conquista explícita**. Nunca se expande solo por el tiempo, la economía, el crecimiento de una ciudad ni por dibujar el mapa. (Confirmado por el propietario.)
 - **[P]** Una conquista es un conjunto concreto de celdas de **tierra**, contiguo por vecinos ortogonales y con contacto ortogonal con el territorio actual del atacante; se aplica entera o no se aplica. El agua nunca tiene propietario. Puede tomar tierra de otra nación o sin reclamar.
-- **[A]** Quién puede atacar, cuándo, qué celdas, con qué coste y cómo se resuelve (D3, D7, D8) sigue abierto; el hito 5 solo implementa la operación segura que usará el combate.
+- **[P]** Desde el hito 9, las ofensivas usan esta operación **solo para tierra sin reclamar** (celda a celda); la tierra de otra nación se **ocupa** sin cambiar su propietario (ver «Ataques, combate e invasiones progresivas»). Cómo se transfiere lo ocupado queda para el hito diplomático. Coste de atacar y fórmula definitiva (D3, D7, D8) siguen siendo provisionales.
 
 ## Información territorial en pantalla (hito 5b)
 
@@ -191,7 +193,7 @@ Implementado. El propietario ejecutó en Godot 4.7.2 sus 21 pruebas (21 PASS) y 
 - **[P]** Fundar una ciudad: el jugador pulsa «Fundar ciudad» y hace clic en una celda. Debe estar dentro del mapa, ser tierra del jugador, sin ciudad, a **al menos 9 celdas (Chebyshev) de cualquier ciudad** (propia o ajena) y el jugador debe tener **100 de dinero**. Solo se cobra cuando la fundación se completa; si no, mensaje breve y se puede reintentar o cancelar (`Esc`). **Inmediata** por ahora; el «breve tiempo de fundación» confirmado queda pendiente.
 - **[P]** Crecimiento: +1 punto por segundo de juego; niveles 1→2 a 30, 2→3 a 60 y 3→4 a 120 puntos (cada vez más lento); el nivel 4 es el máximo. Mancha de píxeles de 5, 13, 25 y 41 celdas (rombo de radio 1–4), dentro del territorio del propietario. **El crecimiento es visual y de nivel: nunca cambia propietarios ni conquista celdas.**
 - **[P]** Producción por segundo y ciudad según nivel: dinero 2/3/5/8 y recursos 1/2/3/5. Se paga al propietario actual de la ciudad.
-- **[P]** Si una celda con ciudad cambia de propietario (conquista), la ciudad pasa al nuevo propietario con su nivel y progreso; no se destruye. Es una decisión provisional que **adelanta una respuesta a D12** (destino de las ciudades) solo en lo mínimo; la ocupación militar provisional no existe todavía y no se ha acoplado.
+- **[P]** Si una celda con ciudad cambia de propietario (conquista), la ciudad pasa al nuevo propietario con su nivel y progreso; no se destruye. Es una decisión provisional que **adelanta una respuesta a D12** (destino de las ciudades) solo en lo mínimo. Desde el hito 9, una ciudad cuyo centro está **ocupado** (sin conquistar) suspende su producción y no cambia de dueño (ver «Ataques, combate e invasiones progresivas»).
 - **[P]** HUD: dinero y recursos del jugador arriba a la derecha, con su ingreso por segundo; el panel de celda añade propietario, nivel, producción y crecimiento de la ciudad que cubra la celda seleccionada.
 - Población, trabajadores, soldados, prioridad de población y mantenimiento se añadieron después, en el hito 7 (ver abajo); **tampoco hay expansión territorial automática**. Pendiente: la fundación es instantánea y el tiempo de fundación confirmado no está implementado.
 
@@ -227,7 +229,7 @@ Los saldos de dinero y recursos **nunca** son negativos: el mantenimiento paga s
 
 ## Organización militar (hito 8)
 
-Implementado, con pruebas escritas (MI-01…MI-21) pero **sin ejecutar ni validar en Godot**. Es una capa de **planificación**: no hay combate, bajas, avance de tropas, invasiones, ocupación, declaración de guerra, tratados ni IA militar. **El territorio solo cambia por `conquer_cells`: crear sectores o asignar soldados nunca cambia fronteras.**
+Implementado, con pruebas escritas (MI-01…MI-21); el propietario validó a mano la interfaz simplificada. Es una capa de **planificación**: por sí sola no hay combate, bajas, avance de tropas ni invasiones (los añade el hito 9 encima, sin reemplazarla). **El territorio solo cambia por `conquer_cells`: crear sectores o asignar soldados nunca cambia fronteras.**
 
 **Modelo.** Un **sector** es una orden de despliegue: id estable (no se reutiliza), nación, celda de **origen**, **dirección** ortogonal (norte, este, sur, oeste; sin diagonales), celda **objetivo** contigua en esa dirección y **soldados asignados**. El objetivo es una sola celda en esta versión; se guarda aparte del origen y la dirección para poder ampliarlo después a un frente de varias celdas.
 
@@ -247,4 +249,50 @@ Implementado, con pruebas escritas (MI-01…MI-21) pero **sin ejecutar ni valida
 
 **Interfaz (simplificada).** Panel «EJÉRCITO» en la columna izquierda. Arriba, soldados totales, asignados y disponibles. **Crear un sector en cuatro pasos:** (1) seleccionar una celda propia en el mapa (si no sirve se explica por qué); (2) botón N/E/S/O, con el objetivo calculado y su dueño a la vista; (3) **un deslizador** con la cantidad de soldados, entre 1 y los disponibles; (4) «Crear sector y asignar». **Editar:** elegir un sector en la lista; el detalle muestra origen, objetivo, dirección, a quién pertenece el objetivo y soldados; el **mismo tipo de deslizador** (de 0 a reserva + lo que ya tiene el sector) fija la nueva cantidad, que se aplica con «Aplicar»; «Liberar y eliminar» devuelve todos los soldados a la reserva (no son bajas) y quita el sector. No hay botones +1/+5/−1/−5. En el mapa, cada sector es un marcador discreto: celda de origen, línea con punta de flecha hasta la celda objetivo y la cifra de soldados; el elegido lleva un recuadro y su cifra se ve siempre. **Solapamientos:** las cifras se colocan junto al objetivo (derecha, izquierda, debajo o encima) en la primera posición libre; si no caben, se omiten (el número exacto sigue en la lista). Los paneles capturan el clic, así que no seleccionan el mapa por error. **Límites visuales conocidos:** con el sector elegido el panel ocupa casi toda la columna izquierda y podría acercarse al borde inferior; el aspecto se tratará en la fase visual.
 
-**No implementado (hitos posteriores):** combate, probabilidades de victoria y bajas, avance automático, invasión o cambios de propietario, ocupación militar provisional (deberá mantenerse separada de la propiedad territorial), declaración de guerra, tratados, paz blanca o treguas, IA que cree sectores, flecha de ataque (D18).
+**No implementado en el hito 8 (el hito 9 añadió combate, avance, ocupación y guerra; ver su sección):** tratados, paz blanca o treguas, IA que cree sectores, flecha de ataque (D18).
+
+
+## Ataques, combate e invasiones progresivas (hito 9)
+
+Implementado, con pruebas escritas (CB-01…CB-25) pero **sin ejecutar ni validar en Godot**. Primera versión jugable de los ataques sobre los sectores del hito 8. Todos los números son **[P] provisionales**, centralizados en `scripts/data/combat_balance.gd`. **El tiempo, la economía, las ciudades y la población nunca cambian fronteras.** Las únicas vías por las que cambia el territorio son: (a) la conquista explícita de **tierra sin reclamar** que hace una ofensiva con `TerritoryGrid.conquer_cells`, y (b) cualquier otra `conquer_cells` explícita futura (tratados). Ocupar tierra de otra nación **no** cambia su propietario.
+
+**Ofensiva.** Estado de ataque de un sector: usa como fuerza **los soldados que el sector tiene asignados en cada momento** (no crea ningún ejército; si el jugador cambia la asignación durante el ataque, cambia la fuerza). Como mucho una por sector. Estados: *preparado* (sin ofensiva), *atacando* y *detenido* (con el motivo). Un sector sin soldados no puede atacar. Se puede detener a mano; **detener no firma la paz, no borra las ocupaciones y conserva el frente y las cifras**; «Reanudar» continúa desde el frente (si ya no es suyo, desde el origen). Eliminar el sector borra su ofensiva, pero no las ocupaciones.
+
+**Avance.** El frente empieza en la celda de origen del sector. Cada `ADVANCE_INTERVAL_TICKS` (3) ticks de 1 s intenta pasar a la celda siguiente **en la dirección del sector**. Solo se avanza desde un frente que sea propio u ocupado por la nación atacante, de una en una celdas, así que nunca se atraviesa agua ni se salta a celdas desconectadas del origen. Resultado según la celda siguiente:
+
+| Celda siguiente | Qué ocurre |
+|---|---|
+| Fuera del mapa / agua | La ofensiva se detiene (borde del mapa / agua) |
+| Propia, o ya ocupada por la nación | El frente avanza sin combate ni bajas |
+| Tierra sin reclamar | Enfrentamiento contra `UNCLAIMED_DEFENSE` (0: sin resistencia). Si vence, **se conquista con `conquer_cells`** (cambia el propietario de esa celda; decisión centralizada en `Offensives`, ver D22). No declara guerra. Si la celda no toca territorio oficial propio (p. ej. al salir de una zona ocupada), la ofensiva se detiene |
+| Tierra de otra nación | Empieza la guerra (si no existía) y hay un enfrentamiento. Si vence, **la celda se ocupa** (Ocupación); el propietario oficial no cambia. Si pierde, la ofensiva se detiene y el frente se queda donde estaba |
+
+Otras causas de parada: sin soldados (también si desertan o el sector se vacía durante el ataque) y frente perdido (la ocupación del frente desapareció).
+
+**Defensa local estimada (provisional).** No hay IA militar todavía, así que la defensa de un punto se estima con los soldados **reales** de la nación defensora (`Population.soldiers`): un único fondo común (`DEFENSE_POOL_PERCENT` = 100 %) repartido a partes iguales entre sus **tramos de frontera**. Celdas expuestas = celdas de la nación en contacto ortogonal con tierra de **otra nación** (la tierra sin reclamar y el agua no cuentan); tramos = techo(celdas expuestas / `CELLS_PER_FRONT` = 8), al menos 1; defensa del tramo = techo(fondo / tramos), mínimo 1 si tiene soldados, 0 si no, y nunca más que sus soldados. Así la misma fuerza **no** se cuenta completa en cada punto. Las bajas del defensor reducen ese fondo, de modo que los combates siguientes encuentran menos defensa; varias ofensivas simultáneas sobre la misma nación comparten el mismo fondo.
+
+**Fórmula del enfrentamiento (determinista, sin azar).** Con `A` atacantes y `D` defensa local:
+- **Resultado:** el atacante vence si `A × 100 > D × DEFENSE_BONUS_PERCENT` (120: la defensa vale un 20 % más; un empate lo gana la defensa). Si `D` = 0 vence siempre que `A` > 0, sin bajas.
+- **Bajas:** el vencedor pierde `WINNER_LOSS_PERCENT` (35 %) de la fuerza del vencido y el vencido pierde `LOSER_LOSS_PERCENT` (70 %) de la suya, redondeando hacia arriba y sin superar los soldados que hay. Si vence el atacante: pierde techo(35 % de `D`) y el defensor techo(70 % de `D`). Si pierde: pierde techo(70 % de `A`) y el defensor techo(35 % de `A`).
+- **Etiqueta de la previsión** (relación `A / (1,2 × D)`): *ventaja atacante* ≥ 1,5; *enfrentamiento equilibrado* entre 0,8 y 1,5; *defensa superior* < 0,8. La etiqueta orienta; **el resultado lo decide la regla de arriba**.
+Ejemplo: 10 atacantes contra una defensa local de 2 (6 soldados repartidos en 3 tramos): relación 4,1, ventaja atacante, victoria; bajas 1 propia y 2 enemigas.
+
+**Previsión.** Antes de confirmar, el panel muestra para la celda siguiente: atacantes, defensa local estimada (y de cuántos soldados y tramos sale), relación y etiqueta, resultado previsto (victoria u ocupar/reclamar, o derrota y parada) y bajas aproximadas propias y enemigas. Es **exactamente** lo que ocurriría en el siguiente avance con el estado actual (la misma función, sin cambiar nada); cambia si cambia el estado (soldados, defensa, propietarios). **No es una probabilidad estadística**: el panel lo dice.
+
+**Bajas reales.** Las del atacante se restan del sector y de `Population` (`Military.apply_casualties`); las del defensor, de `Population.remove_soldiers` (primero se gasta su reserva: sus sectores solo se recortan, del más nuevo al más antiguo, si el total real queda por debajo de lo asignado). Los trabajadores nunca se tocan, la población total es siempre trabajadores + soldados y la movilización en curso no se altera. Ninguna cifra queda negativa y ningún soldado se duplica. Quedarse a 0 detiene la ofensiva.
+
+**Ocupación provisional (`scripts/world/occupation.gd`).** Registra, aparte de la cuadrícula, qué nación controla por la fuerza cada celda y cuál era su propietario oficial al ocuparla. Solo se ocupa tierra de **otra nación** (la sin reclamar se conquista). Se consulta directamente (`occupier_at`, `official_owner_at`, recuentos), nunca por el color. **No toca el propietario ni el terreno.** Una ocupación se descarta sola cuando el propietario oficial de la celda cambia (por ejemplo, si el ocupante la conquista con `conquer_cells`, ya es suya). Preparada para los tratados: transferir lo ocupado sería conquistar con el ocupante las celdas de `get_cells(ocupante)`; restaurar las fronteras previas, `release_all_of(ocupante)`. Ninguna de las dos existe todavía.
+
+**Reglas económicas de la ocupación (provisionales).**
+- El ocupante **no recibe** dinero ni recursos por ocupar.
+- **No se funda** sobre una celda ocupada: el ocupante no es el propietario (error «no es de tu territorio») y el propietario tampoco mientras esté ocupada («ocupada por otra nación»).
+- Una **ciudad cuyo centro está ocupado suspende su producción** de dinero y recursos mientras dure la ocupación; no la cobra el ocupante ni su dueño. Su propietario sigue siendo el oficial. Al terminar la ocupación se reanuda sola. **Límite provisional:** su crecimiento de nivel y su aporte al crecimiento y la capacidad de población de su dueño no se suspenden. En el mapa el centro de una ciudad ocupada se dibuja en naranja y el panel de celda lo indica.
+- Nada de esto convierte jamás una ocupación en propiedad: ni el tiempo, ni el crecimiento de la ciudad, ni la población.
+
+**Estado de guerra (`scripts/world/war_state.gd`).** Registro explícito y consultable de pares de naciones en guerra, independiente de los sectores. **Provisional (D21):** atacar el territorio oficial de otra nación (al iniciar la ofensiva si el objetivo inmediato lo es, o al entrar en él durante el avance) inicia automáticamente la guerra; atacar tierra sin reclamar no. **No existe todavía forma de terminar una guerra** (paz, tregua, rendición): detener ataques no la termina. No hay pantalla de declaración de guerra. El panel muestra de forma discreta «Guerra con: …» y las celdas ocupadas.
+
+**Mapa.** Las celdas ocupadas se dibujan **en tablero de ajedrez**: celdas con (x + y) par en un tono claro del color del ocupante y las demás con el color de la nación propietaria; no se parece al color liso de ninguna conquista consolidada. Cada sector que ataca o atacó se dibuja con su línea naranja desde el origen hasta el **frente** (recuadro), una punta de flecha hacia la celda siguiente si sigue atacando o un cuadrado de «alto» si está detenido, y su cifra de soldados junto a la celda siguiente al frente.
+
+**Interfaz.** Al elegir un sector en el panel «EJÉRCITO» aparece el bloque «ATAQUE»: estado (*Preparado*, *ATACANDO · próximo avance en N s* o *Detenido: motivo*), previsión, botones «Confirmar ataque» (o «Reanudar ataque») y «Detener ataque», y el estado del frente (frente → celda siguiente, celdas ocupadas y reclamadas, bajas propias y enemigas, último enfrentamiento). La lista marca con «ATQ» los sectores que atacan. El panel pasó a tener barra de desplazamiento y ocupa la columna izquierda entera; es funcional, no el diseño visual definitivo.
+
+**Límites conocidos (no implementado).** Diplomacia (ofertas de paz, paz blanca, treguas, indemnizaciones, transferencias por tratado, eliminación de naciones), IA militar o diplomática, retirada de tropas de una celda ocupada, defensa activa (un defensor no reacciona ni contraataca), terreno, frentes de varias celdas (D18), selección de zona de ataque con flecha, ataque por mar, azar/probabilidades y la suspensión del crecimiento de una ciudad ocupada. La previsión solo mira el siguiente avance, no toda la campaña.

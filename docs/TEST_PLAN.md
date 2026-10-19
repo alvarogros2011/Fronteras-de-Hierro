@@ -20,11 +20,12 @@ godot --headless --path . --script res://tests/test_territory_hud.gd
 godot --headless --path . --script res://tests/test_city_economy.gd
 godot --headless --path . --script res://tests/test_population.gd
 godot --headless --path . --script res://tests/test_military.gd
+godot --headless --path . --script res://tests/test_combat.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`. Las del hito 7 (población y mantenimiento): `tests/population_tests.gd`, `tests/test_population.gd` y `tests/run_population_tests.tscn`. Las del hito 8 (organización militar): `tests/military_tests.gd`, `tests/test_military.gd` y `tests/run_military_tests.tscn`.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`. Las del hito 7 (población y mantenimiento): `tests/population_tests.gd`, `tests/test_population.gd` y `tests/run_population_tests.tscn`. Las del hito 8 (organización militar): `tests/military_tests.gd`, `tests/test_military.gd` y `tests/run_military_tests.tscn`. Las del hito 9 (ataques, combate y ocupación): `tests/combat_tests.gd`, `tests/test_combat.gd` y `tests/run_combat_tests.tscn`.
 
 ## Estado actual
 
@@ -41,8 +42,9 @@ Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 
 | **Validación local de las cuatro suites de los hitos 3–5b** | El propietario comunicó 21 + 14 + 18 + 10 = **63 PASS, 0 FAIL** en Godot 4.7.2. Ejecutado por el propietario en su PC, **no por Claude**. Además abrió el mapa y comprobó que al hacer clic en una celda aparece su información |
 | `tests/city_economy_tests.gd` + `tests/test_city_economy.gd` + `tests/run_city_tests.tscn` (hito 6, 21 pruebas CE-01…CE-21) | Ejecutados a mano por el propietario en Godot 4.7.2: **21 PASS** (tras corregir una posición inválida en la prueba de fundación; comunicado por el propietario) |
 | `tests/population_tests.gd` + `tests/test_population.gd` + `tests/run_population_tests.tscn` (hito 7, 24 pruebas PO-01…PO-24) | Ejecutados a mano por el propietario en Godot 4.7.2: **24 PASS** (comunicado por el propietario; las seis suites suman 108 PASS) |
-| `tests/military_tests.gd` + `tests/test_military.gd` + `tests/run_military_tests.tscn` (hito 8, 21 pruebas MI-01…MI-21) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
-| Pruebas de combate, ataques, IA | **No existen**: esas mecánicas no están implementadas |
+| `tests/military_tests.gd` + `tests/test_military.gd` + `tests/run_military_tests.tscn` (hito 8, 21 pruebas MI-01…MI-21) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube). El propietario probó a mano la interfaz militar simplificada y confirmó que funciona |
+| `tests/combat_tests.gd` + `tests/test_combat.gd` + `tests/run_combat_tests.tscn` (hito 9, 25 pruebas CB-01…CB-25) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
+| Pruebas de IA, diplomacia, tratados | **No existen**: esas mecánicas no están implementadas |
 
 ## 1. Pruebas existentes del territorio (hito 3, sistema nuevo)
 
@@ -310,22 +312,53 @@ Mapa controlado como el del hito 7 (tierra x 10..39, y 10..29; jugador x 10..24;
 | T-33 | La pausa detiene el avance de toda la simulación; reanudar continúa |
 | T-35 | Ningún paso de simulación cambia propietarios (la expansión automática está descartada) |
 
-### Hito 9 — Construcciones y producción según trabajadores
+### Hito 9 — Ataques, combate e invasiones progresivas (escritas, sin ejecutar en Godot)
+
+Mismo mapa controlado que el hito 8 (tierra x 10..39, y 10..29; jugador x 10..24; IA 1 x 25..34, sin reclamar x 35..39; 20 celdas expuestas de la IA 1 = 3 tramos de frontera), **sin ciudades** salvo donde se indica y con muchos recursos para todas las naciones (nunca hay déficit): los soldados solo cambian por los combates. Escenarios extra: una fila de tierra hasta el borde del mapa y un mapa con dos celdas libres entre el jugador y la IA 1. El tiempo avanza con `CityManager.advance(n)` (n ticks exactos). Las cifras de los escenarios se contrastaron con una réplica en Python (no es una prueba de Godot).
+
+| ID | Qué comprueba |
+|---|---|
+| CB-01 | Fórmulas puras (`Combat`): constantes coherentes, redondeo hacia arriba, victoria clara (10 contra 4: bajas 2 y 3), victoria por poco, empate (lo gana la defensa), derrota, derrota total, umbrales de las etiquetas (1,5 y 0,8), sin defensa, sin atacantes, bajas siempre dentro de lo que hay (1.600 combinaciones) y determinismo |
+| CB-02 | Defensa local: tramos = techo(celdas / 8); defensa por tramo (2, 6, 0, 1, 4, 3 en casos fijos); **propiedad de no contar dos veces** la misma fuerza para 61 cifras de soldados y 9 tamaños de frontera; celdas expuestas reales del mapa (20), nación sin territorio (0), defensa con 6, 30 y 0 soldados, tierra sin reclamar, y la caché se recalcula al cambiar un propietario |
+| CB-03 | La previsión es determinista, no cambia nada, usa solo los soldados asignados, coincide con el combate real (bajas y resultado) y una previsión de derrota se cumple |
+| CB-04 | Inicio, ofensiva ya activa (sin segunda ofensiva), detener (y no dos veces), una ofensiva detenida no avanza, reanudar, sector o nación inexistentes, `stop_all` y que el agua ni siquiera permite crear el sector |
+| CB-05 | Sector sin soldados rechazado (sin guerra ni rastro); no se asigna más de lo disponible; quitar los soldados o la deserción durante el ataque lo detiene; la IA ataca con las mismas reglas y su ofensiva se detiene si se queda sin soldados |
+| CB-06 | **Victoria:** guerra simétrica, celda ocupada y frente avanzado, bajas exactas (1 y 2), propietario y terreno intactos, sector, reserva y población coherentes, trabajadores sin tocar, la ofensiva continúa y el segundo combate |
+| CB-07 | **Derrota:** la ofensiva se detiene, el frente no avanza, no se ocupa nada, bajas reales (el sector cae a 0), territorio intacto, la guerra sigue, sin soldados no se reintenta, reforzada se reanuda y las bajas se acumulan |
+| CB-08 | **Una celda por intervalo:** nada antes de cumplirse el intervalo, exactamente una celda al cumplirse, cinco pasos seguidos, y 60 fotogramas de 0,25 s dan lo mismo que ticks enteros |
+| CB-09 | **Invasión completa:** cuatro combates agotan a la IA 1 (4 y 6 bajas); sin defensores ocupa sin bajas una línea continua hasta el fondo de su territorio; al llegar a tierra sin reclamar sin contacto con territorio propio se detiene (conserva lo ocupado) y reanudar sigue bloqueado; ningún propietario cambia |
+| CB-10 | **Tierra sin reclamar:** conquista explícita celda a celda (cinco celdas, solo esas cambian, `ownership_changed` una vez por celda y `territory_changed` para repintar), sin guerra, sin ocupaciones, sin bajas; el agua detiene la ofensiva |
+| CB-11 | Límite del mapa (fila hasta x = 319: se detiene sin bajas) y agua al oeste (diez celdas y se detiene) |
+| CB-12 | Frente perdido (se libera la ocupación del frente): se detiene, reanuda desde el origen, volver por una celda ocupada es una marcha sin bajas, la celda liberada se combate otra vez y `conquer_cells` sobre lo ocupado lo convierte en propiedad real sin dejar ocupación |
+| CB-13 | `Occupation`: ocupar sin tocar propietarios ni terreno, consultas directas, recuentos, señales, validaciones (sin reclamar, propia, agua, fuera del mapa, ocupante inexistente), ocupar de nuevo, sustitución por un tercero, liberar, `release_all_of` y descarte al cambiar el propietario oficial |
+| CB-14 | `WarState`: declarar, simetría, agresor, sin duplicados ni datos inválidos; la guerra empieza al atacar a otra nación (no por tener un sector ni por atacar tierra sin reclamar), sobrevive a detener el ataque y al paso del tiempo |
+| CB-15 | **Economía:** el ocupante no cobra nada; la ciudad ocupada suspende su producción (ingresos 0, tasas 0, dinero igual tras 5 ticks) pero sigue de su dueño y crece de nivel; no se funda sobre celdas ocupadas (ocupante: no es suyo; dueño: ocupada) sin cobrar; al liberar la producción se reanuda; 100 ticks de ocupación no cambian al dueño |
+| CB-16 | **Consistencia:** en 40 ticks de combate nunca hay cifras negativas, asignados > existentes ni reserva ≠ total − asignados; los trabajadores no cambian; las bajas contadas son las que desaparecieron de la población; el sector de la IA 1 se recorta del más nuevo al más antiguo; las bajas salen primero de la reserva; `remove_soldiers` con límites |
+| CB-17 | Dos ofensivas independientes en la misma frontera comparten el fondo de defensa (las bajas del defensor suman exactamente sus 6 soldados), detener una no detiene la otra y las reservas cuadran |
+| CB-18 | 300 ticks con ciudades, población y economía no mueven fronteras ni crean ocupaciones; tras detener un ataque, 400 ticks no cambian nada; las ocupaciones no se vuelven propiedad con el tiempo |
+| CB-19 | Eliminar el sector borra su ofensiva pero no la ocupación ni la guerra; perder la celda de origen elimina sector y ofensiva |
+| CB-20 | **Mapa:** las celdas ocupadas se pintan en tablero con el tono claro del ocupante (distinto del color de cualquier propietario), la imagen solo cambia al repintar, liberar restaura el color y sin ocupación el dibujo es el de siempre; propietario y fronteras no cambian |
+| CB-21 | Capa de sectores: la cifra va junto al objetivo si el sector está preparado y junto a la celda siguiente al frente si ataca o está detenido; sin ofensivas se comporta como en el hito 8 |
+| CB-22 | Textos: línea de la lista (« · ATQ»), relación, etiquetas, previsión completa (victoria, derrota, celda propia, sin reclamar, bloqueada), estado de la ofensiva, motivos de parada, mensajes de inicio, línea de guerra y ocupaciones, y descripción de la celda ocupada |
+| CB-23 | **Pantalla:** crear el sector con la interfaz, previsión visible con atacantes, defensa, etiqueta y aviso de que no es una probabilidad, «Confirmar ataque» pasa a atacar (lista y panel lo distinguen), una segunda pulsación no crea otra ofensiva, el avance ocupa la celda y repinta el mapa sin cambiar propietarios, resumen y recuento actualizados, detener / reanudar, sin soldados el botón se desactiva, liberar el sector conserva la ocupación |
+| CB-24 | Determinismo: dos partidas idénticas con dos ofensivas, una detención y 38 ticks dan exactamente el mismo estado |
+| CB-25 | Las suites anteriores, sus escenas F6 y los archivos del hito (y del prototipo de provincias) siguen presentes |
+
+| ID | Pendiente (manual en Godot) |
+|---|---|
+| M-70 | Ejecutar `test_combat.gd` (o F6 en `run_combat_tests.tscn`) y confirmar 25 PASS; repetir las siete suites anteriores (108 PASS + las de militar) |
+| M-71 | F5: el panel «EJÉRCITO» cabe en la columna izquierda con su barra de desplazamiento, sin tapar el mapa ni salirse de la ventana; el bloque «ATAQUE» aparece al elegir un sector y se ve entero (desplazando si hace falta) |
+| M-72 | Para probar un ataque real hay que acercar territorios: elegir una celda libre junto a tu frontera, atacar tierra sin reclamar con un sector hasta llegar a otra nación (el mapa inicial deja las naciones separadas); comprobar que la tierra libre pasa a ser tuya celda a celda y que al entrar en la otra nación empieza «Guerra con…» |
+| M-73 | Legibilidad: el recuadro del frente, la línea naranja, la punta de flecha y el «alto» al detener; las celdas ocupadas en tablero se distinguen del territorio propio y del enemigo; la cifra junto al frente |
+| M-74 | La previsión es comprensible antes de confirmar (atacantes, defensa estimada, relación, resultado, bajas) y coincide con lo que ocurre en el primer avance |
+| M-75 | Una ciudad enemiga ocupada se ve con el centro naranja y su producción se suspende (el panel de celda lo indica); al liberar la ocupación se reanuda (probar liberando por conquista) |
+| M-76 | Sensación de ritmo: ¿es 1 celda cada 3 s demasiado lento o rápido?; ¿se entiende que detener no devuelve lo ocupado? Coste de recalcular las celdas expuestas al conquistar (debería ser imperceptible) |
+
+### Hito 10 — Construcciones y producción según trabajadores (antes «hito 9»)
 | ID | Qué comprobar |
 |---|---|
 | T-61 | Producción de ciudades según nivel y trabajadores (si se decide D14) sin romper el equilibrio inicial del hito 7 |
 | T-64 | Construcciones: se rechazan sin dinero suficiente |
-
-### Hito 10 — Ejércitos y combate
-(La asignación de soldados a sectores ya se prueba en MI-01…MI-21.)
-
-| ID | Qué comprobar |
-|---|---|
-| T-70 | Ataques inválidos rechazados (según reglas que se definan) |
-| T-71 | La previsión de ventaja coincide con el resultado (determinista) o con la distribución definida (con azar y semilla) |
-| T-72 | Los números previstos de pérdidas y probabilidad son coherentes y reproducibles |
-| T-73 | Destino de las ciudades en territorio conquistado (D12) |
-| M-70 | Visual: la previsión es comprensible antes de confirmar el ataque |
 
 ### Hito 11 — (absorbido por el hito 7)
 La movilización progresiva se prueba en PO-11, PO-12, PO-13 y PO-17. Las penalizaciones definitivas (D13) se probarán cuando se definan.
@@ -416,3 +449,15 @@ La movilización progresiva se prueba en PO-11, PO-12, PO-13 y PO-17. Las penali
 | Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de repetir; el hito 8 solo cambia `territory_screen.gd` y `territory_main.tscn` (nuevos nodos, creación de `Military` y conexiones; el área del mensaje de fundación se acortó de 144 a 46 px de alto (3 líneas) y el panel militar empieza en y = 166); `Population`, `Economy`, `CityManager` y `TerritoryGrid` no se tocan |
 | Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** (no hay Godot en la nube). Sin réplicas en otros lenguajes |
 | Aspecto y manejo (M-61…M-65) | F5 en el editor | **Pendiente** (validación del propietario) |
+
+## Estado del hito 9 (ataques, combate y ocupación)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| Base de partida | Rama `claude/ecstatic-bardeen-1de9nl` en el commit `7c13199` (hito 8 simplificado); el propietario probó a mano el sistema militar simplificado y confirmó que funciona | Comunicado por el propietario; **no verificado por Claude** |
+| `tests/test_combat.gd` (25 pruebas) | `godot --headless --path . --script res://tests/test_combat.gd` | **Pendiente** en Godot (PC del propietario) |
+| Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de repetir. El hito 9 cambia `city_manager.gd` (ocupación opcional, error de fundación nuevo, producción suspendida), `population.gd` (`remove_soldiers`), `military.gd` (`apply_casualties`), `territory_map_view.gd` (color de ocupación opcional), `sector_layer_view.gd`, `city_layer_view.gd`, `territory_info_panel.gd`, `military_panel.gd`, `territory_screen.gd` y `territory_main.tscn`; **no se cambió ninguna aserción** de las suites existentes y los textos de la lista y el detalle del panel militar siguen siendo los mismos cuando no hay ataque |
+| Revisión estática de las pruebas | Lectura línea a línea (tipos explícitos en lugar de `:=` con `Variant`, cifras recalculadas a mano) | Hecha; **sin compilar** (no hay Godot en la nube) |
+| Réplica en Python de las fórmulas y de los escenarios de victoria, derrota, invasión completa y dos ofensivas simultáneas | Escrita para contrastar las cifras esperadas de las pruebas | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye**; el resto de escenarios (economía, mapa, pantalla, bordes) solo se revisaron a mano |
+| Aspecto y manejo (M-71…M-76) | F5 en el editor | **Pendiente** (validación del propietario) |
+
