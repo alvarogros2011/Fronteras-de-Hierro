@@ -22,6 +22,7 @@ const Military := preload("res://scripts/world/military.gd")
 const PopulationBalance := preload("res://scripts/data/population_balance.gd")
 const Screen := preload("res://scripts/ui/territory_screen.gd")
 const MilitaryPanel := preload("res://scripts/ui/military_panel.gd")
+const SectorLayer := preload("res://scripts/world/sector_layer_view.gd")
 
 const PLAYER := TerritoryGrid.OWNER_PLAYER
 const AI_1 := TerritoryGrid.OWNER_AI_1
@@ -38,6 +39,8 @@ func run_all() -> Array:
 	_run("crear sectores válidos en las cuatro direcciones", _test_create_four_directions)
 	_run("rechaza orígenes que no son del jugador, fuera del mapa, agua, direcciones y naciones inválidas", _test_rejects_bad_origin)
 	_run("rechaza objetivos fuera del mapa o en agua", _test_rejects_bad_target)
+	_run("rechaza objetivos que ya son territorio propio", _test_rejects_own_target)
+	_run("crear un sector con su cantidad inicial de soldados, de forma atómica", _test_create_with_soldiers)
 	_run("rechaza sectores duplicados (mismo origen y dirección)", _test_rejects_duplicates)
 	_run("varios sectores a lo largo de una misma frontera sin cambiar el territorio", _test_many_sectors_one_border)
 	_run("asignación válida: asignar, aumentar, reducir y devolver sin cambiar el total", _test_assign_valid)
@@ -49,7 +52,8 @@ func run_all() -> Array:
 	_run("compatibilidad con la movilización: no duplica ni permite asignaciones imposibles", _test_mobilization_compat)
 	_run("una conquista que quita el origen elimina el sector y libera sus soldados", _test_conquest_effects)
 	_run("textos y mensajes del panel militar", _test_texts)
-	_run("pantalla: panel militar, selección de celda, direcciones, lista, ajuste y liberación", _test_screen)
+	_run("marcadores del mapa: las cifras no se solapan y la del sector elegido siempre se ve", _test_label_layout)
+	_run("pantalla: panel militar, selección de celda, dirección, cantidad, edición y liberación", _test_screen)
 	_run("ciudades, economía y población se comportan igual con sectores activos que sin ellos", _test_previous_systems_unchanged)
 	_run("las suites anteriores y los archivos del hito están presentes", _test_files_present)
 	return _results
@@ -92,8 +96,9 @@ func _make_grid() -> TerritoryGrid:
 	return grid
 
 
-## Dos bloques de tierra del jugador en las esquinas del mapa (0..5 x 0..5 y 314..319 x 174..179),
-## para probar objetivos que caen fuera del mapa.
+## Dos bloques de tierra en las esquinas del mapa (0..5 x 0..5 y 314..319 x 174..179): el jugador
+## posee x <= 2 en la primera y y >= 177 en la segunda; el resto es tierra sin reclamar. Sirve para
+## probar objetivos que caen fuera del mapa y sectores válidos que salen de una esquina.
 func _make_corner_grid() -> TerritoryGrid:
 	var terrain := PackedByteArray()
 	terrain.resize(TerritoryGrid.CELL_COUNT)
@@ -104,11 +109,34 @@ func _make_corner_grid() -> TerritoryGrid:
 	for y in range(0, 6):
 		for x in range(0, 6):
 			terrain[y * TerritoryGrid.WIDTH + x] = TerritoryGrid.TERRAIN_LAND
-			owners[y * TerritoryGrid.WIDTH + x] = PLAYER
+			owners[y * TerritoryGrid.WIDTH + x] = PLAYER if x <= 2 else TerritoryGrid.OWNER_NONE
 	for y in range(174, 180):
 		for x in range(314, 320):
 			terrain[y * TerritoryGrid.WIDTH + x] = TerritoryGrid.TERRAIN_LAND
-			owners[y * TerritoryGrid.WIDTH + x] = PLAYER
+			owners[y * TerritoryGrid.WIDTH + x] = PLAYER if y >= 177 else TerritoryGrid.OWNER_NONE
+	var grid := TerritoryGrid.new()
+	grid.load_from_data(terrain, owners)
+	return grid
+
+
+## Enclave: tierra x 15..25, y 13..27 de la IA 1, con tres celdas AISLADAS del jugador —(20, 20),
+## (23, 16) y (23, 24)— y tierra sin reclamar al oeste de (20, 20). Desde (20, 20) las cuatro
+## direcciones tienen un objetivo válido (tres de la IA 1 y uno sin reclamar), porque ningún vecino
+## es del jugador.
+func _make_enclave_grid() -> TerritoryGrid:
+	var terrain := PackedByteArray()
+	terrain.resize(TerritoryGrid.CELL_COUNT)
+	terrain.fill(TerritoryGrid.TERRAIN_WATER)
+	var owners := PackedByteArray()
+	owners.resize(TerritoryGrid.CELL_COUNT)
+	owners.fill(TerritoryGrid.OWNER_NONE)
+	for y in range(13, 28):
+		for x in range(15, 26):
+			terrain[y * TerritoryGrid.WIDTH + x] = TerritoryGrid.TERRAIN_LAND
+			owners[y * TerritoryGrid.WIDTH + x] = AI_1
+	for cell: Vector2i in [Vector2i(20, 20), Vector2i(23, 16), Vector2i(23, 24)]:
+		owners[cell.y * TerritoryGrid.WIDTH + cell.x] = PLAYER
+	owners[20 * TerritoryGrid.WIDTH + 19] = TerritoryGrid.OWNER_NONE
 	var grid := TerritoryGrid.new()
 	grid.load_from_data(terrain, owners)
 	return grid
@@ -196,14 +224,14 @@ func _test_directions() -> Array:
 
 func _test_create_four_directions() -> Array:
 	var errors: Array = []
-	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}})
+	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}}, _make_enclave_grid())
 	var mil: Military = world["mil"]
 	var grid: TerritoryGrid = world["grid"]
 	var owners_before := grid.copy_owner_data()
 	_expect(errors, mil.sector_count(), 0, "empieza sin sectores")
 	_signal_count = 0
 	mil.changed.connect(_count_signal)
-	var origin := Vector2i(15, 15)
+	var origin := Vector2i(20, 20)
 	var ids: Array = []
 	for direction in 4:
 		var result := mil.create_sector(PLAYER, origin, direction)
@@ -214,7 +242,7 @@ func _test_create_four_directions() -> Array:
 		_expect(errors, sector["origin"], origin, "origen del sector %d" % direction)
 		_expect(errors, sector["direction"], direction, "dirección del sector %d" % direction)
 		_expect(errors, sector["target"], origin + Military.DIRECTION_STEPS[direction], "objetivo adyacente del sector %d" % direction)
-		_expect(errors, sector["soldiers"], 0, "un sector nuevo no tiene soldados")
+		_expect(errors, sector["soldiers"], 0, "un sector creado sin cantidad no tiene soldados")
 		_expect(errors, mil.validate_sector(PLAYER, origin, direction), Military.SECTOR_ERR_DUPLICATE, "ahora ya existe (%d)" % direction)
 	_expect(errors, _signal_count, 4, "cada creación emite changed una vez")
 	_expect(errors, mil.sector_count(), 4, "cuatro sectores")
@@ -223,7 +251,8 @@ func _test_create_four_directions() -> Array:
 	for sector_id: int in ids:
 		unique[sector_id] = true
 	_expect(errors, unique.size(), 4, "ids únicos")
-	_expect(errors, _counts(mil, PLAYER), [20, 0, 20], "crear sectores no asigna ni crea soldados")
+	_expect(errors, [mil.target_owner(ids[0]), mil.target_owner(ids[1]), mil.target_owner(ids[2]), mil.target_owner(ids[3])], [AI_1, AI_1, AI_1, TerritoryGrid.OWNER_NONE], "objetivos: tres de la IA 1 y uno sin reclamar")
+	_expect(errors, _counts(mil, PLAYER), [20, 0, 20], "crear sectores vacíos no asigna ni crea soldados")
 	_expect(errors, grid.copy_owner_data() == owners_before, true, "crear sectores no cambia propietarios")
 	# El sector devuelto es una copia.
 	var copy := mil.get_sector(ids[0])
@@ -259,7 +288,7 @@ func _test_rejects_bad_origin() -> Array:
 		_expect(errors, mil.validate_sector(item[0], item[1], item[2]), item[3], "validate_sector coincide: " + item[4])
 	_expect(errors, mil.sector_count(), 0, "ningún rechazo deja sectores")
 	# Un jugador no puede usar una celda de la IA, pero la IA sí la suya (el modelo es por nación).
-	_expect(errors, mil.create_sector(AI_1, Vector2i(30, 15), Military.DIR_NORTH)["ok"], true, "la IA puede planificar sobre su propio territorio")
+	_expect(errors, mil.create_sector(AI_1, Vector2i(25, 15), Military.DIR_WEST)["ok"], true, "la IA puede planificar desde su propio territorio")
 	_expect(errors, mil.create_sector(AI_1, Vector2i(15, 15), Military.DIR_NORTH)["error"], Military.SECTOR_ERR_ORIGIN_NOT_OWNED, "y no sobre el del jugador")
 	_expect(errors, grid.copy_owner_data() == owners_before, true, "propietarios intactos")
 	return errors
@@ -273,7 +302,7 @@ func _test_rejects_bad_target() -> Array:
 	_expect(errors, mil.create_sector(PLAYER, Vector2i(10, 15), Military.DIR_WEST)["error"], Military.SECTOR_ERR_TARGET_WATER, "oeste del borde: agua")
 	_expect(errors, mil.create_sector(PLAYER, Vector2i(15, 10), Military.DIR_NORTH)["error"], Military.SECTOR_ERR_TARGET_WATER, "norte del borde: agua")
 	_expect(errors, mil.create_sector(PLAYER, Vector2i(15, 29), Military.DIR_SOUTH)["error"], Military.SECTOR_ERR_TARGET_WATER, "sur del borde: agua")
-	_expect(errors, mil.create_sector(PLAYER, Vector2i(10, 15), Military.DIR_EAST)["ok"], true, "hacia dentro sí vale")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST)["ok"], true, "hacia la frontera con la IA sí vale")
 	_expect(errors, mil.sector_count(), 1, "solo el válido")
 	# Objetivo fuera del mapa: esquinas.
 	var corner := _make_world({PLAYER: {"workers": 30, "soldiers": 20}}, _make_corner_grid())
@@ -281,37 +310,112 @@ func _test_rejects_bad_target() -> Array:
 	var cases := [
 		[Vector2i(0, 0), Military.DIR_NORTH], [Vector2i(0, 0), Military.DIR_WEST],
 		[Vector2i(319, 179), Military.DIR_EAST], [Vector2i(319, 179), Military.DIR_SOUTH],
-		[Vector2i(3, 0), Military.DIR_NORTH], [Vector2i(0, 3), Military.DIR_WEST],
+		[Vector2i(2, 0), Military.DIR_NORTH], [Vector2i(0, 3), Military.DIR_WEST],
 	]
 	for item: Array in cases:
 		var result := cmil.create_sector(PLAYER, item[0], item[1])
 		_expect(errors, [result["ok"], result["error"]], [false, Military.SECTOR_ERR_TARGET_OUT_OF_BOUNDS], "objetivo fuera del mapa desde %s dirección %d" % [item[0], item[1]])
-	_expect(errors, cmil.create_sector(PLAYER, Vector2i(0, 0), Military.DIR_EAST)["ok"], true, "desde la esquina hacia dentro vale")
-	_expect(errors, cmil.create_sector(PLAYER, Vector2i(319, 179), Military.DIR_NORTH)["ok"], true, "desde la otra esquina hacia dentro vale")
+	_expect(errors, cmil.create_sector(PLAYER, Vector2i(2, 0), Military.DIR_EAST)["ok"], true, "desde la esquina hacia tierra sin reclamar vale")
+	_expect(errors, cmil.create_sector(PLAYER, Vector2i(319, 177), Military.DIR_NORTH)["ok"], true, "desde la otra esquina hacia tierra sin reclamar vale")
 	_expect(errors, cmil.sector_count(), 2, "solo los válidos")
+	return errors
+
+
+func _test_rejects_own_target() -> Array:
+	var errors: Array = []
+	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}, AI_1: {"workers": 30, "soldiers": 10}})
+	var mil: Military = world["mil"]
+	var grid: TerritoryGrid = world["grid"]
+	var owners_before := grid.copy_owner_data()
+	_signal_count = 0
+	mil.changed.connect(_count_signal)
+	# Dentro del territorio propio ningún sector es válido, sea cual sea la dirección.
+	for direction in 4:
+		var result := mil.create_sector(PLAYER, Vector2i(15, 15), direction)
+		_expect(errors, [result["ok"], result["error"], result["id"]], [false, Military.SECTOR_ERR_TARGET_OWN, Military.NO_SECTOR], "objetivo propio en dirección %d" % direction)
+		_expect(errors, mil.create_sector(PLAYER, Vector2i(15, 15), direction, 5)["error"], Military.SECTOR_ERR_TARGET_OWN, "con soldados iniciales también (%d)" % direction)
+	# En la frontera, solo vale la dirección que sale del territorio.
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_NORTH)["error"], Military.SECTOR_ERR_TARGET_OWN, "norte desde la frontera: sigue siendo propio")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_SOUTH)["error"], Military.SECTOR_ERR_TARGET_OWN, "sur desde la frontera: sigue siendo propio")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_WEST)["error"], Military.SECTOR_ERR_TARGET_OWN, "oeste desde la frontera: sigue siendo propio")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST)["ok"], true, "este desde la frontera: territorio de la IA 1, vale")
+	# La IA 1 tampoco puede apuntar a sí misma; sí a la tierra sin reclamar y al jugador.
+	_expect(errors, mil.create_sector(AI_1, Vector2i(30, 15), Military.DIR_NORTH)["error"], Military.SECTOR_ERR_TARGET_OWN, "la IA 1 no puede apuntar a su propio territorio")
+	_expect(errors, mil.create_sector(AI_1, Vector2i(34, 15), Military.DIR_EAST)["ok"], true, "tierra sin reclamar vale")
+	_expect(errors, mil.create_sector(AI_1, Vector2i(25, 15), Military.DIR_WEST)["ok"], true, "territorio del jugador vale")
+	# El agua se rechaza antes que lo propio, y un origen ajeno antes que el objetivo.
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(10, 15), Military.DIR_WEST)["error"], Military.SECTOR_ERR_TARGET_WATER, "el agua se reconoce como agua, no como propio")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(30, 15), Military.DIR_NORTH)["error"], Military.SECTOR_ERR_ORIGIN_NOT_OWNED, "origen ajeno")
+	_expect(errors, mil.sector_count(), 3, "solo los tres sectores válidos")
+	_expect(errors, _signal_count, 3, "los rechazos no emiten señal")
+	_expect(errors, grid.copy_owner_data() == owners_before, true, "rechazar objetivos propios no toca el territorio")
+	return errors
+
+
+func _test_create_with_soldiers() -> Array:
+	var errors: Array = []
+	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}})
+	var mil: Military = world["mil"]
+	var pop: Population = world["pop"]
+	var economy: Economy = world["economy"]
+	var grid: TerritoryGrid = world["grid"]
+	var owners_before := grid.copy_owner_data()
+	var money_before := economy.get_money(PLAYER)
+	var resources_before := economy.get_resources(PLAYER)
+	_signal_count = 0
+	mil.changed.connect(_count_signal)
+	var first := mil.create_sector(PLAYER, Vector2i(24, 12), Military.DIR_EAST, 8)
+	_expect(errors, [first["ok"], first["error"]], [true, Military.SECTOR_OK], "crear con 8 soldados")
+	_expect(errors, [mil.get_sector(first["id"])["soldiers"], _counts(mil, PLAYER)], [8, [20, 8, 12]], "el sector nace con 8 y quedan 12 disponibles")
+	_expect(errors, _signal_count, 1, "crear y asignar es una sola operación: una sola señal")
+	var second := mil.create_sector(PLAYER, Vector2i(24, 13), Military.DIR_EAST, 12)
+	_expect(errors, [second["ok"], _counts(mil, PLAYER)], [true, [20, 20, 0]], "se puede usar justo la reserva completa")
+	_expect(errors, second["id"], first["id"] + 1, "ids consecutivos")
+	# Rechazos atómicos: no queda ningún sector parcial, ni se gasta un id, ni se mueve la reserva.
+	_signal_count = 0
+	var rejected := mil.create_sector(PLAYER, Vector2i(24, 14), Military.DIR_EAST, 1)
+	_expect(errors, [rejected["ok"], rejected["error"], rejected["id"]], [false, Military.SECTOR_ERR_SOLDIERS_NOT_ENOUGH, Military.NO_SECTOR], "sin reserva no se crea ni con 1 soldado")
+	_expect(errors, [mil.sector_count(), mil.sector_at(Vector2i(24, 14), Military.DIR_EAST), _counts(mil, PLAYER), _signal_count], [2, Military.NO_SECTOR, [20, 20, 0], 0], "no queda sector vacío, la reserva no cambia y no hay señal")
+	mil.set_sector_soldiers(second["id"], 2)
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 14), Military.DIR_EAST, 11)["error"], Military.SECTOR_ERR_SOLDIERS_NOT_ENOUGH, "11 > 10 disponibles")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 14), Military.DIR_EAST, -1)["error"], Military.SECTOR_ERR_SOLDIERS_NEGATIVE, "cantidad negativa")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 14), Military.DIR_EAST, 1000000)["error"], Military.SECTOR_ERR_SOLDIERS_NOT_ENOUGH, "cantidad enorme")
+	_expect(errors, [mil.sector_count(), _counts(mil, PLAYER)], [2, [20, 10, 10]], "ningún rechazo cambió nada")
+	var third := mil.create_sector(PLAYER, Vector2i(24, 14), Military.DIR_EAST, 10)
+	_expect(errors, [third["ok"], third["id"], _counts(mil, PLAYER)], [true, second["id"] + 1, [20, 20, 0]], "tras los rechazos, el siguiente id es consecutivo")
+	# El orden de las comprobaciones: duplicado antes que cantidad; origen y objetivo antes que cantidad.
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(24, 12), Military.DIR_EAST, 99)["error"], Military.SECTOR_ERR_DUPLICATE, "duplicado antes que cantidad")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_EAST, 99)["error"], Military.SECTOR_ERR_TARGET_OWN, "objetivo propio antes que cantidad")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(30, 15), Military.DIR_EAST, 99)["error"], Military.SECTOR_ERR_ORIGIN_NOT_OWNED, "origen ajeno antes que cantidad")
+	_expect(errors, mil.validate_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST, 1), Military.SECTOR_ERR_SOLDIERS_NOT_ENOUGH, "validate_sector admite la cantidad")
+	_expect(errors, mil.validate_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST, 0), Military.SECTOR_OK, "y 0 soldados sigue siendo válido (sector vacío)")
+	# Nada de esto toca población, economía ni territorio.
+	_expect(errors, [pop.workers(PLAYER), pop.soldiers(PLAYER)], [30, 20], "la población no cambió")
+	_expect(errors, [economy.get_money(PLAYER), economy.get_resources(PLAYER)], [money_before, resources_before], "ni el dinero ni los recursos")
+	_expect(errors, grid.copy_owner_data() == owners_before, true, "ni el territorio")
 	return errors
 
 
 func _test_rejects_duplicates() -> Array:
 	var errors: Array = []
-	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}})
+	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}}, _make_enclave_grid())
 	var mil: Military = world["mil"]
-	var first := mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_EAST)
+	var first := mil.create_sector(PLAYER, Vector2i(20, 20), Military.DIR_EAST, 5)
 	_expect(errors, first["ok"], true, "primer sector")
-	mil.set_sector_soldiers(first["id"], 5)
 	_signal_count = 0
 	mil.changed.connect(_count_signal)
-	var again := mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_EAST)
+	var again := mil.create_sector(PLAYER, Vector2i(20, 20), Military.DIR_EAST)
 	_expect(errors, [again["ok"], again["error"], again["id"]], [false, Military.SECTOR_ERR_DUPLICATE, Military.NO_SECTOR], "mismo origen y dirección")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(20, 20), Military.DIR_EAST, 3)["error"], Military.SECTOR_ERR_DUPLICATE, "también con otra cantidad")
 	_expect(errors, _signal_count, 0, "el rechazo no emite señal")
-	_expect(errors, [mil.sector_count(), mil.get_sector(first["id"])["soldiers"]], [1, 5], "el original no cambia")
-	_expect(errors, mil.sector_at(Vector2i(15, 15), Military.DIR_EAST), first["id"], "sector_at lo encuentra")
-	_expect(errors, mil.sector_at(Vector2i(15, 15), Military.DIR_WEST), Military.NO_SECTOR, "sector_at: otra dirección no existe")
-	_expect(errors, mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_WEST)["ok"], true, "mismo origen, otra dirección: vale")
-	_expect(errors, mil.create_sector(PLAYER, Vector2i(16, 15), Military.DIR_EAST)["ok"], true, "otro origen, misma dirección: vale")
+	_expect(errors, [mil.sector_count(), mil.get_sector(first["id"])["soldiers"], _counts(mil, PLAYER)], [1, 5, [20, 5, 15]], "el original no cambia")
+	_expect(errors, mil.sector_at(Vector2i(20, 20), Military.DIR_EAST), first["id"], "sector_at lo encuentra")
+	_expect(errors, mil.sector_at(Vector2i(20, 20), Military.DIR_WEST), Military.NO_SECTOR, "sector_at: otra dirección no existe")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(20, 20), Military.DIR_SOUTH)["ok"], true, "mismo origen, otra dirección: vale")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(23, 16), Military.DIR_EAST)["ok"], true, "otro origen, misma dirección: vale")
 	# Tras eliminar se puede volver a crear, con un id nuevo.
 	mil.remove_sector(first["id"])
-	var recreated := mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_EAST)
+	var recreated := mil.create_sector(PLAYER, Vector2i(20, 20), Military.DIR_EAST)
 	_expect(errors, recreated["ok"], true, "tras eliminar se puede recrear")
 	_expect(errors, recreated["id"] > first["id"], true, "los ids no se reutilizan")
 	_expect(errors, mil.get_sector(recreated["id"])["soldiers"], 0, "y empieza vacío")
@@ -339,11 +443,10 @@ func _test_many_sectors_one_border() -> Array:
 	for index in ids.size():
 		_expect(errors, mil.set_sector_soldiers(ids[index], amounts[index]), Military.ASSIGN_OK, "asignar al sector %d" % index)
 	_expect(errors, _counts(mil, PLAYER), [20, 20, 0], "toda la fuerza repartida: 20 asignados, 0 disponibles")
-	# Objetivos sin reclamar, propios y en tierra de otra nación coexisten.
+	# Objetivos sin reclamar y en tierra de otra nación coexisten.
 	var unclaimed := mil.create_sector(AI_1, Vector2i(34, 15), Military.DIR_EAST)
 	_expect(errors, [unclaimed["ok"], mil.target_owner(unclaimed["id"])], [true, TerritoryGrid.OWNER_NONE], "objetivo sin reclamar")
-	var own := mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_EAST)
-	_expect(errors, [own["ok"], mil.target_owner(own["id"])], [true, PLAYER], "objetivo en territorio propio")
+	_expect(errors, mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_EAST)["error"], Military.SECTOR_ERR_TARGET_OWN, "un objetivo en territorio propio no vale")
 	_expect(errors, mil.target_owner(999), TerritoryGrid.INVALID, "target_owner de un sector inexistente")
 	_expect(errors, grid.copy_owner_data() == owners_before, true, "ni los sectores ni la asignación cambian el territorio")
 	_expect(errors, _signal_count, 0, "ni emiten ownership_changed")
@@ -355,8 +458,8 @@ func _test_assign_valid() -> Array:
 	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}})
 	var mil: Military = world["mil"]
 	var pop: Population = world["pop"]
-	var a: int = mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_NORTH)["id"]
-	var b: int = mil.create_sector(PLAYER, Vector2i(16, 15), Military.DIR_NORTH)["id"]
+	var a: int = mil.create_sector(PLAYER, Vector2i(24, 12), Military.DIR_EAST)["id"]
+	var b: int = mil.create_sector(PLAYER, Vector2i(24, 13), Military.DIR_EAST)["id"]
 	_signal_count = 0
 	mil.changed.connect(_count_signal)
 	_expect(errors, mil.set_sector_soldiers(a, 8), Military.ASSIGN_OK, "asignar 8")
@@ -384,9 +487,9 @@ func _test_assign_limits() -> Array:
 	var errors: Array = []
 	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}, AI_1: {"workers": 30, "soldiers": 10}})
 	var mil: Military = world["mil"]
-	var a: int = mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_NORTH)["id"]
-	var b: int = mil.create_sector(PLAYER, Vector2i(16, 15), Military.DIR_NORTH)["id"]
-	var ai_sector: int = mil.create_sector(AI_1, Vector2i(30, 15), Military.DIR_NORTH)["id"]
+	var a: int = mil.create_sector(PLAYER, Vector2i(24, 12), Military.DIR_EAST)["id"]
+	var b: int = mil.create_sector(PLAYER, Vector2i(24, 13), Military.DIR_EAST)["id"]
+	var ai_sector: int = mil.create_sector(AI_1, Vector2i(25, 15), Military.DIR_WEST)["id"]
 	_expect(errors, mil.set_sector_soldiers(a, 15), Military.ASSIGN_OK, "15 al primero")
 	_signal_count = 0
 	mil.changed.connect(_count_signal)
@@ -419,7 +522,7 @@ func _test_totals_coherent() -> Array:
 	var pop: Population = world["pop"]
 	var ids: Array = []
 	for index in 4:
-		ids.append(mil.create_sector(PLAYER, Vector2i(14 + index, 15), Military.DIR_SOUTH)["id"])
+		ids.append(mil.create_sector(PLAYER, Vector2i(24, 12 + index), Military.DIR_EAST)["id"])
 	# Secuencia fija de órdenes (válidas e inválidas); el invariante se comprueba tras cada una.
 	var operations := [[0, 6], [1, 7], [2, 8], [3, 1], [0, 0], [3, 9], [1, 20], [2, 0], [1, 3], [3, 12]]
 	for item: Array in operations:
@@ -445,8 +548,8 @@ func _test_remove_returns_soldiers() -> Array:
 	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}})
 	var mil: Military = world["mil"]
 	var pop: Population = world["pop"]
-	var a: int = mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_NORTH)["id"]
-	var b: int = mil.create_sector(PLAYER, Vector2i(16, 15), Military.DIR_NORTH)["id"]
+	var a: int = mil.create_sector(PLAYER, Vector2i(24, 12), Military.DIR_EAST)["id"]
+	var b: int = mil.create_sector(PLAYER, Vector2i(24, 13), Military.DIR_EAST)["id"]
 	mil.set_sector_soldiers(a, 10)
 	mil.set_sector_soldiers(b, 5)
 	_expect(errors, _counts(mil, PLAYER), [20, 15, 5], "antes de eliminar")
@@ -477,9 +580,9 @@ func _test_soldier_loss_correction() -> Array:
 	var mil: Military = world["mil"]
 	var pop: Population = world["pop"]
 	var cities: CityManager = world["cities"]
-	var old_sector: int = mil.create_sector(AI_1, Vector2i(30, 15), Military.DIR_NORTH)["id"]
-	var new_sector: int = mil.create_sector(AI_1, Vector2i(31, 15), Military.DIR_NORTH)["id"]
-	var player_sector: int = mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_NORTH)["id"]
+	var old_sector: int = mil.create_sector(AI_1, Vector2i(25, 15), Military.DIR_WEST)["id"]
+	var new_sector: int = mil.create_sector(AI_1, Vector2i(25, 16), Military.DIR_WEST)["id"]
+	var player_sector: int = mil.create_sector(PLAYER, Vector2i(24, 12), Military.DIR_EAST)["id"]
 	mil.set_sector_soldiers(old_sector, 30)
 	mil.set_sector_soldiers(new_sector, 10)
 	mil.set_sector_soldiers(player_sector, 4)
@@ -521,14 +624,15 @@ func _test_no_side_effects() -> Array:
 	cities.changed.connect(_count_signal)
 	grid.ownership_changed.connect(_count_signal)
 	var a: int = mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST)["id"]
-	var b: int = mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_WEST)["id"]
+	var b: int = mil.create_sector(PLAYER, Vector2i(24, 16), Military.DIR_EAST)["id"]
 	var soldiers: int = pop.soldiers(PLAYER)
 	mil.set_sector_soldiers(a, soldiers)
 	mil.adjust_sector_soldiers(a, -3)
 	mil.set_sector_soldiers(b, 3)
 	mil.remove_sector(a)
 	mil.remove_sector(b)
-	mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST)
+	mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST, 4)
+	mil.create_sector(PLAYER, Vector2i(24, 17), Military.DIR_EAST)
 	_expect(errors, _signal_count, 0, "ninguna orden militar emite señales de población, economía, ciudades o territorio")
 	_expect(errors, _snapshot(world) == before, true, "población, economía, ciudades y territorio idénticos")
 	_expect(errors, [pop.workers(PLAYER), pop.soldiers(PLAYER)], [before["nations"][PLAYER]["workers"], before["nations"][PLAYER]["soldiers"]], "no se convirtieron trabajadores en soldados")
@@ -540,8 +644,8 @@ func _test_mobilization_compat() -> Array:
 	var world := _make_maxed_world({PLAYER: {"workers": 200, "soldiers": 40}})
 	var mil: Military = world["mil"]
 	var pop: Population = world["pop"]
-	var a: int = mil.create_sector(PLAYER, Vector2i(15, 15), Military.DIR_NORTH)["id"]
-	var b: int = mil.create_sector(PLAYER, Vector2i(16, 15), Military.DIR_NORTH)["id"]
+	var a: int = mil.create_sector(PLAYER, Vector2i(24, 12), Military.DIR_EAST)["id"]
+	var b: int = mil.create_sector(PLAYER, Vector2i(24, 13), Military.DIR_EAST)["id"]
 	mil.set_sector_soldiers(a, 30)
 	mil.set_sector_soldiers(b, 10)
 	_expect(errors, _counts(mil, PLAYER), [40, 40, 0], "toda la fuerza actual está asignada")
@@ -569,10 +673,8 @@ func _test_conquest_effects() -> Array:
 	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}, AI_1: {"workers": 30, "soldiers": 10}})
 	var mil: Military = world["mil"]
 	var grid: TerritoryGrid = world["grid"]
-	var lost_origin: int = mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST)["id"]
-	var kept: int = mil.create_sector(PLAYER, Vector2i(23, 15), Military.DIR_EAST)["id"]
-	mil.set_sector_soldiers(lost_origin, 7)
-	mil.set_sector_soldiers(kept, 6)
+	var lost_origin: int = mil.create_sector(PLAYER, Vector2i(24, 15), Military.DIR_EAST, 7)["id"]
+	var kept: int = mil.create_sector(PLAYER, Vector2i(24, 16), Military.DIR_EAST, 6)["id"]
 	_expect(errors, _counts(mil, PLAYER), [20, 13, 7], "antes de la conquista")
 	_signal_count = 0
 	mil.changed.connect(_count_signal)
@@ -580,8 +682,11 @@ func _test_conquest_effects() -> Array:
 	_expect(errors, result["ok"], true, "la IA conquista (24, 15) por la vía explícita")
 	_expect(errors, [mil.has_sector(lost_origin), mil.has_sector(kept)], [false, true], "el sector cuyo origen se perdió desaparece; el otro sigue")
 	_expect(errors, _counts(mil, PLAYER), [20, 6, 14], "los 7 soldados del sector perdido vuelven a la reserva")
-	_expect(errors, mil.target_owner(kept), AI_1, "el objetivo del sector que sigue ahora es de la IA")
+	_expect(errors, mil.target_owner(kept), AI_1, "el objetivo del sector que sigue es de la IA")
 	_expect(errors, _signal_count, 1, "se avisa una vez del cambio")
+	# Si el objetivo pasa a ser del jugador, el sector se conserva (la regla se exige al crear).
+	_expect(errors, grid.conquer_cells(PLAYER, [Vector2i(25, 16)])["ok"], true, "el jugador conquista el objetivo (25, 16)")
+	_expect(errors, [mil.has_sector(kept), mil.target_owner(kept), _counts(mil, PLAYER)], [true, PLAYER, [20, 6, 14]], "el sector sigue, con el objetivo ya propio")
 	# Una conquista que no afecta a ningún origen no toca los sectores.
 	var count_before := mil.sector_count()
 	grid.conquer_cells(AI_1, [Vector2i(24, 20)])
@@ -595,18 +700,80 @@ func _test_texts() -> Array:
 	_expect(errors, MilitaryPanel.summary_text({}), "Sin ejército", "resumen vacío")
 	_expect(errors, MilitaryPanel.plan_text(MilitaryPanel.NO_CELL, MilitaryPanel.NO_DIRECTION, Military.SECTOR_OK), "Selecciona una celda propia en el mapa.", "sin celda")
 	_expect(errors, MilitaryPanel.plan_text(Vector2i(12, 12), MilitaryPanel.NO_DIRECTION, Military.SECTOR_OK), "Origen (12, 12)\nElige una dirección.", "sin dirección")
-	_expect(errors, MilitaryPanel.plan_text(Vector2i(12, 12), Military.DIR_EAST, Military.SECTOR_OK), "Origen (12, 12)\nObjetivo (13, 12) · Este\nListo para crear.", "plan válido")
+	_expect(errors, MilitaryPanel.plan_text(Vector2i(12, 12), Military.DIR_EAST, Military.SECTOR_OK), "Origen (12, 12)\nObjetivo (13, 12) · Este\nListo.", "plan válido sin dueño conocido")
+	_expect(errors, MilitaryPanel.plan_text(Vector2i(12, 12), Military.DIR_EAST, Military.SECTOR_OK, "Sin reclamar"), "Origen (12, 12)\nObjetivo (13, 12) · Este\nSin reclamar", "plan válido: el objetivo y su dueño")
 	_expect(errors, MilitaryPanel.plan_text(Vector2i(10, 12), Military.DIR_WEST, Military.SECTOR_ERR_TARGET_WATER), "Origen (10, 12)\nObjetivo (9, 12) · Oeste\nEl objetivo es agua.", "plan con error")
-	_expect(errors, [MilitaryPanel.adjust_button_text(5), MilitaryPanel.adjust_button_text(-1)], ["+5", "-1"], "botones de ajuste")
+	_expect(errors, MilitaryPanel.plan_text(Vector2i(10, 12), Military.DIR_EAST, Military.SECTOR_ERR_TARGET_OWN, "Tu territorio").ends_with(Military.sector_error_message(Military.SECTOR_ERR_TARGET_OWN)), true, "el motivo sustituye al dueño")
+	_expect(errors, MilitaryPanel.amount_text(3, 6), "Soldados: 3 de 6", "cantidad elegida")
+	_expect(errors, MilitaryPanel.edit_amount_text(7, 5, 11), "Asignar 7 (ahora 5, máx. 11)", "cantidad al editar")
 	var sector := {"id": 3, "owner": PLAYER, "origin": Vector2i(12, 12), "direction": Military.DIR_SOUTH, "target": Vector2i(12, 13), "soldiers": 5}
 	_expect(errors, MilitaryPanel.list_item_text(sector), "#3 (12,12) S · 5", "línea de la lista")
 	_expect(errors, MilitaryPanel.detail_text(sector, "Sin reclamar"), "Sector #3 · Sur\nOrigen (12, 12)\nObjetivo (12, 13)\nSin reclamar\nSoldados 5", "detalle")
-	for code in range(Military.SECTOR_OK, Military.SECTOR_ERR_DUPLICATE + 1):
+	for code in range(Military.SECTOR_OK, Military.SECTOR_ERR_SOLDIERS_NOT_ENOUGH + 1):
 		_expect(errors, Military.sector_error_message(code) != "" and Military.sector_error_message(code) != "Error desconocido.", true, "mensaje de creación %d" % code)
 	for code in range(Military.ASSIGN_OK, Military.ASSIGN_ERR_NOT_ENOUGH + 1):
 		_expect(errors, Military.assign_error_message(code) != "" and Military.assign_error_message(code) != "Error desconocido.", true, "mensaje de asignación %d" % code)
 	_expect(errors, [Military.sector_error_message(99), Military.assign_error_message(99)], ["Error desconocido.", "Error desconocido."], "códigos desconocidos")
 	return errors
+
+
+func _test_label_layout() -> Array:
+	var errors: Array = []
+	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 20}})
+	var mil: Military = world["mil"]
+	var layer := SectorLayer.new()
+	layer.setup(world["grid"], mil, PLAYER)
+	_expect(errors, layer.label_layout(Vector2(1.0, 2.0)).is_empty(), true, "sin sectores no hay cifras")
+	# Un solo sector: la cifra va a la derecha de la celda objetivo.
+	var only: int = mil.create_sector(PLAYER, Vector2i(24, 12), Military.DIR_EAST, 5)["id"]
+	var size := Vector2(1.0, 2.0)
+	var layout := layer.label_layout(size)
+	_expect(errors, layout.keys(), [only], "una cifra")
+	_expect(errors, layout[only], Rect2(Vector2(25, 12) + Vector2(1.0 + SectorLayer.LABEL_GAP, 0.5 - size.y / 2.0), size), "a la derecha del objetivo")
+	# Muchos sectores contiguos con cifras enormes (40 x 40 celdas): solo caben dos (derecha e izquierda
+	# de la primera y la segunda); las demás se omiten en vez de solaparse.
+	var ids: Array = [only]
+	for y in range(13, 22):
+		ids.append(mil.create_sector(PLAYER, Vector2i(24, y), Military.DIR_EAST, 1)["id"])
+	var crowded := layer.label_layout(Vector2(40.0, 40.0))
+	_expect(errors, crowded.keys(), [ids[0], ids[1]], "solo las dos primeras cifras caben")
+	var rects: Array = crowded.values()
+	for i in rects.size():
+		for j in range(i + 1, rects.size()):
+			if rects[i].intersects(rects[j]):
+				errors.append("las cifras %d y %d se solapan" % [i, j])
+	_expect(errors, crowded.size() < ids.size(), true, "con tanta densidad se omiten cifras en vez de solaparlas")
+	# El sector elegido siempre tiene cifra, aunque no quepa sin pisar otra; los demás siguen sin pisarse.
+	var chosen: int = ids[ids.size() - 1]
+	layer.set_highlight(chosen)
+	_expect(errors, layer.highlighted_sector(), chosen, "el recuadro sigue al sector elegido")
+	var with_chosen := layer.label_layout(Vector2(40.0, 40.0))
+	_expect(errors, with_chosen.has(chosen), true, "la cifra del sector elegido siempre se dibuja")
+	_expect(errors, with_chosen.size(), 3, "las dos primeras y la elegida")
+	var others: Array = []
+	for sector_id: int in with_chosen:
+		if sector_id != chosen:
+			others.append(with_chosen[sector_id])
+	for i in others.size():
+		for j in range(i + 1, others.size()):
+			if others[i].intersects(others[j]):
+				errors.append("dos cifras de sectores no elegidos se solapan")
+	# Determinista: mismos datos, mismo reparto.
+	_expect(errors, layer.label_layout(Vector2(40.0, 40.0)) == with_chosen, true, "el reparto es determinista")
+	layer.free()
+	return errors
+
+
+## Primera celda del jugador y dirección con las que se puede crear un sector (o [NO_CELL, -1]).
+func _find_sector_spot(grid: TerritoryGrid, mil: Military) -> Array:
+	for y in TerritoryGrid.HEIGHT:
+		for x in TerritoryGrid.WIDTH:
+			if grid.get_cell_owner(x, y) != PLAYER:
+				continue
+			for direction in 4:
+				if mil.validate_sector(PLAYER, Vector2i(x, y), direction) == Military.SECTOR_OK:
+					return [Vector2i(x, y), direction]
+	return [Vector2i(-1, -1), -1]
 
 
 func _test_screen() -> Array:
@@ -619,6 +786,7 @@ func _test_screen() -> Array:
 	var screen: Screen = scene.instantiate()
 	tree.root.add_child(screen)
 	var grid: TerritoryGrid = screen.grid
+	var economy: Economy = screen.economy
 	var cities: CityManager = screen.cities
 	var pop: Population = screen.population
 	var mil: Military = screen.military
@@ -631,34 +799,42 @@ func _test_screen() -> Array:
 		return errors
 	_expect(errors, panel.mouse_filter, Control.MOUSE_FILTER_STOP, "el panel captura el clic (no selecciona el mapa por error)")
 	var names := ["ResumenMilitar", "PlanSector", "BotonDireccionNorte", "BotonDireccionEste", "BotonDireccionSur", "BotonDireccionOeste",
-			"BotonCrearSector", "ListaSectores", "DetalleSector", "BotonAjusteMenos5", "BotonAjusteMenos1", "BotonAjusteMas1",
-			"BotonAjusteMas5", "BotonLiberarSector", "MensajeMilitar"]
+			"CantidadNueva", "SliderNuevo", "BotonCrearSector", "ListaSectores", "DetalleSector", "EdicionSector", "CantidadEdicion",
+			"SliderEdicion", "BotonAplicar", "BotonLiberarSector", "MensajeMilitar"]
 	for node_name: String in names:
 		if panel.find_child(node_name, true, false) == null:
 			errors.append("falta el control %s" % node_name)
+	for old_name: String in ["BotonAjusteMas1", "BotonAjusteMas5", "BotonAjusteMenos1", "BotonAjusteMenos5"]:
+		if panel.find_child(old_name, true, false) != null:
+			errors.append("sigue existiendo el botón de ajuste %s" % old_name)
 	if not errors.is_empty():
 		screen.free()
 		return errors
 	var summary_label: Label = panel.find_child("ResumenMilitar", true, false)
 	var plan_label: Label = panel.find_child("PlanSector", true, false)
+	var new_label: Label = panel.find_child("CantidadNueva", true, false)
+	var new_slider: HSlider = panel.find_child("SliderNuevo", true, false)
 	var detail_label: Label = panel.find_child("DetalleSector", true, false)
-	var east: Button = panel.find_child("BotonDireccionEste", true, false)
-	var north: Button = panel.find_child("BotonDireccionNorte", true, false)
+	var message_label: Label = panel.find_child("MensajeMilitar", true, false)
+	var edit_box: Control = panel.find_child("EdicionSector", true, false)
+	var edit_label: Label = panel.find_child("CantidadEdicion", true, false)
+	var edit_slider: HSlider = panel.find_child("SliderEdicion", true, false)
 	var create: Button = panel.find_child("BotonCrearSector", true, false)
-	var list: ItemList = panel.find_child("ListaSectores", true, false)
-	var plus1: Button = panel.find_child("BotonAjusteMas1", true, false)
-	var plus5: Button = panel.find_child("BotonAjusteMas5", true, false)
-	var minus5: Button = panel.find_child("BotonAjusteMenos5", true, false)
+	var apply: Button = panel.find_child("BotonAplicar", true, false)
 	var release: Button = panel.find_child("BotonLiberarSector", true, false)
+	var list: ItemList = panel.find_child("ListaSectores", true, false)
 	var player_id: int = TerritoryGrid.OWNER_PLAYER
 	var start_soldiers: int = PopulationBalance.INITIAL_POPULATION[player_id]["soldiers"]
 	var owners_before := grid.copy_owner_data()
+	var money_before := economy.get_money(player_id)
 	var pop_before := [pop.workers(player_id), pop.soldiers(player_id)]
-	# Estado inicial.
+	# Estado inicial: todo disponible, nada que editar.
 	_expect(errors, summary_label.text, MilitaryPanel.summary_text(mil.get_summary(player_id)), "el resumen sale de los datos")
 	_expect(errors, mil.get_summary(player_id), {"total": start_soldiers, "assigned": 0, "available": start_soldiers}, "todos los soldados disponibles al empezar")
-	_expect(errors, [create.disabled, list.item_count, release.disabled, plus1.disabled], [true, 0, true, true], "sin selección no se puede crear ni ajustar")
-	# Seleccionar una celda propia en el mapa (la ciudad del jugador) y elegir dirección.
+	_expect(errors, [create.disabled, list.item_count, edit_box.visible], [true, 0, false], "sin selección no se puede crear y no hay nada que editar")
+	_expect(errors, [new_slider.max_value, new_slider.editable, new_label.text], [float(start_soldiers), true, MilitaryPanel.amount_text(1, start_soldiers)], "el deslizador ofrece como máximo la reserva")
+	_expect(errors, detail_label.text, "Selecciona un sector de la lista.", "ayuda sin sector elegido")
+	# Una celda propia con un objetivo propio no sirve: se explica por qué.
 	var city_cell: Vector2i = Vector2i(-1, -1)
 	for city_id: int in cities.get_city_ids():
 		if cities.get_owner(city_id) == player_id:
@@ -666,46 +842,79 @@ func _test_screen() -> Array:
 	view.pointer_pressed(view.cell_center_global(city_cell))
 	_expect(errors, panel.chosen_origin(), city_cell, "la celda seleccionada en el mapa es el origen")
 	_expect(errors, plan_label.text, MilitaryPanel.plan_text(city_cell, MilitaryPanel.NO_DIRECTION, Military.SECTOR_OK), "pide elegir dirección")
-	_expect(errors, create.disabled, true, "sin dirección no se puede crear")
-	east.pressed.emit()
-	_expect(errors, [panel.chosen_direction(), east.button_pressed, north.button_pressed], [Military.DIR_EAST, true, false], "se elige el este")
-	_expect(errors, [create.disabled, plan_label.text], [false, MilitaryPanel.plan_text(city_cell, Military.DIR_EAST, Military.SECTOR_OK)], "ya se puede crear y el plan se muestra")
+	panel.find_child("BotonDireccionEste", true, false).pressed.emit()
+	_expect(errors, [create.disabled, plan_label.text.contains(Military.sector_error_message(Military.SECTOR_ERR_TARGET_OWN))], [true, true], "apuntar a territorio propio no se puede y se explica")
+	create.pressed.emit()
+	_expect(errors, [mil.sector_count(), message_label.text], [0, Military.sector_error_message(Military.SECTOR_ERR_TARGET_OWN)], "forzar el botón no crea nada")
+	# Un origen y una dirección válidos (el primero que encuentre la búsqueda).
+	var spot := _find_sector_spot(grid, mil)
+	_expect(errors, spot[1] >= 0, true, "el jugador tiene alguna frontera donde crear un sector")
+	if spot[1] < 0:
+		screen.free()
+		return errors
+	var origin: Vector2i = spot[0]
+	var direction: int = spot[1]
+	view.pointer_pressed(view.cell_center_global(origin))
+	_expect(errors, panel.chosen_origin(), origin, "nuevo origen")
+	panel.find_child("BotonDireccion" + Military.DIRECTION_NAMES[direction], true, false).pressed.emit()
+	_expect(errors, [panel.chosen_direction(), create.disabled], [direction, false], "con origen y dirección válidos ya se puede crear")
+	var target_owner := grid.get_cell_owner(origin.x + Military.DIRECTION_STEPS[direction].x, origin.y + Military.DIRECTION_STEPS[direction].y)
+	var target_text: String = "Sin reclamar" if target_owner == TerritoryGrid.OWNER_NONE else grid.get_nation(target_owner)["name"]
+	_expect(errors, plan_label.text, MilitaryPanel.plan_text(origin, direction, Military.SECTOR_OK, target_text), "el plan muestra origen, dirección, celda objetivo y su dueño")
+	# Cantidad: un único deslizador, limitado a la reserva.
+	panel.set_new_amount(1000)
+	_expect(errors, [panel.new_amount(), new_label.text], [start_soldiers, MilitaryPanel.amount_text(start_soldiers, start_soldiers)], "no se puede elegir más que la reserva")
+	panel.set_new_amount(-5)
+	_expect(errors, panel.new_amount(), 1, "ni menos de 1")
+	panel.set_new_amount(4)
+	_expect(errors, [panel.new_amount(), new_label.text], [4, MilitaryPanel.amount_text(4, start_soldiers)], "la cantidad elegida se muestra")
+	_expect(errors, mil.sector_count(), 0, "elegir no crea nada todavía")
+	# Un solo botón crea el sector ya asignado.
 	create.pressed.emit()
 	_expect(errors, mil.sector_count(), 1, "se creó un sector")
 	var sector_id: int = mil.get_sector_ids(player_id)[0]
 	var sector := mil.get_sector(sector_id)
-	_expect(errors, [sector["origin"], sector["direction"], sector["target"], sector["soldiers"]], [city_cell, Military.DIR_EAST, city_cell + Vector2i(1, 0), 0], "con los datos elegidos y 0 soldados")
+	_expect(errors, [sector["origin"], sector["direction"], sector["target"], sector["soldiers"]], [origin, direction, origin + Military.DIRECTION_STEPS[direction], 4], "con los datos elegidos y 4 soldados desde el principio")
+	_expect(errors, mil.get_summary(player_id), {"total": start_soldiers, "assigned": 4, "available": start_soldiers - 4}, "4 asignados, el resto disponible")
+	_expect(errors, summary_label.text, MilitaryPanel.summary_text(mil.get_summary(player_id)), "el resumen se actualiza")
 	_expect(errors, [list.item_count, list.get_item_text(0)], [1, MilitaryPanel.list_item_text(sector)], "aparece en la lista")
-	_expect(errors, [panel.selected_sector(), layer.highlighted_sector()], [sector_id, sector_id], "queda seleccionado y resaltado en el mapa")
-	_expect(errors, detail_label.text, MilitaryPanel.detail_text(sector, "Tu territorio"), "el detalle muestra origen, objetivo, dirección y soldados")
+	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), edit_box.visible], [sector_id, sector_id, true], "queda elegido, resaltado en el mapa y editable")
+	_expect(errors, detail_label.text, MilitaryPanel.detail_text(sector, target_text), "el detalle muestra origen, objetivo, dirección y soldados")
 	_expect(errors, create.disabled, true, "crear el mismo sector otra vez ya no es posible")
-	# Ajustar soldados con los botones (con tope en lo disponible).
-	plus5.pressed.emit()
-	_expect(errors, [mil.get_sector(sector_id)["soldiers"], mil.available_soldiers(player_id)], [5, start_soldiers - 5], "+5 asigna 5")
-	plus5.pressed.emit()
-	_expect(errors, [mil.get_sector(sector_id)["soldiers"], mil.available_soldiers(player_id)], [start_soldiers, 0], "+5 sin reserva suficiente asigna solo lo que queda")
-	_expect(errors, [plus1.disabled, plus5.disabled, minus5.disabled], [true, true, false], "sin reserva no se puede subir más")
-	_expect(errors, [summary_label.text, list.get_item_text(0)], [MilitaryPanel.summary_text(mil.get_summary(player_id)), MilitaryPanel.list_item_text(mil.get_sector(sector_id))], "resumen y lista se actualizan")
-	minus5.pressed.emit()
-	_expect(errors, mil.get_sector(sector_id)["soldiers"], maxi(0, start_soldiers - 5), "-5 devuelve a la reserva")
+	# Editar con el mismo tipo de control.
+	_expect(errors, [edit_slider.max_value, edit_slider.value, edit_label.text], [float(start_soldiers), 4.0, MilitaryPanel.edit_amount_text(4, 4, start_soldiers)], "el editor parte de la cantidad actual y llega hasta lo asignable")
+	_expect(errors, apply.disabled, true, "sin cambios no hay nada que aplicar")
+	panel.set_edit_amount(1000)
+	_expect(errors, panel.edit_amount(), start_soldiers, "no se puede editar por encima de lo asignable")
+	_expect(errors, mil.get_sector(sector_id)["soldiers"], 4, "mover el deslizador no cambia nada hasta aplicar")
+	_expect(errors, apply.disabled, false, "con un cambio, «Aplicar» se activa")
+	apply.pressed.emit()
+	_expect(errors, [mil.get_sector(sector_id)["soldiers"], mil.available_soldiers(player_id)], [start_soldiers, 0], "aplicar toma toda la reserva")
+	_expect(errors, [new_slider.editable, new_label.text, create.disabled], [false, "Sin soldados disponibles", true], "sin reserva no se pueden crear más sectores")
+	panel.set_edit_amount(1)
+	apply.pressed.emit()
+	_expect(errors, [mil.get_sector(sector_id)["soldiers"], mil.available_soldiers(player_id)], [1, start_soldiers - 1], "reducir devuelve a la reserva")
+	_expect(errors, mil.set_sector_soldiers(sector_id, start_soldiers + 1), Military.ASSIGN_ERR_NOT_ENOUGH, "la lógica también impide pasarse de la reserva")
 	_expect(errors, [pop.workers(player_id), pop.soldiers(player_id)], pop_before, "la población no cambió con las asignaciones")
-	# Seleccionar un sector desde la lista (como un clic) y comprobar el resaltado.
+	# Elegir otra celda no suelta el sector; una celda ajena no permite crear.
 	panel.select_sector(Military.NO_SECTOR)
-	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), release.disabled, detail_label.text], [Military.NO_SECTOR, Military.NO_SECTOR, true, "Selecciona un sector de la lista."], "sin sector elegido")
+	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), edit_box.visible, detail_label.text], [Military.NO_SECTOR, Military.NO_SECTOR, false, "Selecciona un sector de la lista."], "sin sector elegido se oculta el editor")
 	list.item_selected.emit(0)
-	_expect(errors, [panel.selected_sector(), layer.highlighted_sector()], [sector_id, sector_id], "elegir en la lista selecciona y resalta el sector")
-	# Una celda que no es del jugador no permite crear sectores.
+	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), edit_box.visible], [sector_id, sector_id, true], "elegir en la lista selecciona y resalta el sector")
 	var enemy_cell: Vector2i = Vector2i(-1, -1)
 	for city_id: int in cities.get_city_ids():
 		if cities.get_owner(city_id) == TerritoryGrid.OWNER_AI_1:
 			enemy_cell = cities.get_city(city_id)["cell"]
 	view.pointer_pressed(view.cell_center_global(enemy_cell))
 	_expect(errors, [create.disabled, plan_label.text.contains(Military.sector_error_message(Military.SECTOR_ERR_ORIGIN_NOT_OWNED))], [true, true], "una celda ajena no permite crear y se explica por qué")
+	_expect(errors, panel.selected_sector(), sector_id, "el sector sigue elegido")
 	# Liberar: elimina el sector y devuelve todo a la reserva.
 	release.pressed.emit()
-	_expect(errors, [mil.sector_count(), list.item_count, panel.selected_sector(), layer.highlighted_sector()], [0, 0, Military.NO_SECTOR, Military.NO_SECTOR], "el sector se eliminó y ya no está elegido")
+	_expect(errors, [mil.sector_count(), list.item_count, panel.selected_sector(), layer.highlighted_sector(), edit_box.visible], [0, 0, Military.NO_SECTOR, Military.NO_SECTOR, false], "el sector se eliminó y ya no está elegido")
 	_expect(errors, mil.get_summary(player_id), {"total": start_soldiers, "assigned": 0, "available": start_soldiers}, "todos los soldados vuelven a la reserva")
-	_expect(errors, [pop.workers(player_id), pop.soldiers(player_id)], pop_before, "y la población sigue igual")
+	_expect(errors, [new_slider.editable, new_slider.max_value], [true, float(start_soldiers)], "y el deslizador de nuevos sectores vuelve a ofrecerlos")
+	_expect(errors, [pop.workers(player_id), pop.soldiers(player_id)], pop_before, "la población sigue igual")
+	_expect(errors, economy.get_money(player_id), money_before, "el dinero no cambió")
 	_expect(errors, grid.copy_owner_data() == owners_before, true, "ningún control cambió el territorio")
 	# El tiempo sigue funcionando con la capa militar en pantalla.
 	cities.advance(5.0)
@@ -722,7 +931,7 @@ func _test_previous_systems_unchanged() -> Array:
 	var mil: Military = with_military["mil"]
 	var sector_ids: Array = []
 	for index in 3:
-		sector_ids.append(mil.create_sector(PLAYER, Vector2i(14 + index, 15), Military.DIR_NORTH)["id"])
+		sector_ids.append(mil.create_sector(PLAYER, Vector2i(24, 12 + index), Military.DIR_EAST)["id"])
 	for world: Dictionary in [with_military, control]:
 		var pop: Population = world["pop"]
 		pop.start_mobilization(PLAYER, 25)
@@ -741,7 +950,7 @@ func _test_previous_systems_unchanged() -> Array:
 				mil.adjust_sector_soldiers(sector_ids[1], -1)
 			20:
 				mil.remove_sector(sector_ids[2])
-				sector_ids[2] = mil.create_sector(PLAYER, Vector2i(16, 15), Military.DIR_NORTH)["id"]
+				sector_ids[2] = mil.create_sector(PLAYER, Vector2i(24, 14), Military.DIR_EAST, mini(2, mil.available_soldiers(PLAYER)))["id"]
 		if _snapshot(with_military) != _snapshot(control):
 			errors.append("población, economía, ciudades o territorio difieren del mundo de control en el tick %d" % (tick + 1))
 			break

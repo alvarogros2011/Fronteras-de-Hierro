@@ -2,7 +2,8 @@
 ##
 ## Un SECTOR es una orden de despliegue y planificación: una celda de origen del propio
 ## territorio, una dirección ortogonal (norte, este, sur u oeste), la celda objetivo contigua en
-## esa dirección y una cifra de soldados asignados. NO es un combate: crear un sector o asignarle
+## esa dirección y una cifra de soldados asignados. El objetivo debe ser tierra SIN RECLAMAR o de
+## OTRA nación (nunca una celda de la propia nación). NO es un combate: crear un sector o asignarle
 ## soldados no inicia una guerra, no mueve tropas y no cambia ninguna frontera. Este sistema nunca
 ## escribe en TerritoryGrid; el territorio solo cambia por TerritoryGrid.conquer_cells.
 ##
@@ -19,6 +20,9 @@
 ## anterior hasta cubrir el exceso; cada sector pierde como mucho lo que tiene. Los sectores no
 ## se eliminan por ello (pueden quedar en 0). Esos soldados no vuelven a la reserva: ya no
 ## existen en la población.
+##
+## Que el objetivo no sea propio se exige solo AL CREAR el sector: si más tarde cambia de dueño
+## (por una conquista) el sector se conserva y el panel lo muestra como territorio propio.
 ##
 ## Si el origen de un sector deja de ser de su nación (conquista), el sector se elimina al
 ## emitir TerritoryGrid `ownership_changed` y sus soldados vuelven a la reserva.
@@ -54,6 +58,9 @@ const SECTOR_ERR_ORIGIN_NOT_OWNED := 4  # la celda de origen no es de la nación
 const SECTOR_ERR_TARGET_OUT_OF_BOUNDS := 5
 const SECTOR_ERR_TARGET_WATER := 6
 const SECTOR_ERR_DUPLICATE := 7  # ya hay un sector con ese origen y esa dirección
+const SECTOR_ERR_TARGET_OWN := 8  # el objetivo ya es territorio de la propia nación
+const SECTOR_ERR_SOLDIERS_NEGATIVE := 9  # cantidad inicial de soldados negativa
+const SECTOR_ERR_SOLDIERS_NOT_ENOUGH := 10  # la cantidad inicial supera la reserva disponible
 
 const ASSIGN_OK := 0
 const ASSIGN_ERR_UNKNOWN_SECTOR := 1
@@ -161,12 +168,13 @@ static func target_cell(origin: Vector2i, direction: int) -> Vector2i:
 # Validación y órdenes
 # ---------------------------------------------------------------------------
 
-## Comprueba, sin cambiar nada, si se podría crear un sector. Devuelve SECTOR_OK o el primer
-## motivo de rechazo (SECTOR_ERR_*), en este orden: nación, dirección, origen dentro del mapa,
-## origen propio, objetivo dentro del mapa, objetivo tierra, sector duplicado.
-## El objetivo puede ser tierra propia, sin reclamar o de otra nación: preparar un sector no
-## inicia ninguna guerra ni exige nada diplomático.
-func validate_sector(nation_id: int, origin: Vector2i, direction: int) -> int:
+## Comprueba, sin cambiar nada, si se podría crear un sector con `soldiers` soldados iniciales.
+## Devuelve SECTOR_OK o el primer motivo de rechazo (SECTOR_ERR_*), en este orden: nación,
+## dirección, origen dentro del mapa, origen propio, objetivo dentro del mapa, objetivo tierra,
+## objetivo no propio, sector duplicado, soldados no negativos, soldados dentro de la reserva.
+## El objetivo puede ser tierra sin reclamar o de otra nación: preparar un sector no inicia
+## ninguna guerra ni exige nada diplomático.
+func validate_sector(nation_id: int, origin: Vector2i, direction: int, soldiers: int = 0) -> int:
 	if not _population.has_nation(nation_id):
 		return SECTOR_ERR_UNKNOWN_NATION
 	if direction < DIR_NORTH or direction > DIR_WEST:
@@ -180,15 +188,24 @@ func validate_sector(nation_id: int, origin: Vector2i, direction: int) -> int:
 		return SECTOR_ERR_TARGET_OUT_OF_BOUNDS
 	if not _grid.is_land(target.x, target.y):
 		return SECTOR_ERR_TARGET_WATER
+	if _grid.get_cell_owner(target.x, target.y) == nation_id:
+		return SECTOR_ERR_TARGET_OWN
 	if sector_at(origin, direction) != NO_SECTOR:
 		return SECTOR_ERR_DUPLICATE
+	if soldiers < 0:
+		return SECTOR_ERR_SOLDIERS_NEGATIVE
+	if soldiers > available_soldiers(nation_id):
+		return SECTOR_ERR_SOLDIERS_NOT_ENOUGH
 	return SECTOR_OK
 
 
-## Crea un sector vacío (0 soldados). Devuelve {"ok": bool, "error": int, "id": int}; si falla,
-## id es NO_SECTOR y no cambia nada. Los ids son estables y no se reutilizan.
-func create_sector(nation_id: int, origin: Vector2i, direction: int) -> Dictionary:
-	var error := validate_sector(nation_id, origin, direction)
+## Crea un sector con `soldiers` soldados iniciales (0 = vacío) en una sola operación atómica:
+## se valida todo antes de tocar nada, así que o se crea el sector ya con su asignación o no
+## cambia nada (nunca queda un sector vacío a medias). Emite changed una sola vez. Devuelve
+## {"ok": bool, "error": int, "id": int}; si falla, id es NO_SECTOR. Los ids son estables y no se
+## reutilizan.
+func create_sector(nation_id: int, origin: Vector2i, direction: int, soldiers: int = 0) -> Dictionary:
+	var error := validate_sector(nation_id, origin, direction, soldiers)
 	if error != SECTOR_OK:
 		return {"ok": false, "error": error, "id": NO_SECTOR}
 	var sector_id := _next_id
@@ -199,7 +216,7 @@ func create_sector(nation_id: int, origin: Vector2i, direction: int) -> Dictiona
 		"origin": origin,
 		"direction": direction,
 		"target": target_cell(origin, direction),
-		"soldiers": 0,
+		"soldiers": soldiers,
 	}
 	changed.emit()
 	return {"ok": true, "error": SECTOR_OK, "id": sector_id}
@@ -235,7 +252,7 @@ func adjust_sector_soldiers(sector_id: int, delta: int) -> int:
 
 
 ## Retira todos los soldados del sector y lo elimina: vuelven a la reserva, no desaparecen de la
-## población. Devuelve false, sin cambiar nada, si el sector no existe.
+## población ni son bajas. Devuelve false, sin cambiar nada, si el sector no existe.
 func remove_sector(sector_id: int) -> bool:
 	if not _sectors.has(sector_id):
 		return false
@@ -262,6 +279,12 @@ static func sector_error_message(code: int) -> String:
 			return "El objetivo es agua."
 		SECTOR_ERR_DUPLICATE:
 			return "Ya hay un sector con ese origen y esa dirección."
+		SECTOR_ERR_TARGET_OWN:
+			return "El objetivo debe ser tierra sin reclamar o de otra nación."
+		SECTOR_ERR_SOLDIERS_NEGATIVE:
+			return "La cantidad de soldados no puede ser negativa."
+		SECTOR_ERR_SOLDIERS_NOT_ENOUGH:
+			return "No hay tantos soldados disponibles."
 	return "Error desconocido."
 
 

@@ -41,7 +41,7 @@ Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 
 | **Validación local de las cuatro suites de los hitos 3–5b** | El propietario comunicó 21 + 14 + 18 + 10 = **63 PASS, 0 FAIL** en Godot 4.7.2. Ejecutado por el propietario en su PC, **no por Claude**. Además abrió el mapa y comprobó que al hacer clic en una celda aparece su información |
 | `tests/city_economy_tests.gd` + `tests/test_city_economy.gd` + `tests/run_city_tests.tscn` (hito 6, 21 pruebas CE-01…CE-21) | Ejecutados a mano por el propietario en Godot 4.7.2: **21 PASS** (tras corregir una posición inválida en la prueba de fundación; comunicado por el propietario) |
 | `tests/population_tests.gd` + `tests/test_population.gd` + `tests/run_population_tests.tscn` (hito 7, 24 pruebas PO-01…PO-24) | Ejecutados a mano por el propietario en Godot 4.7.2: **24 PASS** (comunicado por el propietario; las seis suites suman 108 PASS) |
-| `tests/military_tests.gd` + `tests/test_military.gd` + `tests/run_military_tests.tscn` (hito 8, 18 pruebas MI-01…MI-18) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
+| `tests/military_tests.gd` + `tests/test_military.gd` + `tests/run_military_tests.tscn` (hito 8, 21 pruebas MI-01…MI-21) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
 | Pruebas de combate, ataques, IA | **No existen**: esas mecánicas no están implementadas |
 
 ## 1. Pruebas existentes del territorio (hito 3, sistema nuevo)
@@ -268,36 +268,39 @@ Mapa controlado como el del hito 6 (tierra x 10..39, y 10..29; jugador x 10..24;
 
 ### Hito 8 — Organización militar (escritas, sin ejecutar en Godot)
 
-Mapa controlado como el del hito 7 (tierra x 10..39, y 10..29; jugador x 10..24; IA 1 x 25..34, sin reclamar x 35..39), con la ciudad del jugador en (12, 12) y población inyectada; mundo con ciudad de nivel 4 para la movilización; un mapa de esquinas para los objetivos fuera del mapa; y la escena principal para la prueba de pantalla. No se ha escrito ninguna réplica en otro lenguaje: la revisión fue estática.
+Mapa controlado como el del hito 7 (tierra x 10..39, y 10..29; jugador x 10..24; IA 1 x 25..34, sin reclamar x 35..39), con la ciudad del jugador en (12, 12) y población inyectada; un **enclave** (tres celdas aisladas del jugador rodeadas por la IA 1 y tierra sin reclamar, para tener las cuatro direcciones válidas en un mismo origen); un mapa de esquinas para los objetivos fuera del mapa; mundo con ciudad de nivel 4 para la movilización; y la escena principal para la prueba de pantalla. Como el objetivo nunca puede ser propio, los sectores del jugador del mapa por defecto salen de la frontera x = 24 hacia el este. No se ha escrito ninguna réplica en otro lenguaje: la revisión fue estática. En la simplificación de la interfaz (flujo «crear y asignar») se adaptaron MI-02…MI-04, MI-08…MI-17 y MI-19 por el cambio legítimo de reglas (objetivo no propio) y de flujo; no se eliminó ninguna aserción de comportamiento.
 
 | ID | Qué comprueba |
 |---|---|
 | MI-01 | Las cuatro direcciones (índices, nombres, iniciales) son ortogonales y `target_cell` da la celda contigua correcta |
-| MI-02 | Crear sectores válidos en las cuatro direcciones: propietario, origen, dirección, objetivo, 0 soldados, ids únicos y señal; no asigna soldados ni cambia propietarios; `get_sector` devuelve copia |
+| MI-02 | Crear sectores válidos en las cuatro direcciones desde un mismo origen (enclave): propietario, origen, dirección, objetivo (tres de la IA 1, uno sin reclamar), 0 soldados, ids únicos y señal; no asigna soldados ni cambia propietarios; `get_sector` devuelve copia |
 | MI-03 | Rechazo de origen de otra nación, sin reclamar, agua, fuera del mapa (x/y negativas, = ancho/alto), dirección −1/4 y naciones inexistentes; `validate_sector` coincide; la IA puede usar su territorio y no el ajeno |
-| MI-04 | Rechazo de objetivos en agua (borde oeste, norte y sur) y fuera del mapa (esquinas); desde la esquina hacia dentro sí vale |
-| MI-05 | Rechazo de duplicados (sin señal ni cambios); otro origen o otra dirección valen; tras eliminar se recrea con un id nuevo |
-| MI-06 | Seis sectores a lo largo de la frontera jugador–IA 1 con fuerzas distintas; objetivos sin reclamar y propios; el territorio y `ownership_changed` no se tocan |
-| MI-07 | Asignar, aumentar, reducir, usar justo el último disponible, fijar la misma cantidad (sin señal) y dejar un sector a 0; el total de `Population` no cambia |
-| MI-08 | Imposible asignar más de lo disponible (por set, por adjust y con cantidades enormes), cantidades negativas, sector inexistente; los rechazos no cambian nada; reservas independientes por nación |
-| MI-09 | Invariante tras cada orden de una secuencia fija: total = `Population.soldiers`, asignados = suma de sectores, asignados + disponibles = total; naciones inexistentes |
-| MI-10 | Eliminar devuelve los soldados a la reserva sin tocar la población, no se puede eliminar dos veces ni asignar a un sector eliminado, y lo liberado se reasigna |
-| MI-11 | Déficit de la IA 1 (250 trabajadores, 40 soldados, sin recursos) durante 60 ticks: tras cada tick el exceso sale del sector más nuevo y luego del antiguo (cifras exactas), nunca hay más asignados que soldados, no vuelven a la reserva, ningún sector se elimina y `enforce_soldier_limits` es idempotente |
-| MI-12 | Crear, asignar, reducir y eliminar no emiten señales de población, economía, ciudades ni territorio y dejan idénticos población, mantenimiento, economía, ciudades, propietarios y terreno; no se convierten trabajadores en soldados |
-| MI-13 | Movilización de 100 trabajadores con todo asignado: las órdenes no cambian lo asignado; los reservados aún no se pueden asignar; lo convertido solo aumenta la reserva (50 a mitad, 140 soldados en total al final); la población total no cambia; el reparto de población nueva no toca las asignaciones |
-| MI-14 | Una conquista de la celda de origen elimina el sector y devuelve sus soldados; el sector cuyo objetivo cambia de dueño sigue; una conquista ajena a los orígenes no cambia nada |
-| MI-15 | Textos del panel (resumen, plan, línea de la lista, detalle, botones) y mensajes de error de creación y asignación |
-| MI-16 | Pantalla: el panel y la capa existen y el panel captura el clic; clic en una celda propia = origen; elegir dirección; crear; la lista, el detalle y el resaltado; +5 con recorte a la reserva; −5; elegir en la lista; una celda ajena no permite crear y se explica; liberar elimina y devuelve todo; la población y el territorio no cambian |
-| MI-17 | Con sectores que se asignan, reajustan, eliminan y recrean durante 150 ticks (más movilización, prioridad de ciudad y reparto de población nueva), población, mantenimiento, dinero, recursos, ciudades, propietarios y terreno son idénticos tick a tick a los de un mundo de control sin sectores; `try_set_owner` y `conquer_cells` siguen rechazando el agua |
-| MI-18 | Las suites anteriores, sus escenas F6 y los archivos del hito siguen presentes |
+| MI-04 | Rechazo de objetivos en agua (borde oeste, norte y sur) y fuera del mapa (esquinas); desde la esquina hacia tierra sin reclamar sí vale |
+| MI-05 | Rechazo de objetivos propios en las cuatro direcciones (también con soldados iniciales), solo vale la dirección que sale del territorio, la IA tampoco puede apuntar a sí misma, el agua se reconoce como agua y el origen ajeno antes que el objetivo; los rechazos no emiten señal ni tocan el territorio |
+| MI-06 | **Crear con cantidad inicial:** nace con 8 y quedan 12; una sola señal; usa justo la reserva; con reserva insuficiente, negativa o enorme no se crea nada (ni sector vacío, ni id gastado, ni señal, ni cambio de reserva); orden de comprobaciones (duplicado, objetivo propio y origen ajeno antes que cantidad); `validate_sector` con cantidad; población, dinero, recursos y territorio intactos |
+| MI-07 | Rechazo de duplicados (también con otra cantidad; sin señal ni cambios); otro origen o otra dirección valen; tras eliminar se recrea con un id nuevo |
+| MI-08 | Seis sectores a lo largo de la frontera jugador–IA 1 con fuerzas distintas; objetivos sin reclamar; un objetivo propio no vale; el territorio y `ownership_changed` no se tocan |
+| MI-09 | Asignar, aumentar, reducir, usar justo el último disponible, fijar la misma cantidad (sin señal) y dejar un sector a 0; el total de `Population` no cambia |
+| MI-10 | Imposible asignar más de lo disponible (por set, por adjust y con cantidades enormes), cantidades negativas, sector inexistente; los rechazos no cambian nada; reservas independientes por nación |
+| MI-11 | Invariante tras cada orden de una secuencia fija: total = `Population.soldiers`, asignados = suma de sectores, asignados + disponibles = total; naciones inexistentes |
+| MI-12 | Eliminar devuelve los soldados a la reserva sin tocar la población, no se puede eliminar dos veces ni asignar a un sector eliminado, y lo liberado se reasigna |
+| MI-13 | Déficit de la IA 1 (250 trabajadores, 40 soldados, sin recursos) durante 60 ticks: tras cada tick el exceso sale del sector más nuevo y luego del antiguo (cifras exactas), nunca hay más asignados que soldados, no vuelven a la reserva, ningún sector se elimina y `enforce_soldier_limits` es idempotente |
+| MI-14 | Crear (con cantidad), asignar, reducir y eliminar no emiten señales de población, economía, ciudades ni territorio y dejan idénticos población, mantenimiento, economía, ciudades, propietarios y terreno; no se convierten trabajadores en soldados |
+| MI-15 | Movilización de 100 trabajadores con todo asignado: las órdenes no cambian lo asignado; los reservados aún no se pueden asignar; lo convertido solo aumenta la reserva; la población total no cambia; el reparto de población nueva no toca las asignaciones |
+| MI-16 | Una conquista de la celda de origen elimina el sector y devuelve sus soldados; si el objetivo pasa a ser del jugador, el sector se conserva; una conquista ajena a los orígenes no cambia nada |
+| MI-17 | Textos del panel (resumen, plan con dueño del objetivo, cantidades, línea de la lista, detalle) y mensajes de error de creación (incluidos objetivo propio y soldados) y asignación |
+| MI-18 | **Marcadores del mapa:** reparto de cifras sin solapes (`SectorLayer.label_layout`): sin sectores no hay cifras, un sector va a la derecha del objetivo, con cifras enormes solo caben las dos primeras y las demás se omiten, la del sector elegido siempre se dibuja, reparto determinista |
+| MI-19 | **Pantalla:** el panel y la capa existen y el panel captura el clic; ya no hay botones +1/+5/−1/−5; apuntar a territorio propio se explica y no crea; origen del mapa + dirección + cantidad con un deslizador limitado a la reserva (1…disponibles, también por encima y por debajo); «Crear sector y asignar» crea el sector ya con sus soldados; lista, detalle y resaltado; editar con el deslizador limitado a lo asignable (reserva + lo que ya tiene), mover no cambia nada hasta «Aplicar»; aplicar sube y baja; sin reserva no se crea otro sector; una celda ajena no permite crear; «Liberar y eliminar» devuelve todo; población, dinero y territorio no cambian |
+| MI-20 | Con sectores que se crean con cantidad, reajustan, eliminan y recrean durante 150 ticks (más movilización, prioridad de ciudad y reparto de población nueva), población, mantenimiento, dinero, recursos, ciudades, propietarios y terreno son idénticos tick a tick a los de un mundo de control sin sectores; `try_set_owner` y `conquer_cells` siguen rechazando el agua |
+| MI-21 | Las suites anteriores, sus escenas F6 y los archivos del hito siguen presentes |
 
 | ID | Pendiente (manual en Godot) |
 |---|---|
-| M-60 | Ejecutar `test_military.gd` (o F6 en `run_military_tests.tscn`) y confirmar 18 PASS; repetir las seis suites anteriores (108 PASS) |
+| M-60 | Ejecutar `test_military.gd` (o F6 en `run_military_tests.tscn`) y confirmar 21 PASS; repetir las seis suites anteriores (108 PASS) |
 | M-61 | F5: a la izquierda del mapa aparece el panel «EJÉRCITO» bajo el botón «Fundar ciudad» sin tapar el mapa ni el mensaje de fundación y sin salirse de la ventana (probar con varios sectores y mensajes de error largos) |
-| M-62 | Seleccionar una celda propia, elegir una dirección y crear un sector: aparece el marcador (origen, línea y cifra) y la lista; con +1/+5 y −1/−5 la cifra cambia y los disponibles también |
+| M-62 | Seleccionar una celda propia **de la frontera**, elegir una dirección hacia tierra sin reclamar o de otra nación, mover el deslizador de cantidad y pulsar «Crear sector y asignar»: aparece el marcador (origen, línea con punta de flecha y cifra) y la lista; el deslizador nunca pasa de los disponibles; en un sector elegido, mover el deslizador y «Aplicar» cambia la cifra y los disponibles; «Liberar y eliminar» devuelve los soldados |
 | M-63 | Clics en botones, lista y panel no seleccionan celdas del mapa; el modo de fundación sigue funcionando |
-| M-64 | Legibilidad de las cifras sobre el mapa (escala 3) y solapamiento con varios sectores contiguos; el recuadro del sector elegido se ve |
+| M-64 | Legibilidad de las cifras sobre el mapa (escala 3): con varios sectores contiguos algunas cifras se omiten en vez de solaparse (el número exacto está en la lista); la del sector elegido y su recuadro se ven siempre; comprobar también la punta de flecha |
 | M-65 | Movilizar y comprobar que los disponibles suben a medida que se convierten trabajadores; provocar un déficit y comprobar que los asignados bajan sin errores |
 
 ### Simulación global, pausa y reloj (pendiente de redefinición; antes «hito 7»)
@@ -314,7 +317,7 @@ Mapa controlado como el del hito 7 (tierra x 10..39, y 10..29; jugador x 10..24;
 | T-64 | Construcciones: se rechazan sin dinero suficiente |
 
 ### Hito 10 — Ejércitos y combate
-(La asignación de soldados a sectores ya se prueba en MI-01…MI-18.)
+(La asignación de soldados a sectores ya se prueba en MI-01…MI-21.)
 
 | ID | Qué comprobar |
 |---|---|
@@ -409,7 +412,7 @@ La movilización progresiva se prueba en PO-11, PO-12, PO-13 y PO-17. Las penali
 | Comprobación | Cómo | Estado |
 |---|---|---|
 | Validación local previa (hitos 3–7) | Suites ejecutadas por el propietario | 21 + 14 + 18 + 10 + 21 + 24 = 108 PASS, comunicado por el propietario (Godot 4.7.2); **no ejecutado por Claude** |
-| `tests/test_military.gd` (18 pruebas) | `godot --headless --path . --script res://tests/test_military.gd` | **Pendiente** en Godot (PC del propietario) |
-| Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de repetir; el hito 8 solo cambia `territory_screen.gd` y `territory_main.tscn` (nuevos nodos, creación de `Military` y conexiones; el área del mensaje de fundación se acortó de 144 a 72 px de alto); `Population`, `Economy`, `CityManager` y `TerritoryGrid` no se tocan |
+| `tests/test_military.gd` (21 pruebas) | `godot --headless --path . --script res://tests/test_military.gd` | **Pendiente** en Godot (PC del propietario); ampliada y adaptada en la simplificación de la interfaz |
+| Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de repetir; el hito 8 solo cambia `territory_screen.gd` y `territory_main.tscn` (nuevos nodos, creación de `Military` y conexiones; el área del mensaje de fundación se acortó de 144 a 46 px de alto (3 líneas) y el panel militar empieza en y = 166); `Population`, `Economy`, `CityManager` y `TerritoryGrid` no se tocan |
 | Compatibilidad con Godot 4.7 (sintaxis, tipado) | Revisión estática | Hecha por lectura; **sin compilar** (no hay Godot en la nube). Sin réplicas en otros lenguajes |
 | Aspecto y manejo (M-61…M-65) | F5 en el editor | **Pendiente** (validación del propietario) |
