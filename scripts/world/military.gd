@@ -309,6 +309,31 @@ static func sector_error_message(code: int) -> String:
 	return "Error desconocido."
 
 
+## Motivo por el que no se puede lanzar un ataque desde esa celda y dirección, con las palabras de la
+## interfaz de ataque (hito 10), donde el «sector» no se nombra.
+static func attack_target_error_message(code: int) -> String:
+	match code:
+		SECTOR_ERR_UNKNOWN_NATION:
+			return "Nación desconocida."
+		SECTOR_ERR_BAD_DIRECTION:
+			return "Elige una dirección."
+		SECTOR_ERR_ORIGIN_OUT_OF_BOUNDS, SECTOR_ERR_ORIGIN_NOT_OWNED:
+			return "Parte de una celda de tu territorio."
+		SECTOR_ERR_TARGET_OUT_OF_BOUNDS:
+			return "El ataque saldría del mapa."
+		SECTOR_ERR_TARGET_WATER:
+			return "No se puede atacar el agua."
+		SECTOR_ERR_TARGET_OWN:
+			return "Esa celda ya es tuya: elige un lado que dé a tierra libre o enemiga."
+		SECTOR_ERR_DUPLICATE:
+			return "Ya hay un frente en esa dirección."
+		SECTOR_ERR_SOLDIERS_NEGATIVE:
+			return "Elige al menos 1 soldado."
+		SECTOR_ERR_SOLDIERS_NOT_ENOUGH:
+			return "No hay tantos soldados disponibles."
+	return "No se puede atacar desde ahí."
+
+
 static func assign_error_message(code: int) -> String:
 	match code:
 		ASSIGN_OK:

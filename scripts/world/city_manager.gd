@@ -19,6 +19,13 @@
 ##
 ## Tiempo: advance(delta) acumula segundos y ejecuta ticks fijos de TICK_SECONDS, de modo que
 ## el resultado depende del tiempo transcurrido y no del número de fotogramas.
+##
+## RELOJ ÚNICO Y PAUSA (hito 10): este es el único reloj de la simulación (población, mantenimiento,
+## ofensivas, guerras, treguas y propuestas de la IA cuelgan de su señal `ticked`). La pausa vive aquí:
+## con la partida en pausa advance() no ejecuta ningún tick (descarta el tiempo recibido), así que
+## TODO se detiene a la vez y nunca solo una parte. tick_count() cuenta los ticks ejecutados y es el
+## «tiempo de juego» de guerras y treguas. Fundar una ciudad se rechaza en pausa (cobra al instante);
+## la interfaz sigue respondiendo y se puede consultar todo.
 extends RefCounted
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -32,6 +39,8 @@ signal changed
 ## Se emite al final de cada tick de simulación, ya pagada la producción. Es el reloj único del
 ## que cuelgan otros sistemas (población, mantenimiento) para avanzar en el mismo paso fijo.
 signal ticked
+## Se emite al pausar o reanudar la simulación (solo cuando el estado cambia).
+signal pause_changed(paused: bool)
 
 const FOUND_OK := 0
 const FOUND_ERR_UNKNOWN_NATION := 1
@@ -42,6 +51,7 @@ const FOUND_ERR_OCCUPIED := 5  # ya hay una ciudad exactamente ahí
 const FOUND_ERR_TOO_CLOSE := 6
 const FOUND_ERR_NO_FUNDS := 7
 const FOUND_ERR_ENEMY_OCCUPATION := 8  # la celda es propia pero está ocupada por otra nación
+const FOUND_ERR_PAUSED := 9  # la partida está en pausa
 
 const NO_CITY := -1
 
@@ -52,6 +62,8 @@ var _cities: Dictionary = {}  # id -> {"id", "cell", "level", "progress"}
 var _by_cell: Dictionary = {}  # Vector2i del centro -> id
 var _next_id: int = 1
 var _accumulator: float = 0.0
+var _paused: bool = false
+var _tick_count: int = 0
 
 
 func _init(grid: TerritoryGrid, economy: Economy) -> void:
@@ -69,6 +81,33 @@ func set_occupation(occupation: Occupation) -> void:
 
 func _on_occupation_changed() -> void:
 	changed.emit()
+
+
+# ---------------------------------------------------------------------------
+# Reloj y pausa
+# ---------------------------------------------------------------------------
+
+func is_paused() -> bool:
+	return _paused
+
+
+## Pausa o reanuda toda la simulación. Emite pause_changed solo si el estado cambia.
+func set_paused(paused: bool) -> void:
+	if paused == _paused:
+		return
+	_paused = paused
+	pause_changed.emit(_paused)
+
+
+## Alterna la pausa y devuelve el estado nuevo.
+func toggle_pause() -> bool:
+	set_paused(not _paused)
+	return _paused
+
+
+## Ticks ejecutados desde el inicio de la partida (tiempo de juego; no avanza en pausa).
+func tick_count() -> int:
+	return _tick_count
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +244,8 @@ static func error_message(code: int) -> String:
 			return "Dinero insuficiente (cuesta %d)." % Balance.FOUND_COST
 		FOUND_ERR_ENEMY_OCCUPATION:
 			return "La celda está ocupada por otra nación."
+		FOUND_ERR_PAUSED:
+			return "La partida está en pausa."
 	return "Error desconocido."
 
 
@@ -256,11 +297,13 @@ func _is_valid_initial_cell(nation_id: int, cell: Vector2i) -> bool:
 # ---------------------------------------------------------------------------
 
 ## Comprueba si `nation_id` puede fundar una ciudad en `cell` sin cambiar nada. Devuelve FOUND_OK
-## o el primer error, en este orden: nación, límites, tierra, propiedad, ocupación enemiga,
+## o el primer error, en este orden: nación, pausa, límites, tierra, propiedad, ocupación enemiga,
 ## ciudad existente, distancia mínima y dinero.
 func check_founding(nation_id: int, cell: Vector2i) -> int:
 	if not _grid.has_nation(nation_id):
 		return FOUND_ERR_UNKNOWN_NATION
+	if _paused:
+		return FOUND_ERR_PAUSED
 	if not _grid.is_valid_coord(cell.x, cell.y):
 		return FOUND_ERR_OUT_OF_BOUNDS
 	if not _grid.is_land(cell.x, cell.y):
@@ -314,9 +357,10 @@ func _create_city(cell: Vector2i) -> int:
 # ---------------------------------------------------------------------------
 
 ## Avanza la simulación `delta` segundos de juego (delta <= 0 se ignora). Ejecuta tantos ticks
-## completos como quepan y guarda el resto. Devuelve cuántos ticks se ejecutaron.
+## completos como quepan y guarda el resto. Devuelve cuántos ticks se ejecutaron. En pausa no hace
+## nada (el tiempo recibido se descarta): ningún sistema de la simulación avanza.
 func advance(delta: float) -> int:
-	if delta <= 0.0:
+	if delta <= 0.0 or _paused:
 		return 0
 	_accumulator += delta
 	var ticks := 0
@@ -330,6 +374,7 @@ func advance(delta: float) -> int:
 ## Un tick: cada ciudad con propietario (y sin ocupar) produce para él, y todas ganan crecimiento (subiendo de nivel
 ## al alcanzar el umbral; el sobrante de progreso se conserva). Nunca toca la cuadrícula.
 func _tick() -> void:
+	_tick_count += 1
 	var money := {}
 	var resources := {}
 	var leveled := false

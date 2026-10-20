@@ -1,9 +1,14 @@
-## Pantalla principal (hitos 4, 5b, 6, 7, 8 y 9): une la cuadrícula, la vista pixelada, la leyenda con
+## Pantalla principal (hitos 4, 5b, 6, 7, 8, 9 y 10): une la cuadrícula, la vista pixelada, la leyenda con
 ## estadísticas, el resumen del jugador, el panel de información, las ciudades, la economía, la
-## población, la organización militar y las ofensivas. Crea la única TerritoryGrid, la Economy, el
-## CityManager, la Population, el Military, la Occupation, el WarState y las Offensives y se los entrega
-## a los demás. Solo las ofensivas cambian el territorio, y solo conquistando tierra sin reclamar con
-## TerritoryGrid.conquer_cells; ocupar tierra de otra nación no cambia propietarios (Occupation).
+## población, la organización militar, las ofensivas y la diplomacia. Crea la única TerritoryGrid, la
+## Economy, el CityManager (reloj único y pausa), la Population, el Military, la Occupation, el WarState,
+## las Offensives y la Diplomacy y se los entrega a los demás. El territorio solo cambia por conquer_cells:
+## las ofensivas conquistan tierra sin reclamar y los tratados de paz traspasan lo ocupado; ocupar tierra de
+## otra nación no cambia propietarios (Occupation).
+##
+## Pausa (hito 10): el botón «Pausa» (o la barra espaciadora) pausa el reloj único (CityManager): se
+## detienen a la vez ciudades, población, producción, movilizaciones, ofensivas, guerras, treguas y
+## propuestas. La interfaz sigue respondiendo y se puede consultar todo.
 ##
 ## Las estadísticas territoriales se recalculan desde la cuadrícula cuando esta emite
 ## ownership_changed, como mucho una vez por fotograma. La economía (saldos) se refresca al
@@ -27,6 +32,8 @@ const MilitaryPanel := preload("res://scripts/ui/military_panel.gd")
 const SectorLayer := preload("res://scripts/world/sector_layer_view.gd")
 const Occupation := preload("res://scripts/world/occupation.gd")
 const WarState := preload("res://scripts/world/war_state.gd")
+const Diplomacy := preload("res://scripts/world/diplomacy.gd")
+const DiplomacyPanel := preload("res://scripts/ui/diplomacy_panel.gd")
 const Offensives := preload("res://scripts/world/offensives.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
@@ -41,6 +48,7 @@ var military: Military
 var occupation: Occupation
 var wars: WarState
 var offensives: Offensives
+var diplomacy: Diplomacy
 var founding_mode: bool = false
 
 var _player_id: int = TerritoryGrid.INVALID
@@ -56,24 +64,29 @@ var _player_id: int = TerritoryGrid.INVALID
 @onready var _population_panel: PopulationPanel = %Poblacion
 @onready var _military_panel: MilitaryPanel = %Militar
 @onready var _sector_layer: SectorLayer = %Sectores
+@onready var _diplomacy_panel: DiplomacyPanel = %Diplomacia
+@onready var _pause_button: Button = %BotonPausa
+@onready var _pause_label: Label = %IndicadorPausa
 
 
 func _ready() -> void:
 	grid = TerritoryGrid.new()
 	occupation = Occupation.new(grid)
-	wars = WarState.new()
 	for nation_id: int in grid.get_nation_ids():
 		if grid.get_nation(nation_id)["controller"] == "human":
 			_player_id = nation_id
 	economy = Economy.new(grid.get_nation_ids())
 	cities = CityManager.new(grid, economy)
 	cities.set_occupation(occupation)
+	wars = WarState.new(cities)
 	cities.place_initial_cities()
 	population = Population.new(cities, economy, grid.get_nation_ids())
 	# Military se crea antes que su panel: así corrige las asignaciones antes de que se lean.
 	military = Military.new(grid, population)
 	# Las ofensivas avanzan tras la población en cada tick (se conectan después a CityManager.ticked).
 	offensives = Offensives.new(grid, population, military, cities, occupation, wars)
+	# La diplomacia va después de las ofensivas: en cada tick las ofensivas avanzan antes de que la IA proponga.
+	diplomacy = Diplomacy.new(grid, economy, cities, population, occupation, wars, offensives)
 	_view.occupation = occupation
 	_info.grid = grid
 	_info.occupation = occupation
@@ -90,15 +103,20 @@ func _ready() -> void:
 	population.changed.connect(_on_population_changed)
 	_population_panel.setup(population, cities, _player_id)
 	_military_panel.setup(military, population, grid, _player_id, offensives, wars, occupation)
+	_diplomacy_panel.setup(diplomacy, wars, grid, economy, occupation, cities, _player_id)
 	_sector_layer.setup(grid, military, _player_id, offensives)
 	occupation.cells_changed.connect(_repaint_cells)
 	offensives.territory_changed.connect(_repaint_cells)
+	diplomacy.territory_changed.connect(_repaint_cells)
 	occupation.changed.connect(_on_occupation_changed)
 	_view.selection_changed.connect(_military_panel.set_origin)
 	_military_panel.sector_selected.connect(_sector_layer.set_highlight)
 	_found_button.pressed.connect(_on_found_button_pressed)
+	_pause_button.pressed.connect(toggle_pause)
+	cities.pause_changed.connect(_on_pause_changed)
 	refresh_stats()
 	_set_founding_ui()
+	_set_pause_ui()
 
 
 ## Recalcula las estadísticas ya (también lo usan las pruebas).
@@ -131,6 +149,28 @@ func _repaint_cells(cells: Array) -> void:
 
 func _on_occupation_changed() -> void:
 	_info.show_cell(_view.selected_cell)
+
+
+# ---------------------------------------------------------------------------
+# Pausa
+# ---------------------------------------------------------------------------
+
+## Pausa o reanuda toda la simulación (el reloj único vive en CityManager).
+func set_paused(paused: bool) -> void:
+	cities.set_paused(paused)
+
+
+func toggle_pause() -> void:
+	cities.toggle_pause()
+
+
+func _on_pause_changed(_paused: bool) -> void:
+	_set_pause_ui()
+
+
+func _set_pause_ui() -> void:
+	_pause_button.text = "Reanudar (Espacio)" if cities.is_paused() else "Pausa (Espacio)"
+	_pause_label.text = "EN PAUSA" if cities.is_paused() else ""
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +246,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if founding_mode and event.is_action_pressed("ui_cancel"):
 		cancel_founding()
 		get_viewport().set_input_as_handled()
+	elif event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_SPACE:
+			toggle_pause()
+			get_viewport().set_input_as_handled()
 
 
 func _set_founding_ui() -> void:

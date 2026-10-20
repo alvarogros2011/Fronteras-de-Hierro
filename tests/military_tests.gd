@@ -698,17 +698,11 @@ func _test_texts() -> Array:
 	var errors: Array = []
 	_expect(errors, MilitaryPanel.summary_text({"total": 6, "assigned": 2, "available": 4}), "Soldados 6\nAsignados 2\nDisponibles 4", "resumen")
 	_expect(errors, MilitaryPanel.summary_text({}), "Sin ejército", "resumen vacío")
-	_expect(errors, MilitaryPanel.plan_text(MilitaryPanel.NO_CELL, MilitaryPanel.NO_DIRECTION, Military.SECTOR_OK), "Selecciona una celda propia en el mapa.", "sin celda")
-	_expect(errors, MilitaryPanel.plan_text(Vector2i(12, 12), MilitaryPanel.NO_DIRECTION, Military.SECTOR_OK), "Origen (12, 12)\nElige una dirección.", "sin dirección")
-	_expect(errors, MilitaryPanel.plan_text(Vector2i(12, 12), Military.DIR_EAST, Military.SECTOR_OK), "Origen (12, 12)\nObjetivo (13, 12) · Este\nListo.", "plan válido sin dueño conocido")
-	_expect(errors, MilitaryPanel.plan_text(Vector2i(12, 12), Military.DIR_EAST, Military.SECTOR_OK, "Sin reclamar"), "Origen (12, 12)\nObjetivo (13, 12) · Este\nSin reclamar", "plan válido: el objetivo y su dueño")
-	_expect(errors, MilitaryPanel.plan_text(Vector2i(10, 12), Military.DIR_WEST, Military.SECTOR_ERR_TARGET_WATER), "Origen (10, 12)\nObjetivo (9, 12) · Oeste\nEl objetivo es agua.", "plan con error")
-	_expect(errors, MilitaryPanel.plan_text(Vector2i(10, 12), Military.DIR_EAST, Military.SECTOR_ERR_TARGET_OWN, "Tu territorio").ends_with(Military.sector_error_message(Military.SECTOR_ERR_TARGET_OWN)), true, "el motivo sustituye al dueño")
 	_expect(errors, MilitaryPanel.amount_text(3, 6), "Soldados: 3 de 6", "cantidad elegida")
-	_expect(errors, MilitaryPanel.edit_amount_text(7, 5, 11), "Asignar 7 (ahora 5, máx. 11)", "cantidad al editar")
 	var sector := {"id": 3, "owner": PLAYER, "origin": Vector2i(12, 12), "direction": Military.DIR_SOUTH, "target": Vector2i(12, 13), "soldiers": 5}
 	_expect(errors, MilitaryPanel.list_item_text(sector), "#3 (12,12) S · 5", "línea de la lista")
-	_expect(errors, MilitaryPanel.detail_text(sector, "Sin reclamar"), "Sector #3 · Sur\nOrigen (12, 12)\nObjetivo (12, 13)\nSin reclamar\nSoldados 5", "detalle")
+	for code in range(Military.SECTOR_ERR_UNKNOWN_NATION, Military.SECTOR_ERR_SOLDIERS_NOT_ENOUGH + 1):
+		_expect(errors, Military.attack_target_error_message(code) != "" and Military.attack_target_error_message(code) != "No se puede atacar desde ahí.", true, "mensaje de ataque %d" % code)
 	for code in range(Military.SECTOR_OK, Military.SECTOR_ERR_SOLDIERS_NOT_ENOUGH + 1):
 		_expect(errors, Military.sector_error_message(code) != "" and Military.sector_error_message(code) != "Error desconocido.", true, "mensaje de creación %d" % code)
 	for code in range(Military.ASSIGN_OK, Military.ASSIGN_ERR_NOT_ENOUGH + 1):
@@ -798,121 +792,110 @@ func _test_screen() -> Array:
 		screen.free()
 		return errors
 	_expect(errors, panel.mouse_filter, Control.MOUSE_FILTER_STOP, "el panel captura el clic (no selecciona el mapa por error)")
-	var names := ["ResumenMilitar", "PlanSector", "BotonDireccionNorte", "BotonDireccionEste", "BotonDireccionSur", "BotonDireccionOeste",
-			"CantidadNueva", "SliderNuevo", "BotonCrearSector", "ListaSectores", "DetalleSector", "EdicionSector", "CantidadEdicion",
-			"SliderEdicion", "BotonAplicar", "BotonLiberarSector", "MensajeMilitar"]
+	var names := ["ResumenMilitar", "ObjetivoAtaque", "BotonDireccionNorte", "BotonDireccionEste", "BotonDireccionSur", "BotonDireccionOeste",
+			"CantidadAtaque", "SliderAtaque", "BotonPorcentaje25", "BotonPorcentaje50", "BotonPorcentaje75", "BotonPorcentaje100", "BotonAtacar",
+			"BotonAjustar", "BotonRetirar", "ListaSectores", "MensajeMilitar"]
 	for node_name: String in names:
 		if panel.find_child(node_name, true, false) == null:
 			errors.append("falta el control %s" % node_name)
-	for old_name: String in ["BotonAjusteMas1", "BotonAjusteMas5", "BotonAjusteMenos1", "BotonAjusteMenos5"]:
+	for old_name: String in ["BotonAjusteMas1", "BotonAjusteMas5", "BotonAjusteMenos1", "BotonAjusteMenos5", "BotonCrearSector", "SliderNuevo", "SliderEdicion", "BotonAplicar", "BotonLiberarSector"]:
 		if panel.find_child(old_name, true, false) != null:
-			errors.append("sigue existiendo el botón de ajuste %s" % old_name)
+			errors.append("sigue existiendo el control antiguo %s" % old_name)
 	if not errors.is_empty():
 		screen.free()
 		return errors
 	var summary_label: Label = panel.find_child("ResumenMilitar", true, false)
-	var plan_label: Label = panel.find_child("PlanSector", true, false)
-	var new_label: Label = panel.find_child("CantidadNueva", true, false)
-	var new_slider: HSlider = panel.find_child("SliderNuevo", true, false)
-	var detail_label: Label = panel.find_child("DetalleSector", true, false)
+	var target_label: Label = panel.find_child("ObjetivoAtaque", true, false)
+	var amount_label: Label = panel.find_child("CantidadAtaque", true, false)
+	var slider: HSlider = panel.find_child("SliderAtaque", true, false)
 	var message_label: Label = panel.find_child("MensajeMilitar", true, false)
-	var edit_box: Control = panel.find_child("EdicionSector", true, false)
-	var edit_label: Label = panel.find_child("CantidadEdicion", true, false)
-	var edit_slider: HSlider = panel.find_child("SliderEdicion", true, false)
-	var create: Button = panel.find_child("BotonCrearSector", true, false)
-	var apply: Button = panel.find_child("BotonAplicar", true, false)
-	var release: Button = panel.find_child("BotonLiberarSector", true, false)
+	var attack: Button = panel.find_child("BotonAtacar", true, false)
+	var adjust: Button = panel.find_child("BotonAjustar", true, false)
+	var withdraw: Button = panel.find_child("BotonRetirar", true, false)
 	var list: ItemList = panel.find_child("ListaSectores", true, false)
 	var player_id: int = TerritoryGrid.OWNER_PLAYER
 	var start_soldiers: int = PopulationBalance.INITIAL_POPULATION[player_id]["soldiers"]
 	var owners_before := grid.copy_owner_data()
 	var money_before := economy.get_money(player_id)
 	var pop_before := [pop.workers(player_id), pop.soldiers(player_id)]
-	# Estado inicial: todo disponible, nada que editar.
+	# Estado inicial: todo disponible, nada que atacar.
 	_expect(errors, summary_label.text, MilitaryPanel.summary_text(mil.get_summary(player_id)), "el resumen sale de los datos")
 	_expect(errors, mil.get_summary(player_id), {"total": start_soldiers, "assigned": 0, "available": start_soldiers}, "todos los soldados disponibles al empezar")
-	_expect(errors, [create.disabled, list.item_count, edit_box.visible], [true, 0, false], "sin selección no se puede crear y no hay nada que editar")
-	_expect(errors, [new_slider.max_value, new_slider.editable, new_label.text], [float(start_soldiers), true, MilitaryPanel.amount_text(1, start_soldiers)], "el deslizador ofrece como máximo la reserva")
-	_expect(errors, detail_label.text, "Selecciona un sector de la lista.", "ayuda sin sector elegido")
-	# Una celda propia con un objetivo propio no sirve: se explica por qué.
+	_expect(errors, [attack.disabled, list.item_count, adjust.visible, withdraw.visible], [true, 0, false, false], "sin objetivo no se puede atacar y no hay frentes que ajustar")
+	# Una celda propia sin lado atacable no sirve: se explica por qué y no hay dirección.
 	var city_cell: Vector2i = Vector2i(-1, -1)
 	for city_id: int in cities.get_city_ids():
 		if cities.get_owner(city_id) == player_id:
 			city_cell = cities.get_city(city_id)["cell"]
 	view.pointer_pressed(view.cell_center_global(city_cell))
-	_expect(errors, panel.chosen_origin(), city_cell, "la celda seleccionada en el mapa es el origen")
-	_expect(errors, plan_label.text, MilitaryPanel.plan_text(city_cell, MilitaryPanel.NO_DIRECTION, Military.SECTOR_OK), "pide elegir dirección")
+	_expect(errors, [panel.chosen_origin(), panel.chosen_direction(), attack.disabled], [city_cell, MilitaryPanel.NO_DIRECTION, true], "la celda seleccionada en el mapa es el origen y sin lado atacable no hay dirección")
 	panel.find_child("BotonDireccionEste", true, false).pressed.emit()
-	_expect(errors, [create.disabled, plan_label.text.contains(Military.sector_error_message(Military.SECTOR_ERR_TARGET_OWN))], [true, true], "apuntar a territorio propio no se puede y se explica")
-	create.pressed.emit()
-	_expect(errors, [mil.sector_count(), message_label.text], [0, Military.sector_error_message(Military.SECTOR_ERR_TARGET_OWN)], "forzar el botón no crea nada")
+	_expect(errors, [attack.disabled, target_label.text.contains(Military.attack_target_error_message(Military.SECTOR_ERR_TARGET_OWN))], [true, true], "apuntar a territorio propio no se puede y se explica")
+	attack.pressed.emit()
+	_expect(errors, [mil.sector_count(), mil.assigned_soldiers(player_id), message_label.text], [0, 0, Military.attack_target_error_message(Military.SECTOR_ERR_TARGET_OWN)], "forzar el botón no crea nada ni consume soldados")
 	# Un origen y una dirección válidos (el primero que encuentre la búsqueda).
 	var spot := _find_sector_spot(grid, mil)
-	_expect(errors, spot[1] >= 0, true, "el jugador tiene alguna frontera donde crear un sector")
+	_expect(errors, spot[1] >= 0, true, "el jugador tiene alguna frontera desde la que atacar")
 	if spot[1] < 0:
 		screen.free()
 		return errors
 	var origin: Vector2i = spot[0]
-	var direction: int = spot[1]
 	view.pointer_pressed(view.cell_center_global(origin))
 	_expect(errors, panel.chosen_origin(), origin, "nuevo origen")
-	panel.find_child("BotonDireccion" + Military.DIRECTION_NAMES[direction], true, false).pressed.emit()
-	_expect(errors, [panel.chosen_direction(), create.disabled], [direction, false], "con origen y dirección válidos ya se puede crear")
-	var target_owner := grid.get_cell_owner(origin.x + Military.DIRECTION_STEPS[direction].x, origin.y + Military.DIRECTION_STEPS[direction].y)
-	var target_text: String = "Sin reclamar" if target_owner == TerritoryGrid.OWNER_NONE else grid.get_nation(target_owner)["name"]
-	_expect(errors, plan_label.text, MilitaryPanel.plan_text(origin, direction, Military.SECTOR_OK, target_text), "el plan muestra origen, dirección, celda objetivo y su dueño")
+	if panel.chosen_direction() == MilitaryPanel.NO_DIRECTION:
+		panel.find_child("BotonDireccion" + Military.DIRECTION_NAMES[spot[1]], true, false).pressed.emit()
+	var direction: int = panel.chosen_direction()
+	_expect(errors, mil.validate_sector(player_id, origin, direction), Military.SECTOR_OK, "la dirección elegida (a mano o deducida) es atacable")
+	_expect(errors, attack.disabled, false, "con origen y dirección válidos ya se puede atacar")
 	# Cantidad: un único deslizador, limitado a la reserva.
-	panel.set_new_amount(1000)
-	_expect(errors, [panel.new_amount(), new_label.text], [start_soldiers, MilitaryPanel.amount_text(start_soldiers, start_soldiers)], "no se puede elegir más que la reserva")
-	panel.set_new_amount(-5)
-	_expect(errors, panel.new_amount(), 1, "ni menos de 1")
-	panel.set_new_amount(4)
-	_expect(errors, [panel.new_amount(), new_label.text], [4, MilitaryPanel.amount_text(4, start_soldiers)], "la cantidad elegida se muestra")
+	_expect(errors, [slider.min_value, slider.max_value], [1.0, float(start_soldiers)], "el deslizador va de 1 a todos los soldados disponibles")
+	panel.set_amount(1000)
+	_expect(errors, [panel.amount(), amount_label.text], [start_soldiers, MilitaryPanel.amount_text(start_soldiers, start_soldiers)], "no se puede elegir más que la reserva")
+	panel.set_amount(-5)
+	_expect(errors, panel.amount(), 1, "ni menos de 1")
+	panel.set_amount(4)
+	_expect(errors, [panel.amount(), amount_label.text], [4, MilitaryPanel.amount_text(4, start_soldiers)], "la cantidad elegida se muestra")
 	_expect(errors, mil.sector_count(), 0, "elegir no crea nada todavía")
-	# Un solo botón crea el sector ya asignado.
-	create.pressed.emit()
-	_expect(errors, mil.sector_count(), 1, "se creó un sector")
+	# Una sola orden crea el frente ya asignado y lo lanza.
+	attack.pressed.emit()
+	_expect(errors, mil.sector_count(), 1, "se creó un frente")
 	var sector_id: int = mil.get_sector_ids(player_id)[0]
 	var sector := mil.get_sector(sector_id)
 	_expect(errors, [sector["origin"], sector["direction"], sector["target"], sector["soldiers"]], [origin, direction, origin + Military.DIRECTION_STEPS[direction], 4], "con los datos elegidos y 4 soldados desde el principio")
 	_expect(errors, mil.get_summary(player_id), {"total": start_soldiers, "assigned": 4, "available": start_soldiers - 4}, "4 asignados, el resto disponible")
 	_expect(errors, summary_label.text, MilitaryPanel.summary_text(mil.get_summary(player_id)), "el resumen se actualiza")
-	_expect(errors, [list.item_count, list.get_item_text(0)], [1, MilitaryPanel.list_item_text(sector)], "aparece en la lista")
-	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), edit_box.visible], [sector_id, sector_id, true], "queda elegido, resaltado en el mapa y editable")
-	_expect(errors, detail_label.text, MilitaryPanel.detail_text(sector, target_text), "el detalle muestra origen, objetivo, dirección y soldados")
-	_expect(errors, create.disabled, true, "crear el mismo sector otra vez ya no es posible")
-	# Editar con el mismo tipo de control.
-	_expect(errors, [edit_slider.max_value, edit_slider.value, edit_label.text], [float(start_soldiers), 4.0, MilitaryPanel.edit_amount_text(4, 4, start_soldiers)], "el editor parte de la cantidad actual y llega hasta lo asignable")
-	_expect(errors, apply.disabled, true, "sin cambios no hay nada que aplicar")
-	panel.set_edit_amount(1000)
-	_expect(errors, panel.edit_amount(), start_soldiers, "no se puede editar por encima de lo asignable")
-	_expect(errors, mil.get_sector(sector_id)["soldiers"], 4, "mover el deslizador no cambia nada hasta aplicar")
-	_expect(errors, apply.disabled, false, "con un cambio, «Aplicar» se activa")
-	apply.pressed.emit()
-	_expect(errors, [mil.get_sector(sector_id)["soldiers"], mil.available_soldiers(player_id)], [start_soldiers, 0], "aplicar toma toda la reserva")
-	_expect(errors, [new_slider.editable, new_label.text, create.disabled], [false, "Sin soldados disponibles", true], "sin reserva no se pueden crear más sectores")
-	panel.set_edit_amount(1)
-	apply.pressed.emit()
+	_expect(errors, [list.item_count, list.get_item_text(0)], [1, MilitaryPanel.list_item_text(sector, true)], "aparece en la lista como atacando")
+	_expect(errors, [panel.selected_sector(), layer.highlighted_sector()], [sector_id, sector_id], "queda elegido y resaltado en el mapa")
+	_expect(errors, [attack.text, withdraw.visible], ["Detener", true], "el botón principal pasa a «Detener»")
+	attack.pressed.emit()  # se detiene antes de avanzar el tiempo: esta prueba trata de las asignaciones
+	_expect(errors, attack.text, "Continuar", "y luego a «Continuar»")
+	# Ajustar con el mismo deslizador.
+	_expect(errors, [slider.max_value, slider.value, adjust.visible], [float(start_soldiers), 4.0, false], "el deslizador parte de la cantidad actual y llega hasta lo asignable")
+	panel.set_amount(1000)
+	_expect(errors, panel.amount(), start_soldiers, "no se puede ajustar por encima de lo asignable")
+	_expect(errors, [mil.get_sector(sector_id)["soldiers"], adjust.visible, adjust.text], [4, true, "Ajustar a %d" % start_soldiers], "mover el deslizador no cambia nada hasta ajustar")
+	adjust.pressed.emit()
+	_expect(errors, [mil.get_sector(sector_id)["soldiers"], mil.available_soldiers(player_id)], [start_soldiers, 0], "ajustar toma toda la reserva")
+	_expect(errors, [slider.editable, panel.amount()], [true, start_soldiers], "el frente conserva su cantidad en el deslizador")
+	panel.set_amount(1)
+	adjust.pressed.emit()
 	_expect(errors, [mil.get_sector(sector_id)["soldiers"], mil.available_soldiers(player_id)], [1, start_soldiers - 1], "reducir devuelve a la reserva")
 	_expect(errors, mil.set_sector_soldiers(sector_id, start_soldiers + 1), Military.ASSIGN_ERR_NOT_ENOUGH, "la lógica también impide pasarse de la reserva")
 	_expect(errors, [pop.workers(player_id), pop.soldiers(player_id)], pop_before, "la población no cambió con las asignaciones")
-	# Elegir otra celda no suelta el sector; una celda ajena no permite crear.
-	panel.select_sector(Military.NO_SECTOR)
-	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), edit_box.visible, detail_label.text], [Military.NO_SECTOR, Military.NO_SECTOR, false, "Selecciona un sector de la lista."], "sin sector elegido se oculta el editor")
-	list.item_selected.emit(0)
-	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), edit_box.visible], [sector_id, sector_id, true], "elegir en la lista selecciona y resalta el sector")
+	# Elegir otra celda no destruye el frente; la lista lo vuelve a elegir.
 	var enemy_cell: Vector2i = Vector2i(-1, -1)
 	for city_id: int in cities.get_city_ids():
 		if cities.get_owner(city_id) == TerritoryGrid.OWNER_AI_1:
 			enemy_cell = cities.get_city(city_id)["cell"]
 	view.pointer_pressed(view.cell_center_global(enemy_cell))
-	_expect(errors, [create.disabled, plan_label.text.contains(Military.sector_error_message(Military.SECTOR_ERR_ORIGIN_NOT_OWNED))], [true, true], "una celda ajena no permite crear y se explica por qué")
-	_expect(errors, panel.selected_sector(), sector_id, "el sector sigue elegido")
-	# Liberar: elimina el sector y devuelve todo a la reserva.
-	release.pressed.emit()
-	_expect(errors, [mil.sector_count(), list.item_count, panel.selected_sector(), layer.highlighted_sector(), edit_box.visible], [0, 0, Military.NO_SECTOR, Military.NO_SECTOR, false], "el sector se eliminó y ya no está elegido")
+	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), attack.disabled], [Military.NO_SECTOR, Military.NO_SECTOR, true], "una celda ajena y lejana limpia la elección y no permite atacar")
+	_expect(errors, mil.sector_count(), 1, "pero el frente sigue existiendo")
+	list.item_selected.emit(0)
+	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), withdraw.visible], [sector_id, sector_id, true], "elegir en la lista selecciona y resalta el frente")
+	# Retirar: elimina el frente y devuelve todo a la reserva.
+	withdraw.pressed.emit()
+	_expect(errors, [mil.sector_count(), list.item_count, panel.selected_sector(), layer.highlighted_sector(), withdraw.visible], [0, 0, Military.NO_SECTOR, Military.NO_SECTOR, false], "el frente se eliminó y ya no está elegido")
 	_expect(errors, mil.get_summary(player_id), {"total": start_soldiers, "assigned": 0, "available": start_soldiers}, "todos los soldados vuelven a la reserva")
-	_expect(errors, [new_slider.editable, new_slider.max_value], [true, float(start_soldiers)], "y el deslizador de nuevos sectores vuelve a ofrecerlos")
 	_expect(errors, [pop.workers(player_id), pop.soldiers(player_id)], pop_before, "la población sigue igual")
 	_expect(errors, economy.get_money(player_id), money_before, "el dinero no cambió")
 	_expect(errors, grid.copy_owner_data() == owners_before, true, "ningún control cambió el territorio")

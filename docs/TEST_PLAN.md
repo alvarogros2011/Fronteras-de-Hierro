@@ -21,11 +21,12 @@ godot --headless --path . --script res://tests/test_city_economy.gd
 godot --headless --path . --script res://tests/test_population.gd
 godot --headless --path . --script res://tests/test_military.gd
 godot --headless --path . --script res://tests/test_combat.gd
+godot --headless --path . --script res://tests/test_diplomacy.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`. Las del hito 7 (población y mantenimiento): `tests/population_tests.gd`, `tests/test_population.gd` y `tests/run_population_tests.tscn`. Las del hito 8 (organización militar): `tests/military_tests.gd`, `tests/test_military.gd` y `tests/run_military_tests.tscn`. Las del hito 9 (ataques, combate y ocupación): `tests/combat_tests.gd`, `tests/test_combat.gd` y `tests/run_combat_tests.tscn`.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`. Las del hito 7 (población y mantenimiento): `tests/population_tests.gd`, `tests/test_population.gd` y `tests/run_population_tests.tscn`. Las del hito 8 (organización militar): `tests/military_tests.gd`, `tests/test_military.gd` y `tests/run_military_tests.tscn`. Las del hito 9 (ataques, combate y ocupación): `tests/combat_tests.gd`, `tests/test_combat.gd` y `tests/run_combat_tests.tscn`. Las del hito 10 (guerra, diplomacia, treguas y pausa): `tests/diplomacy_tests.gd`, `tests/test_diplomacy.gd` y `tests/run_diplomacy_tests.tscn`.
 
 ## Estado actual
 
@@ -43,8 +44,9 @@ Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 
 | `tests/city_economy_tests.gd` + `tests/test_city_economy.gd` + `tests/run_city_tests.tscn` (hito 6, 21 pruebas CE-01…CE-21) | Ejecutados a mano por el propietario en Godot 4.7.2: **21 PASS** (tras corregir una posición inválida en la prueba de fundación; comunicado por el propietario) |
 | `tests/population_tests.gd` + `tests/test_population.gd` + `tests/run_population_tests.tscn` (hito 7, 24 pruebas PO-01…PO-24) | Ejecutados a mano por el propietario en Godot 4.7.2: **24 PASS** (comunicado por el propietario; las seis suites suman 108 PASS) |
 | `tests/military_tests.gd` + `tests/test_military.gd` + `tests/run_military_tests.tscn` (hito 8, 21 pruebas MI-01…MI-21) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube). El propietario probó a mano la interfaz militar simplificada y confirmó que funciona |
-| `tests/combat_tests.gd` + `tests/test_combat.gd` + `tests/run_combat_tests.tscn` (hito 9, 25 pruebas CB-01…CB-25) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
-| Pruebas de IA, diplomacia, tratados | **No existen**: esas mecánicas no están implementadas |
+| `tests/combat_tests.gd` + `tests/test_combat.gd` + `tests/run_combat_tests.tscn` (hito 9, 25 pruebas CB-01…CB-25) | El propietario ejecutó el hito 9 en Godot 4.7.2: **23 PASS y 2 FAIL** (CB-20 y CB-23, ambos por comparar con `==` colores float contra píxeles `RGBA8`; no era un defecto del juego). En el hito 10 se corrigió la comparación (tolerancia de 1/255) y CB-23 se reescribió para el flujo nuevo: **nueva ejecución pendiente** |
+| `tests/diplomacy_tests.gd` + `tests/test_diplomacy.gd` + `tests/run_diplomacy_tests.tscn` (hito 10, 19 pruebas DI-01…DI-19) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
+| Pruebas de IA estratégica y diplomacia avanzada | **No existen**: esas mecánicas no están implementadas (el hito 10 solo cubre paz, pagos, treguas y la respuesta simple de la IA) |
 
 ## 1. Pruebas existentes del territorio (hito 3, sistema nuevo)
 
@@ -305,11 +307,11 @@ Mapa controlado como el del hito 7 (tierra x 10..39, y 10..29; jugador x 10..24;
 | M-64 | Legibilidad de las cifras sobre el mapa (escala 3): con varios sectores contiguos algunas cifras se omiten en vez de solaparse (el número exacto está en la lista); la del sector elegido y su recuadro se ven siempre; comprobar también la punta de flecha |
 | M-65 | Movilizar y comprobar que los disponibles suben a medida que se convierten trabajadores; provocar un déficit y comprobar que los asignados bajan sin errores |
 
-### Simulación global, pausa y reloj (pendiente de redefinición; antes «hito 7»)
+### Simulación global, pausa y reloj (la pausa se hizo en el hito 10; ver DI-01 y DI-17)
 | ID | Qué comprobar |
 |---|---|
 | T-30 | Mismos pasos + misma semilla → mismo estado (hash) |
-| T-33 | La pausa detiene el avance de toda la simulación; reanudar continúa |
+| T-33 | La pausa detiene el avance de toda la simulación; reanudar continúa (hecho: DI-01) |
 | T-35 | Ningún paso de simulación cambia propietarios (la expansión automática está descartada) |
 
 ### Hito 9 — Ataques, combate e invasiones progresivas (escritas, sin ejecutar en Godot)
@@ -354,13 +356,52 @@ Mismo mapa controlado que el hito 8 (tierra x 10..39, y 10..29; jugador x 10..24
 | M-75 | Una ciudad enemiga ocupada se ve con el centro naranja y su producción se suspende (el panel de celda lo indica); al liberar la ocupación se reanuda (probar liberando por conquista) |
 | M-76 | Sensación de ritmo: ¿es 1 celda cada 3 s demasiado lento o rápido?; ¿se entiende que detener no devuelve lo ocupado? Coste de recalcular las celdas expuestas al conquistar (debería ser imperceptible) |
 
-### Hito 10 — Construcciones y producción según trabajadores (antes «hito 9»)
+### Hito 10 — Guerra, diplomacia y jugabilidad simplificada (escritas, sin ejecutar en Godot)
+
+Mapas controlados como los del hito 9: **duelo** (tierra x 10..39, y 10..29; jugador x 10..24; IA 1 x 25..34; sin reclamar x 35..39) y **tres** (jugador x 10..24; IA 1 y 10..19 y IA 2 y 20..29 en x 25..39). Sin ciudades salvo donde se indica, con muchos recursos (nunca hay déficit) y 50 de dinero por nación. El tiempo avanza con `CityManager.advance(n)` (n ticks exactos). Las cifras de la IA se contrastaron con una réplica en Python de las fórmulas (no es una prueba de Godot). Además se **reescribieron las pruebas de interfaz** de `combat_tests.gd` (`_test_screen`, `_test_texts`) y `military_tests.gd` (`_test_screen`, `_test_texts`) para el flujo nuevo (los controles antiguos «Crear sector…», «Aplicar», «Liberar y eliminar» ya no existen): se conservan las comprobaciones sobre soldados, reservas, mapa y ocupación, y se sustituyen las del flujo de crear y editar por las equivalentes del flujo de atacar, ajustar y retirar.
+
+| ID | Qué comprueba |
+|---|---|
+| DI-01 | **Pausa:** `advance` no ejecuta ticks en pausa (aunque llegue mucho tiempo); territorio, ocupaciones, ofensivas (también su cuenta atrás), saldos, población, movilización, crecimiento de ciudades, duración de la guerra y de la tregua no cambian; fundar y negociar se rechazan; consultar y planificar un ataque sí, y no avanza; al reanudar todo sigue desde donde estaba; la señal `pause_changed` se emite una vez por cambio |
+| DI-02 | `WarState`: registro por guerra (id, partes, agresor, inicio, duración con el reloj), bajas y ocupaciones por bando, terminar una guerra sin tocar otra, treguas simétricas con cuenta atrás, `declare_war` bloqueado por tregua, expirar y empezar una guerra nueva; sin reloj sigue valiendo |
+| DI-03 | `Occupation`: consultar y contar por ocupante y propietario, `release_between` libera ambos sentidos sin tocar otras parejas y avisa de las celdas, `export_state`/`import_state` |
+| DI-04 | **Ataque en un paso:** `plan_attack` no cambia nada y prevé lo mismo que ocurre; `launch_attack` crea el frente, asigna y lanza en una operación (guerra declarada, reserva coherente); reforzar y reducir con la ofensiva activa (mismo frente, sin reiniciar), continuar un frente detenido con otra cantidad, varios puntos de una misma frontera; poca fuerza anuncia derrota y mucha no cuesta todas las bajas |
+| DI-05 | **Órdenes inválidas** (origen ajeno o fuera del mapa, objetivo propio o de agua, dirección inválida, nación desconocida, 0 o negativos, más de los disponibles): ninguna crea un frente, compromete soldados ni declara la guerra, el estado es idéntico y cada una tiene mensaje; agua y borde; pedir de más con un frente existente no lo toca |
+| DI-06 | Propuestas: sin guerra no; misma nación, tipo desconocido, pago negativo, pagador ajeno o sin dinero; las inválidas no cambian nada; propuesta pendiente a un humano sin tocar saldos, una sola por pareja, solo la responde el destinatario, rechazar la descarta; mensajes de error |
+| DI-07 | **Paz con conquistas:** reluctancia de la IA con la fórmula documentada; el ensayo no cambia nada (3 celdas para el jugador, 2 para la IA 1, 1 suelta que no se concede); al firmar exactamente 5 celdas cambian de dueño, se avisa para repintarlas, no queda ocupación ni guerra, empieza la tregua, historial y texto; lo traspasado cuenta como propio |
+| DI-08 | **Paz blanca:** el ensayo no traspasa nada, ningún propietario cambia, las 6 ocupaciones se liberan (y se avisa para repintar), fin de guerra y tregua, mensaje; no revierte la tierra libre conquistada antes |
+| DI-09 | **Guerras independientes:** la paz blanca con la IA 1 deja intactas las ocupaciones, las bajas y la guerra con la IA 2; después la paz con conquistas con la IA 2 traspasa solo lo suyo |
+| DI-10 | **Pagos:** pagan la IA o el jugador; el dinero se transfiere (no se crea ni destruye); pagar de más se rechaza sin cambios; pagar exactamente todo deja 0; una propuesta pendiente no toca saldos hasta aceptarse; nunca negativos |
+| DI-11 | **Atomicidad:** si el pagador gasta su dinero entre la oferta y la respuesta, aceptar falla sin cambiar nada (ni territorio, ni ocupaciones, ni saldos, ni ofensivas, que siguen activas) y la propuesta se conserva; con dinero otra vez se firma; aceptar una propuesta cuya guerra ya terminó falla sin cambios |
+| DI-12 | **Paz y ofensivas:** firmar detiene solo las ofensivas entre ambas naciones (la dirigida a otra sigue), soldados, reservas y ocupaciones de la otra guerra coherentes, la propiedad no cambia con detener y reanudar, y la ofensiva detenida no puede reanudarse (tregua) |
+| DI-13 | **Tregua:** duración configurada y simétrica; `plan_attack`, `launch_attack` (jugador e IA, desde el mismo o desde otro punto) y `start_offensive` la respetan sin crear frentes ni gastar soldados ni declarar guerra; cuenta atrás con el reloj; expira justo al terminar y entonces se puede atacar con una guerra nueva y registro nuevo; no protege a terceras naciones |
+| DI-14 | **IA, decisión:** una IA ganadora rechaza (con mensaje), acepta justo en el límite (pagando 60) y contraoferta pagando 60 cuando le falta 1; aceptar o rechazar la contraoferta; el cansancio (31 ticks, 20 y 40 bajas) la acerca a la paz; una IA que pierde acepta pagar y contraoferta o rechaza si pide demasiado; contraoferta imposible de pagar → rechazo o paz blanca; sin soldados no divide por cero |
+| DI-15 | **IA, propuestas:** propone sola al primer tick (paz blanca si ceder celdas no le conviene), no se repite, respeta el intervalo tras ser rechazada, caduca y se sustituye sin acumularse, aceptarla firma; margen exacto (−14 no, −15 sí); la IA ganadora no ofrece la paz; las guerras entre IA no generan propuestas; en pausa ni propone ni caduca |
+| DI-16 | **Panel de diplomacia:** controles, textos puros, aparece con la guerra, el deslizador de pago nunca supera el saldo, proponer paz blanca firma y muestra la tregua con su cuenta atrás y desaparece al acabar; propuesta entrante con Aceptar/Rechazar; en pausa se desactiva y avisa |
+| DI-17 | **Pantalla:** botón de pausa e indicador; en pausa no pasa el tiempo ni cambia la economía y se puede seleccionar y consultar; no se funda; la barra espaciadora pausa; reanudar restaura |
+| DI-18 | Determinismo: dos partidas idénticas con ataques, un tratado y 38 ticks dan el mismo estado |
+| DI-19 | Las suites anteriores, sus escenas F6 y los archivos del hito (y del prototipo de provincias) siguen presentes |
+
+Las pruebas CB-20 y CB-23 (hito 9) se corrigieron en este hito: comparan los píxeles de la imagen con tolerancia de cuantización (`1/255 + 0.0005`), y siguen comprobando que un color incorrecto, una ocupación sin dibujar o una celda vecina desfasada se detectan.
+
+| ID | Pendiente (manual en Godot) |
+|---|---|
+| M-80 | Ejecutar `test_diplomacy.gd` (o F6 en `run_diplomacy_tests.tscn`) y confirmar 19 PASS; repetir `test_combat.gd` (25) y `test_military.gd` y las demás suites |
+| M-81 | F5: el panel «EJÉRCITO» y, con guerra, el panel «DIPLOMACIA» caben en la columna izquierda (con barra de desplazamiento) sin tapar el mapa; el botón «Pausa» y el indicador «EN PAUSA» se ven arriba a la izquierda |
+| M-82 | Flujo de ataque: pulsar la celda enemiga o libre pegada a tu frontera elige origen y dirección; el deslizador y 25/50/75/100 % cambian la cantidad; «Atacar» → «Detener» → «Continuar»; «Ajustar» y «Retirar frente»; ¿se entiende sin saber qué es un sector? |
+| M-83 | Hacer una guerra real (conquistar tierra libre hasta tocar a otra nación), ocupar celdas y proponer la paz con conquistas y la blanca: ¿las celdas cambian de color como se espera, desaparece el tablero y se repinta el mapa y la leyenda? |
+| M-84 | Pagos y respuesta de la IA: el mensaje de aceptar / rechazar / contraoferta es claro; aceptar o rechazar una contraoferta o una propuesta de la IA |
+| M-85 | Tregua: tras la paz, intentar atacar a esa nación (el botón se desactiva y se explica) y comprobar que tras 60 s se puede otra vez |
+| M-86 | Pausa: con ofensivas, ciudades y población en marcha, pausar y comprobar que nada se mueve (cifras, mapa, tiempo de tregua) y que el panel sigue respondiendo; reanudar |
+| M-87 | Ritmo: ¿es razonable la tregua de 60 s?, ¿la IA propone la paz demasiado pronto o tarde?, ¿las respuestas de la IA parecen coherentes con la situación? |
+
+### Hito 11 — Construcciones y producción según trabajadores (antes «hito 10» y, antes, «hito 9»)
 | ID | Qué comprobar |
 |---|---|
 | T-61 | Producción de ciudades según nivel y trabajadores (si se decide D14) sin romper el equilibrio inicial del hito 7 |
 | T-64 | Construcciones: se rechazan sin dinero suficiente |
 
-### Hito 11 — (absorbido por el hito 7)
+### Reclutamiento forzoso (antes «hito 11», absorbido por el hito 7)
 La movilización progresiva se prueba en PO-11, PO-12, PO-13 y PO-17. Las penalizaciones definitivas (D13) se probarán cuando se definan.
 
 ### Hito 12 — IA
@@ -461,3 +502,15 @@ La movilización progresiva se prueba en PO-11, PO-12, PO-13 y PO-17. Las penali
 | Réplica en Python de las fórmulas y de los escenarios de victoria, derrota, invasión completa y dos ofensivas simultáneas | Escrita para contrastar las cifras esperadas de las pruebas | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye**; el resto de escenarios (economía, mapa, pantalla, bordes) solo se revisaron a mano |
 | Aspecto y manejo (M-71…M-76) | F5 en el editor | **Pendiente** (validación del propietario) |
 
+## Estado del hito 10 (guerra, diplomacia y jugabilidad simplificada)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| Base de partida | Rama `claude/ecstatic-bardeen-1de9nl` en el commit `827cafa` (hito 9). El propietario ejecutó `test_combat.gd` en Godot 4.7.2: 23 de 25 PASS; fallaron CB-20 y CB-23 por comparar floats con píxeles `RGBA8` | Comunicado por el propietario; **no verificado por Claude** |
+| `tests/test_diplomacy.gd` (19 pruebas) | `godot --headless --path . --script res://tests/test_diplomacy.gd` | **Pendiente** en Godot (PC del propietario) |
+| `tests/test_combat.gd` (25 pruebas, CB-20 y CB-23 corregidas/reescritas) y `tests/test_military.gd` (pruebas de interfaz reescritas) | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de ejecutar en Godot |
+| Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de repetir. El hito 10 cambia `city_manager.gd` (pausa, `tick_count`, error de fundación en pausa), `war_state.gd` (registro por guerra, treguas, reloj opcional; `WarState.new()` sin argumentos sigue valiendo), `occupation.gd` (consultas y liberación por parejas, exportar/importar), `offensives.gd` (tregua, `plan_attack`, `launch_attack`, `stop_between`, `sector_near`, anotaciones de guerra), `military.gd` (mensajes), `military_panel.gd` (reescrito), `territory_screen.gd` y `territory_main.tscn` (columna de guerra, botón de pausa) y añade `diplomacy.gd`, `diplomacy_balance.gd` y `diplomacy_panel.gd`. Las suites de territorio, vista, conquista, HUD, ciudades y población no se tocan |
+| Cambios en aserciones de suites existentes | Revisión del diff | Se **reescribieron** las pruebas de interfaz de CB y MI (`_test_screen`, `_test_texts`) porque los controles antiguos desaparecieron; se actualizaron los textos que cambiaron («Combate equilibrado», previsión compacta, estado con «Soldados N», «Último… · bajas a / b») y se añadió `STOP_TRUCE` a la lista de motivos; no se redujo ninguna comprobación de lógica |
+| Revisión estática | Lectura línea a línea; tipos explícitos en lugar de `:=` con `Variant`; comprobación mecánica de paréntesis y sangrías | Hecha; **sin compilar** (no hay Godot en la nube) |
+| Réplica en Python de las fórmulas de la IA y de los escenarios numéricos de DI-07, DI-14 y DI-15 | Escrita para contrastar las cifras esperadas | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye**; el resto (mapas, pantalla, paneles) solo se revisó a mano |
+| Aspecto y manejo (M-80…M-87) | F5 en el editor | **Pendiente** (validación del propietario) |

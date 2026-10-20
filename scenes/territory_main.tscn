@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/territory_screen.gd" id="1_screen"]
 [ext_resource type="Script" path="res://scripts/world/territory_map_view.gd" id="2_view"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/ui/population_panel.gd" id="6_population"]
 [ext_resource type="Script" path="res://scripts/ui/military_panel.gd" id="7_military"]
 [ext_resource type="Script" path="res://scripts/world/sector_layer_view.gd" id="8_sectors"]
+[ext_resource type="Script" path="res://scripts/ui/diplomacy_panel.gd" id="9_diplomacy"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.11, 0.13, 0.16, 1)
@@ -162,12 +163,51 @@ offset_bottom = 120.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 script = ExtResource("6_population")
 
-[node name="Militar" type="PanelContainer" parent="."]
-unique_name_in_owner = true
+[node name="ColumnaGuerra" type="VBoxContainer" parent="."]
+mouse_filter = 2
 layout_mode = 0
 offset_left = 4.0
 offset_top = 166.0
 offset_right = 158.0
 offset_bottom = 712.0
+theme_override_constants/separation = 4
+
+[node name="Militar" type="PanelContainer" parent="ColumnaGuerra"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_military")
 script = ExtResource("7_military")
+
+[node name="Diplomacia" type="PanelContainer" parent="ColumnaGuerra"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_military")
+script = ExtResource("9_diplomacy")
+
+[node name="BotonPausa" type="Button" parent="."]
+unique_name_in_owner = true
+focus_mode = 0
+layout_mode = 0
+offset_left = 12.0
+offset_top = 30.0
+offset_right = 148.0
+offset_bottom = 62.0
+theme_override_font_sizes/font_size = 13
+text = "Pausa (Espacio)"
+
+[node name="IndicadorPausa" type="Label" parent="."]
+unique_name_in_owner = true
+mouse_filter = 2
+layout_mode = 0
+offset_left = 450.0
+offset_top = 30.0
+offset_right = 640.0
+offset_bottom = 56.0
+theme_override_colors/font_color = Color(0.95, 0.75, 0.3, 1)
+theme_override_font_sizes/font_size = 18
+text = ""

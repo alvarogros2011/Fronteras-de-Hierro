@@ -36,5 +36,5 @@ const LOSER_LOSS_PERCENT := 70
 # --- Etiquetas de la previsión (relación atacantes / defensa efectiva, en milésimas) ---
 ## A partir de este valor: «ventaja atacante».
 const ADVANTAGE_RATIO_PERMILLE := 1500
-## Por debajo de este valor: «defensa superior». Entre ambos: «enfrentamiento equilibrado».
+## Por debajo de este valor: «defensa superior». Entre ambos: «combate equilibrado».
 const DEFENSE_RATIO_PERMILLE := 800

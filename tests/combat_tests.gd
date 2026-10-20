@@ -38,6 +38,11 @@ const PLAYER := TerritoryGrid.OWNER_PLAYER
 const AI_1 := TerritoryGrid.OWNER_AI_1
 const AI_2 := TerritoryGrid.OWNER_AI_2
 const SCREEN_PATH := "res://scenes/territory_main.tscn"
+## Tolerancia al comparar un color float con un píxel de la imagen del mapa. La imagen es RGBA8 y
+## Image.set_pixel guarda cada canal en 8 bits TRUNCANDO (0.5525 se lee como 0.549 = 140/255), así que el
+## píxel leído puede diferir del color esperado hasta 1/255 por canal. Un color incorrecto, una ocupación
+## sin dibujar o una celda desfasada difieren mucho más (el tono de ocupación se aclara un 30 %).
+const PIXEL_TOLERANCE := 1.0 / 255.0 + 0.0005
 const CITY_A := Vector2i(12, 12)
 const BORDER := Vector2i(24, 15)  # origen de los sectores de ataque del jugador (la IA 1 empieza en x = 25)
 
@@ -84,6 +89,18 @@ func _run(test_name: String, test: Callable) -> void:
 func _expect(errors: Array, actual: Variant, expected: Variant, what: String) -> void:
 	if actual != expected:
 		errors.append("%s: se esperaba '%s' y salió '%s'" % [what, expected, actual])
+
+
+## ¿Coinciden los cuatro canales de dos colores dentro de PIXEL_TOLERANCE?
+func _color_near(actual: Color, expected: Color) -> bool:
+	return absf(actual.r - expected.r) <= PIXEL_TOLERANCE and absf(actual.g - expected.g) <= PIXEL_TOLERANCE \
+			and absf(actual.b - expected.b) <= PIXEL_TOLERANCE and absf(actual.a - expected.a) <= PIXEL_TOLERANCE
+
+
+## Compara un color leído de la imagen (8 bits por canal) con el esperado (float) con tolerancia de 1/255.
+func _expect_color(errors: Array, actual: Color, expected: Color, what: String) -> void:
+	if not _color_near(actual, expected):
+		errors.append("%s: se esperaba %s (±%.4f por canal) y salió %s" % [what, expected, PIXEL_TOLERANCE, actual])
 
 
 func _count_signal() -> void:
@@ -985,13 +1002,20 @@ func _test_map_view() -> Array:
 	_expect(errors, view.cell_color(27, 15), plain_far, "las celdas no ocupadas se pintan como siempre")
 	_expect(errors, [grid.get_cell_owner(25, 15), grid.get_cell_owner(26, 15), view.is_border(25, 15)], [AI_1, AI_1, true], "el propietario y las fronteras no cambian")
 	_expect(errors, grid.copy_owner_data() == owners_before, true, "pintar la ocupación no toca la cuadrícula")
-	# La imagen solo cambia al repintar la celda.
-	_expect(errors, view.get_image_pixel(25, 15), plain_even, "antes de repintar, la imagen sigue como estaba")
+	# La imagen (RGBA8) solo cambia al repintar la celda. Se compara con tolerancia de cuantización.
+	_expect_color(errors, view.get_image_pixel(25, 15), plain_even, "antes de repintar, la imagen sigue como estaba")
+	_expect(errors, _color_near(view.get_image_pixel(25, 15), even), false, "antes de repintar, la imagen no muestra todavía la ocupación")
 	view.refresh_cell(25, 15)
-	_expect(errors, [view.get_image_pixel(25, 15), view.get_image_pixel(26, 15)], [even, odd], "tras refresh_cell la imagen muestra la ocupación")
+	_expect_color(errors, view.get_image_pixel(25, 15), even, "tras refresh_cell la celda par ocupada se ve en el tono claro del ocupante")
+	_expect_color(errors, view.get_image_pixel(26, 15), odd, "y su vecina impar conserva el color del propietario (no queda desfasada)")
+	_expect(errors, _color_near(view.get_image_pixel(25, 15), plain_even), false, "la tolerancia no oculta el cambio: la celda ocupada ya no tiene el color del propietario")
+	_expect(errors, _color_near(view.get_image_pixel(25, 15), ai_color), false, "ni el color liso de la IA 1")
+	_expect(errors, _color_near(view.get_image_pixel(25, 15), Color(1, 0, 1)), false, "y un color incorrecto sí se detecta")
 	occ.release(Vector2i(25, 15))
 	view.refresh_cell(25, 15)
-	_expect(errors, view.get_image_pixel(25, 15), plain_even, "al liberar y repintar vuelve al color del propietario")
+	_expect_color(errors, view.get_image_pixel(25, 15), plain_even, "al liberar y repintar vuelve al color del propietario")
+	_expect_color(errors, view.get_image_pixel(26, 15), odd, "la vecina sigue sin cambios")
+	_expect(errors, _color_near(view.get_image_pixel(25, 15), even), false, "y ya no queda el tono de ocupación")
 	# Sin ocupación asignada el dibujo es el de siempre.
 	view.occupation = null
 	_expect(errors, view.cell_color(26, 15), plain_odd, "sin sistema de ocupación el color es el de siempre")
@@ -1040,33 +1064,46 @@ func _test_texts() -> Array:
 			["#1 (24,15) E · 10", "#1 (24,15) E · 10", "#1 (24,15) E · 10 · ATQ"], "línea de la lista con la marca de ataque")
 	_expect(errors, [MilitaryPanel.ratio_text(2083), MilitaryPanel.ratio_text(4166), MilitaryPanel.ratio_text(1000), MilitaryPanel.ratio_text(Combat.NO_RESISTANCE_RATIO)], ["2,0 a 1", "4,1 a 1", "1,0 a 1", "sin defensa"], "relación")
 	_expect(errors, [MilitaryPanel.category_text(Combat.CATEGORY_ADVANTAGE), MilitaryPanel.category_text(Combat.CATEGORY_BALANCED), MilitaryPanel.category_text(Combat.CATEGORY_DEFENSE)],
-			["Ventaja atacante", "Enfrentamiento equilibrado", "Defensa superior"], "etiquetas de la previsión")
+			["Ventaja atacante", "Combate equilibrado", "Defensa superior"], "etiquetas de la previsión")
 	_expect(errors, MilitaryPanel.forecast_text(off.forecast(sid), ai_name),
-			"Siguiente celda (25, 15) · Reino de Cobre\nAtacantes 10\nDefensa local estimada ~2\n(de 6 soldados en 3 tramos de frontera)\nRelación 4,1 a 1 · Ventaja atacante\nPrevisto: victoria, se ocupa la celda\nBajas aprox.: propias 1 · enemigas 2\nRegla determinista del prototipo, no una probabilidad.", "previsión completa")
+			"Siguiente celda (25, 15) · Reino de Cobre\nAtacantes 10\nDefensa local ~2 (6 soldados en 3 tramos de frontera)\nVentaja atacante (4,1 a 1)\nVictoria prevista: ocupas la celda; sigue siendo de Reino de Cobre\nBajas aprox.: propias 1 · enemigas 2\nCálculo determinista, no una probabilidad.", "previsión completa")
 	var losing := _battle_world(3, 12)
 	var losing_text := MilitaryPanel.forecast_text(losing["off"].forecast(losing["sid"]), ai_name)
-	_expect(errors, [losing_text.contains("Defensa superior"), losing_text.contains("Previsto: derrota, el ataque se detiene"), losing_text.contains("no una probabilidad")], [true, true, true], "previsión de derrota")
+	_expect(errors, [losing_text.contains("Defensa superior"), losing_text.contains("Derrota prevista: el ataque se detiene"), losing_text.contains("no una probabilidad")], [true, true, true], "previsión de derrota")
 	_expect(errors, MilitaryPanel.forecast_text({}, ""), "", "sin previsión no hay texto")
 	var own := MilitaryPanel.forecast_text(world["off"].evaluate(PLAYER, 10, Vector2i(20, 15)), "")
 	_expect(errors, own, "Siguiente celda (20, 15) · propia\nAvance sin combate.", "celda propia")
 	var open_text := MilitaryPanel.forecast_text(off.evaluate(AI_1, 4, Vector2i(35, 15)), "")
-	_expect(errors, open_text, "Siguiente celda (35, 15) · sin reclamar\nAtacantes 4\nSin resistencia: se reclama la celda sin bajas.", "tierra sin reclamar")
+	_expect(errors, open_text, "Siguiente celda (35, 15) · sin reclamar\nAtacantes 4\nSin resistencia: reclamas la celda, sin bajas.", "tierra sin reclamar")
 	var blocked := MilitaryPanel.forecast_text(off.evaluate(AI_1, 4, Vector2i(40, 15)), "")
 	_expect(errors, blocked.contains("el frente llega al agua"), true, "bloqueada por el agua")
 	# Estado de la ofensiva.
 	_expect(errors, MilitaryPanel.state_text(Offensives.STATE_READY, {}), "Preparado (sin atacar)", "preparado")
 	off.start_offensive(sid)
 	_expect(errors, MilitaryPanel.state_text(Offensives.STATE_ACTIVE, off.get_offensive(sid)),
-			"ATACANDO · próximo avance en 3 s\nFrente (24, 15) → (25, 15)\nCeldas: 0 ocupadas · 0 reclamadas\nBajas: propias 0 · enemigas 0", "atacando")
+			"ATACANDO · próximo avance en 3 s\nFrente (24, 15) → (25, 15)\nSoldados 10\nCeldas: 0 ocupadas · 0 reclamadas\nBajas: propias 0 · enemigas 0", "atacando")
 	_ticks(world, Balance.ADVANCE_INTERVAL_TICKS)
 	off.stop_offensive(sid)
 	var stopped := MilitaryPanel.state_text(Offensives.STATE_STOPPED, off.get_offensive(sid))
 	_expect(errors, stopped,
-			"Detenido: detenida por el jugador\nFrente (25, 15) → (26, 15)\nCeldas: 1 ocupadas · 0 reclamadas\nBajas: propias 1 · enemigas 2\nÚltimo: victoria en (25, 15)", "detenida tras una victoria")
-	for reason in [Offensives.STOP_MANUAL, Offensives.STOP_NO_SOLDIERS, Offensives.STOP_WATER, Offensives.STOP_MAP_EDGE, Offensives.STOP_DEFEAT, Offensives.STOP_FRONT_LOST, Offensives.STOP_CANNOT_CLAIM]:
+			"Detenido: detenida por el jugador\nFrente (25, 15) → (26, 15)\nSoldados 9\nCeldas: 1 ocupadas · 0 reclamadas\nBajas: propias 1 · enemigas 2\nÚltimo: victoria en (25, 15) · bajas 1 / 2", "detenida tras una victoria")
+	for reason in [Offensives.STOP_MANUAL, Offensives.STOP_NO_SOLDIERS, Offensives.STOP_WATER, Offensives.STOP_MAP_EDGE, Offensives.STOP_DEFEAT, Offensives.STOP_FRONT_LOST, Offensives.STOP_CANNOT_CLAIM, Offensives.STOP_TRUCE]:
 		_expect(errors, Offensives.stop_reason_message(reason) != "" and Offensives.stop_reason_message(reason) != "motivo desconocido", true, "mensaje para el motivo %d" % reason)
 	_expect(errors, Offensives.start_error_message(Offensives.START_ERR_NO_SOLDIERS), "El sector no tiene soldados.", "mensaje de inicio sin soldados")
 	_expect(errors, Offensives.start_error_message(Offensives.START_ERR_BLOCKED, Offensives.STOP_WATER), "No se puede avanzar: el frente llega al agua.", "mensaje de inicio bloqueado")
+	# Botón principal, objetivo y cantidad (hito 10).
+	_expect(errors, [MilitaryPanel.main_button_text(Offensives.STATE_READY), MilitaryPanel.main_button_text(Offensives.STATE_ACTIVE), MilitaryPanel.main_button_text(Offensives.STATE_STOPPED)],
+			["Atacar", "Detener", "Continuar"], "una sola acción principal por estado")
+	var fresh := _battle_world(10, 6)
+	var fresh_plan: Dictionary = fresh["off"].plan_attack(PLAYER, Vector2i(24, 16), Military.DIR_EAST, 4)
+	_expect(errors, MilitaryPanel.target_text(MilitaryPanel.NO_CELL, MilitaryPanel.NO_DIRECTION, {}, ""), "Pulsa en el mapa tu frontera o la celda que quieres atacar.", "sin celda elegida")
+	_expect(errors, MilitaryPanel.target_text(Vector2i(24, 16), MilitaryPanel.NO_DIRECTION, {}, ""), "Desde (24, 16)\nElige una dirección.", "sin dirección")
+	_expect(errors, MilitaryPanel.target_text(Vector2i(24, 16), Military.DIR_EAST, fresh_plan, ai_name), "Desde (24, 16) hacia el Este → (25, 16)\nReino de Cobre", "objetivo válido y su dueño")
+	var own_plan: Dictionary = fresh["off"].plan_attack(PLAYER, Vector2i(20, 16), Military.DIR_EAST, 4)
+	_expect(errors, MilitaryPanel.target_text(Vector2i(20, 16), Military.DIR_EAST, own_plan, "Tu territorio"), "Desde (20, 16) hacia el Este → (21, 16)\n" + Military.attack_target_error_message(Military.SECTOR_ERR_TARGET_OWN), "objetivo propio: el motivo sustituye al dueño")
+	var greedy_plan: Dictionary = fresh["off"].plan_attack(PLAYER, Vector2i(24, 16), Military.DIR_EAST, 999)
+	_expect(errors, MilitaryPanel.target_text(Vector2i(24, 16), Military.DIR_EAST, greedy_plan, ai_name).ends_with("No hay tantos soldados disponibles (máximo 10)."), true, "más soldados de los posibles")
+	_expect(errors, MilitaryPanel.amount_text(3, 6), "Soldados: 3 de 6", "cantidad elegida")
 	# Guerra y ocupación.
 	_expect(errors, [MilitaryPanel.war_text([], 0, 0), MilitaryPanel.war_text([ai_name], 3, 0), MilitaryPanel.war_text(["A", "B"], 0, 2)],
 			["", "Guerra con: Reino de Cobre\nCeldas ocupadas por ti: 3", "Guerra con: A, B\nTu territorio ocupado: 2"], "línea de conflicto")
@@ -1102,10 +1139,14 @@ func _test_screen() -> Array:
 	if off == null or occ == null or wars == null or panel == null:
 		screen.free()
 		return errors
-	var names := ["GuerraMilitar", "CombateSector", "EstadoOfensiva", "PrevisionAtaque", "BotonAtacar", "BotonDetener", "DesplazamientoMilitar"]
+	var names := ["GuerraMilitar", "ObjetivoAtaque", "CantidadAtaque", "SliderAtaque", "EstadoOfensiva", "PrevisionAtaque", "BotonAtacar", "BotonAjustar",
+			"BotonRetirar", "BotonPorcentaje25", "BotonPorcentaje50", "BotonPorcentaje75", "BotonPorcentaje100", "ListaSectores", "DesplazamientoMilitar", "MensajeMilitar"]
 	for node_name: String in names:
 		if panel.find_child(node_name, true, false) == null:
 			errors.append("falta el control %s" % node_name)
+	for old_name: String in ["BotonCrearSector", "SliderNuevo", "SliderEdicion", "BotonAplicar", "BotonLiberarSector", "EdicionSector", "PlanSector"]:
+		if panel.find_child(old_name, true, false) != null:
+			errors.append("sigue existiendo el control del flujo antiguo %s" % old_name)
 	if not errors.is_empty():
 		screen.free()
 		return errors
@@ -1114,69 +1155,95 @@ func _test_screen() -> Array:
 	grid.load_from_data(control.copy_terrain_data(), control.copy_owner_data())
 	view.refresh_all()
 	var war_label: Label = panel.find_child("GuerraMilitar", true, false)
-	var combat_box: Control = panel.find_child("CombateSector", true, false)
+	var target_label: Label = panel.find_child("ObjetivoAtaque", true, false)
 	var state_label: Label = panel.find_child("EstadoOfensiva", true, false)
 	var forecast_label: Label = panel.find_child("PrevisionAtaque", true, false)
 	var attack: Button = panel.find_child("BotonAtacar", true, false)
-	var stop: Button = panel.find_child("BotonDetener", true, false)
+	var adjust: Button = panel.find_child("BotonAjustar", true, false)
+	var withdraw: Button = panel.find_child("BotonRetirar", true, false)
+	var slider: HSlider = panel.find_child("SliderAtaque", true, false)
 	var list: ItemList = panel.find_child("ListaSectores", true, false)
 	var message: Label = panel.find_child("MensajeMilitar", true, false)
 	var summary_label: Label = panel.find_child("ResumenMilitar", true, false)
 	var ai_name: String = grid.get_nation(AI_1)["name"]
 	var owners_before := grid.copy_owner_data()
-	_expect(errors, [combat_box.visible, war_label.visible], [false, false], "sin sector elegido no hay bloque de ataque ni aviso de guerra")
-	# Crear el sector con la interfaz de siempre.
-	view.pointer_pressed(view.cell_center_global(BORDER))
-	panel.find_child("BotonDireccionEste", true, false).pressed.emit()
-	panel.set_new_amount(6)
-	panel.find_child("BotonCrearSector", true, false).pressed.emit()
+	_expect(errors, [state_label.visible, war_label.visible, adjust.visible, withdraw.visible], [false, false, false, false], "sin frente elegido no hay estado, aviso de guerra ni botones de frente")
+	_expect(errors, [attack.text, attack.disabled], ["Atacar", true], "hay un único botón principal y está desactivado sin objetivo")
+	# Un clic en la celda enemiga basta: el origen propio contiguo y la dirección se deducen.
+	view.pointer_pressed(view.cell_center_global(Vector2i(25, 15)))
+	_expect(errors, [panel.chosen_origin(), panel.chosen_direction()], [BORDER, Military.DIR_EAST], "pulsar la celda enemiga deduce el origen y la dirección")
+	_expect(errors, [mil.sector_count(), off.active_count(), wars.war_count(), occ.count()], [0, 0, 0, 0], "elegir el objetivo no crea ningún frente ni inicia nada")
+	_expect(errors, [slider.min_value, slider.max_value, slider.value], [1.0, 6.0, 3.0], "el deslizador ofrece de 1 a todos los soldados y propone la mitad")
+	_expect(errors, target_label.text, "Desde (24, 15) hacia el Este → (25, 15)\n" + ai_name, "el objetivo se explica con palabras")
+	for pair: Array in [[25, 2], [50, 3], [75, 5], [100, 6]]:
+		panel.find_child("BotonPorcentaje%d" % pair[0], true, false).pressed.emit()
+		_expect(errors, panel.amount(), pair[1], "el acceso rápido %d %% elige %d soldados" % [pair[0], pair[1]])
+	panel.set_amount(1000)
+	_expect(errors, panel.amount(), 6, "no se pueden comprometer más soldados que los disponibles")
+	panel.set_amount(-3)
+	_expect(errors, panel.amount(), 1, "ni menos de 1")
+	panel.set_amount(6)
+	var plan := off.plan_attack(PLAYER, BORDER, Military.DIR_EAST, 6)
+	_expect(errors, forecast_label.text, MilitaryPanel.forecast_text(plan["info"], ai_name), "la previsión sale de los datos reales")
+	_expect(errors, [forecast_label.text.contains("Atacantes 6"), forecast_label.text.contains("Defensa local ~2"), forecast_label.text.contains("Ventaja atacante"), forecast_label.text.contains("Victoria prevista"), forecast_label.text.contains("Bajas aprox."), forecast_label.text.contains("no una probabilidad")],
+			[true, true, true, true, true, true], "muestra atacantes, defensa estimada, etiqueta, resultado, bajas y aviso")
+	_expect(errors, [attack.text, attack.disabled], ["Atacar", false], "con el objetivo elegido se puede atacar")
+	# Una sola pulsación crea el frente, le asigna los soldados y lanza la ofensiva.
+	attack.pressed.emit()
+	_expect(errors, mil.sector_count(), 1, "el juego creó el frente internamente")
 	var sid: int = mil.get_sector_ids(PLAYER)[0]
-	_expect(errors, [panel.selected_sector(), combat_box.visible], [sid, true], "al crear el sector queda elegido y aparece el bloque de ataque")
-	_expect(errors, state_label.text, "Preparado (sin atacar)", "el sector está preparado, no atacando")
-	_expect(errors, forecast_label.text, MilitaryPanel.forecast_text(off.forecast(sid), ai_name), "la previsión sale de los datos reales")
-	_expect(errors, [forecast_label.text.contains("Atacantes 6"), forecast_label.text.contains("Defensa local estimada ~2"), forecast_label.text.contains("Ventaja atacante"), forecast_label.text.contains("no una probabilidad")], [true, true, true, true], "muestra atacantes, defensa estimada, relación, resultado y aviso")
-	_expect(errors, [attack.disabled, stop.disabled, attack.text], [false, true, "Confirmar ataque"], "se puede confirmar, no hay nada que detener")
-	_expect(errors, [off.sector_state(sid), wars.war_count(), occ.count()], [Offensives.STATE_READY, 0, 0], "elegir y consultar no inicia nada")
-	_expect(errors, list.get_item_text(0), MilitaryPanel.list_item_text(mil.get_sector(sid)), "la lista no marca ataque todavía")
-	# Confirmar el ataque.
-	attack.pressed.emit()
-	_expect(errors, [off.sector_state(sid), message.text], [Offensives.STATE_ACTIVE, Offensives.start_error_message(Offensives.START_OK)], "el sector pasa a atacar y se avisa")
-	_expect(errors, [state_label.text.begins_with("ATACANDO"), attack.disabled, stop.disabled], [true, true, false], "el panel distingue claramente el ataque activo del sector preparado")
-	_expect(errors, list.get_item_text(0), MilitaryPanel.list_item_text(mil.get_sector(sid), true), "la lista marca el sector que ataca")
-	_expect(errors, [war_label.visible, war_label.text.contains(ai_name)], [true, true], "aparece discretamente el conflicto activo")
-	attack.pressed.emit()
-	_expect(errors, off.active_count(), 1, "pulsar otra vez no crea una segunda ofensiva")
+	_expect(errors, [off.is_active(sid), mil.get_sector(sid)["soldiers"], panel.selected_sector(), layer.highlighted_sector()], [true, 6, sid, sid], "ataca con 6 soldados y el frente queda elegido y resaltado")
+	_expect(errors, message.text, "Ataque en marcha con 6 soldados.", "se avisa")
+	_expect(errors, [attack.text, state_label.visible, state_label.text.begins_with("ATACANDO"), withdraw.visible, adjust.visible], ["Detener", true, true, true, false], "el botón principal pasa a «Detener» y aparece el estado")
+	_expect(errors, list.get_item_text(0), MilitaryPanel.list_item_text(mil.get_sector(sid), true), "la lista marca el frente que ataca")
+	_expect(errors, [war_label.visible, war_label.text.contains(ai_name), wars.at_war(PLAYER, AI_1)], [true, true, true], "aparece discretamente el conflicto activo")
 	# Avance: una celda ocupada, mapa y panel actualizados.
 	screen.cities.advance(float(Balance.ADVANCE_INTERVAL_TICKS))
 	var cell := Vector2i(25, 15)
 	_expect(errors, [occ.occupier_at(cell), grid.get_cell_owner(cell.x, cell.y), off.get_offensive(sid)["front"]], [PLAYER, AI_1, cell], "ocupó la primera celda sin cambiar su propietario")
 	_expect(errors, grid.copy_owner_data() == owners_before, true, "ni un propietario cambió")
 	var ai_color: Color = grid.get_nation(AI_1)["color"]
-	_expect(errors, view.get_image_pixel(cell.x, cell.y), view.cell_color(cell.x, cell.y), "el mapa repintó la celda ocupada")
-	_expect(errors, view.get_image_pixel(cell.x, cell.y) != ai_color, true, "y no la pinta como territorio de la IA 1")
-	_expect(errors, view.get_image_pixel(cell.x + 1, cell.y), view.cell_color(cell.x + 1, cell.y), "ni deja su vecina desfasada")
+	_expect_color(errors, view.get_image_pixel(cell.x, cell.y), view.cell_color(cell.x, cell.y), "el mapa repintó la celda ocupada (con tolerancia de cuantización)")
+	_expect(errors, _color_near(view.get_image_pixel(cell.x, cell.y), ai_color), false, "y no la pinta como territorio de la IA 1")
+	_expect_color(errors, view.get_image_pixel(cell.x + 1, cell.y), view.cell_color(cell.x + 1, cell.y), "ni deja su vecina desfasada")
 	_expect(errors, summary_label.text, MilitaryPanel.summary_text(mil.get_summary(PLAYER)), "el resumen de soldados se actualizó con las bajas")
-	_expect(errors, [mil.get_sector(sid)["soldiers"], pop.soldiers(PLAYER)], [5, 5], "el sector y la nación perdieron 1 soldado")
-	_expect(errors, state_label.text.contains("1 ocupadas"), true, "el panel muestra las celdas ocupadas y el frente")
+	_expect(errors, [mil.get_sector(sid)["soldiers"], pop.soldiers(PLAYER)], [5, 5], "el frente y la nación perdieron 1 soldado")
+	_expect(errors, [state_label.text.contains("1 ocupadas"), state_label.text.contains("Soldados 5")], [true, true], "el panel muestra las celdas ocupadas, el frente y los soldados que quedan")
 	_expect(errors, war_label.text, MilitaryPanel.war_text([ai_name], 1, 0), "y el recuento de ocupaciones")
 	_expect(errors, layer.label_cell(sid), off.current_target(sid), "la cifra del mapa sigue al frente")
-	# Detener y reanudar.
-	stop.pressed.emit()
-	_expect(errors, [off.sector_state(sid), state_label.text.begins_with("Detenido"), attack.text, attack.disabled, stop.disabled], [Offensives.STATE_STOPPED, true, "Reanudar ataque", false, true], "detenido: se puede reanudar")
+	# Reforzar o reducir con el mismo deslizador, sin cambiar el estado.
+	panel.set_amount(2)
+	_expect(errors, [adjust.visible, adjust.text, mil.get_sector(sid)["soldiers"]], [true, "Ajustar a 2", 5], "mover el deslizador no cambia nada hasta ajustar")
+	adjust.pressed.emit()
+	_expect(errors, [mil.get_sector(sid)["soldiers"], pop.soldiers(PLAYER), mil.available_soldiers(PLAYER), off.is_active(sid)], [2, 5, 3, true], "reducir devuelve soldados a la reserva sin bajas y sin detener el ataque")
+	panel.set_amount(5)
+	adjust.pressed.emit()
+	_expect(errors, [mil.get_sector(sid)["soldiers"], mil.available_soldiers(PLAYER), adjust.visible], [5, 0, false], "reforzar toma de la reserva")
+	# Detener y continuar con el mismo botón.
+	attack.pressed.emit()
+	_expect(errors, [off.sector_state(sid), state_label.text.begins_with("Detenido"), attack.text, attack.disabled], [Offensives.STATE_STOPPED, true, "Continuar", false], "detenido: se puede continuar")
 	_expect(errors, [occ.count(), wars.at_war(PLAYER, AI_1)], [1, true], "detener no borra la ocupación ni termina la guerra")
 	screen.cities.advance(10.0)
 	_expect(errors, occ.count(), 1, "detenido, no avanza")
 	attack.pressed.emit()
-	_expect(errors, off.is_active(sid), true, "reanudado")
-	# Un sector sin soldados no puede atacar desde la interfaz.
-	off.stop_offensive(sid)
-	mil.set_sector_soldiers(sid, 0)
-	_expect(errors, [attack.disabled, stop.disabled], [true, true], "sin soldados el botón de ataque se desactiva")
+	_expect(errors, [off.is_active(sid), attack.text, mil.sector_count()], [true, "Detener", 1], "continuar reanuda el mismo frente sin crear otro")
+	# Retirar el frente: los soldados vuelven a la reserva y la ocupación se conserva.
+	withdraw.pressed.emit()
+	_expect(errors, [mil.sector_count(), off.sector_state(sid), occ.count(), state_label.visible, withdraw.visible], [0, Offensives.STATE_READY, 1, false, false], "sin frente no hay estado; la ocupación se conserva")
+	_expect(errors, mil.get_summary(PLAYER), {"total": 5, "assigned": 0, "available": 5}, "todos los soldados vivos vuelven a la reserva")
+	# Órdenes inválidas: no consumen soldados ni dejan un frente a medias.
+	var own_cell := Vector2i(12, 12)
+	view.pointer_pressed(view.cell_center_global(own_cell))
+	_expect(errors, [panel.chosen_origin(), panel.chosen_direction(), attack.disabled], [own_cell, MilitaryPanel.NO_DIRECTION, true], "una celda interior no da a tierra atacable: no hay dirección y no se puede atacar")
 	attack.pressed.emit()
-	_expect(errors, off.sector_state(sid), Offensives.STATE_STOPPED, "y forzarlo no hace nada")
-	# Liberar el sector elimina la ofensiva pero no la ocupación.
-	panel.find_child("BotonLiberarSector", true, false).pressed.emit()
-	_expect(errors, [mil.sector_count(), off.sector_state(sid), occ.count(), combat_box.visible], [0, Offensives.STATE_READY, 1, false], "sin sector no hay bloque de ataque; la ocupación se conserva")
+	_expect(errors, [mil.sector_count(), mil.assigned_soldiers(PLAYER)], [0, 0], "forzar el botón sin objetivo no hace nada")
+	panel.find_child("BotonDireccionEste", true, false).pressed.emit()
+	_expect(errors, [attack.disabled, target_label.text.contains(Military.attack_target_error_message(Military.SECTOR_ERR_TARGET_OWN))], [true, true], "apuntar a territorio propio no se puede y se explica")
+	attack.pressed.emit()
+	_expect(errors, [mil.sector_count(), mil.assigned_soldiers(PLAYER), message.text], [0, 0, Military.attack_target_error_message(Military.SECTOR_ERR_TARGET_OWN)], "ni siquiera forzándolo se crea un frente o se consumen soldados")
+	view.pointer_pressed(view.cell_center_global(Vector2i(60, 60)))
+	_expect(errors, [panel.chosen_origin(), attack.disabled], [MilitaryPanel.NO_CELL, true], "el agua no se puede atacar")
+	_expect(errors, grid.copy_owner_data() == owners_before, true, "ningún control cambió el territorio")
 	screen.free()
 	return errors
 
@@ -1210,6 +1277,7 @@ func _test_files_present() -> Array:
 			"res://tests/run_conquest_tests.tscn", "res://tests/run_hud_tests.tscn",
 			"res://tests/run_city_tests.tscn", "res://tests/run_population_tests.tscn", "res://tests/run_military_tests.tscn",
 			"res://tests/test_population.gd", "res://tests/test_military.gd", "res://tests/test_combat.gd", "res://tests/run_combat_tests.tscn",
+			"res://tests/diplomacy_tests.gd", "res://tests/test_diplomacy.gd", "res://tests/run_diplomacy_tests.tscn", "res://scripts/world/diplomacy.gd",
 			"res://scripts/world/combat.gd", "res://scripts/world/offensives.gd", "res://scripts/world/occupation.gd",
 			"res://scripts/world/war_state.gd", "res://scripts/data/combat_balance.gd",
 			"res://scripts/world/military.gd", "res://scripts/world/sector_layer_view.gd", "res://scripts/ui/military_panel.gd",

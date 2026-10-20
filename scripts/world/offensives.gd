@@ -33,6 +33,19 @@
 ## solo si el total real queda por debajo de lo asignado). Los trabajadores nunca se tocan.
 ## Nada aquí cambia fronteras salvo conquer_cells sobre tierra sin reclamar; el tiempo, la economía y las
 ## ciudades no avanzan fronteras.
+##
+## Hito 10:
+##   - ORDEN DE ATAQUE EN UN SOLO PASO: plan_attack() valida y prevé un ataque «desde esta celda, en esta
+##     dirección, con N soldados» sin cambiar nada, y launch_attack() lo ejecuta de forma atómica: crea o
+##     reutiliza el sector (el «frente»), le asigna los soldados y lanza la ofensiva; si algo falla, no queda
+##     ningún sector a medias ni soldados comprometidos. El «sector» pasa a ser un detalle interno: para el
+##     jugador es un frente que se refuerza, se detiene o se retira. Con una ofensiva ya activa, launch_attack
+##     solo ajusta sus soldados (refuerzo o reducción).
+##   - TREGUA: evaluate() trata la tregua vigente con el defensor como un avance bloqueado (STOP_TRUCE), así
+##     que ni start_offensive, ni launch_attack ni el avance de una ofensiva en marcha pueden atacar a una
+##     nación con la que hay tregua. La regla vive aquí, no en la interfaz.
+##   - stop_between(a, b) detiene las ofensivas entre dos naciones (lo usa Diplomacy antes de aplicar un tratado).
+##   - Cada enfrentamiento y cada ocupación se anotan en el registro de su guerra (WarState).
 extends RefCounted
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -65,12 +78,21 @@ const STOP_MAP_EDGE := 4
 const STOP_DEFEAT := 5
 const STOP_FRONT_LOST := 6
 const STOP_CANNOT_CLAIM := 7  # tierra sin reclamar sin contacto con territorio propio
+const STOP_TRUCE := 8  # tregua vigente con la nación defensora
 
 const START_OK := 0
 const START_ERR_UNKNOWN_SECTOR := 1
 const START_ERR_ALREADY_ACTIVE := 2
 const START_ERR_NO_SOLDIERS := 3
 const START_ERR_BLOCKED := 4  # el siguiente avance es imposible; el motivo (STOP_*) va en "reason"
+
+## Resultado de plan_attack / launch_attack.
+const LAUNCH_OK := 0
+const LAUNCH_ERR_UNKNOWN_NATION := 1
+const LAUNCH_ERR_SECTOR := 2  # origen, dirección u objetivo no válidos; el motivo (Military.SECTOR_ERR_*) va en "sector_error"
+const LAUNCH_ERR_NO_SOLDIERS := 3  # hay que enviar al menos 1 soldado
+const LAUNCH_ERR_NOT_ENOUGH := 4  # más soldados de los disponibles
+const LAUNCH_ERR_BLOCKED := 5  # el siguiente avance es imposible (agua, borde, tregua…); el motivo (STOP_*) va en "reason"
 
 ## Tipo de la celda a la que se intenta avanzar.
 const KIND_BLOCKED := 0
@@ -142,7 +164,8 @@ func active_count(nation_id: int = TerritoryGrid.INVALID) -> int:
 
 
 ## Copia de los datos de la ofensiva del sector (vacío si no tiene): sector_id, state, reason, front,
-## next_cell (la celda a la que apunta ahora), countdown (ticks hasta el próximo avance), occupied,
+## next_cell (la celda a la que apunta ahora), soldiers (los que tiene el frente ahora), countdown
+## (ticks hasta el próximo avance), occupied,
 ## claimed, attacker_losses, defender_losses y last_clash ({} o cell, won, attackers, defense,
 ## attacker_losses, defender_losses). Modificarla no afecta a la ofensiva.
 func get_offensive(sector_id: int) -> Dictionary:
@@ -150,6 +173,7 @@ func get_offensive(sector_id: int) -> Dictionary:
 		return {}
 	var data: Dictionary = _offensives[sector_id].duplicate(true)
 	data["next_cell"] = current_target(sector_id)
+	data["soldiers"] = _military.get_sector(sector_id)["soldiers"] if _military.has_sector(sector_id) else 0
 	return data
 
 
@@ -225,6 +249,8 @@ func evaluate(attacker_id: int, attackers: int, target: Vector2i) -> Dictionary:
 	else:
 		info["kind"] = KIND_ENEMY
 		info["defender"] = owner_id
+		if _wars.has_truce(attacker_id, owner_id):
+			return _blocked(info, STOP_TRUCE)
 		info["defender_soldiers"] = maxi(0, _population.soldiers(owner_id))
 		info["exposed"] = exposed_cells(owner_id)
 		info["fronts"] = Combat.front_count(info["exposed"])
@@ -311,6 +337,142 @@ func stop_all(nation_id: int) -> int:
 	return stopped
 
 
+## Detiene las ofensivas activas entre dos naciones: las de cada una cuya próxima celda es territorio
+## oficial de la otra (también las que avanzan sobre celdas ya ocupadas a esa nación). No toca las
+## ofensivas contra tierra sin reclamar ni contra terceras naciones. Devuelve cuántas detuvo.
+func stop_between(first_id: int, second_id: int) -> int:
+	var stopped := 0
+	var ids: Array = _offensives.keys()
+	ids.sort()
+	for sector_id: int in ids:
+		if not is_active(sector_id) or not _military.has_sector(sector_id):
+			continue
+		var attacker: int = _military.get_sector(sector_id)["owner"]
+		var target := current_target(sector_id)
+		var target_owner := _grid.get_cell_owner(target.x, target.y)
+		if (attacker == first_id and target_owner == second_id) or (attacker == second_id and target_owner == first_id):
+			_stop(sector_id, STOP_MANUAL)
+			stopped += 1
+	return stopped
+
+
+# ---------------------------------------------------------------------------
+# Orden de ataque en un paso (hito 10)
+# ---------------------------------------------------------------------------
+
+## Sector de la nación «cerca» de la celda (o Military.NO_SECTOR): el que parte de ella, apunta a ella o
+## tiene en ella su frente. Sirve para elegir un frente existente pulsando el mapa.
+func sector_near(nation_id: int, cell: Vector2i) -> int:
+	for sector_id: int in _military.get_sector_ids(nation_id):
+		var sector := _military.get_sector(sector_id)
+		if sector["origin"] == cell or sector["target"] == cell:
+			return sector_id
+		if _offensives.has(sector_id) and (_offensives[sector_id]["front"] == cell or current_target(sector_id) == cell):
+			return sector_id
+	return Military.NO_SECTOR
+
+
+## Valida y prevé un ataque de `soldiers` soldados de la nación desde `origin` hacia `direction`
+## (Military.DIR_*) SIN cambiar nada. Si ya hay un frente en ese origen y dirección se reutiliza y
+## su próximo avance parte de donde está. Devuelve: ok, error (LAUNCH_*), sector_error
+## (Military.SECTOR_ERR_*, si error es LAUNCH_ERR_SECTOR), reason (STOP_*, si LAUNCH_ERR_BLOCKED),
+## sector_id (o NO_SECTOR si habría que crearlo), state (STATE_*), origin, direction, target (celda a la
+## que se avanzaría), assigned (soldados que ya tiene el frente), max_soldiers (lo máximo que se puede
+## comprometer: lo que ya tiene más la reserva) y info (evaluate de ese avance; {} si el sector no es
+## válido). Orden de los errores: nación, sector, soldados (<1), reserva, avance bloqueado.
+func plan_attack(nation_id: int, origin: Vector2i, direction: int, soldiers: int) -> Dictionary:
+	var plan := {
+		"ok": false, "error": LAUNCH_OK, "sector_error": Military.SECTOR_OK, "reason": STOP_NONE,
+		"sector_id": Military.NO_SECTOR, "state": STATE_READY, "origin": origin, "direction": direction,
+		"target": NO_CELL, "assigned": 0, "max_soldiers": 0, "soldiers": soldiers, "info": {},
+	}
+	if not _population.has_nation(nation_id):
+		plan["error"] = LAUNCH_ERR_UNKNOWN_NATION
+		return plan
+	if direction < Military.DIR_NORTH or direction > Military.DIR_WEST:
+		plan["error"] = LAUNCH_ERR_SECTOR
+		plan["sector_error"] = Military.SECTOR_ERR_BAD_DIRECTION
+		return plan
+	var sector_id := _military.sector_at(origin, direction)
+	var front := origin
+	if sector_id != Military.NO_SECTOR:
+		var sector := _military.get_sector(sector_id)
+		if sector["owner"] != nation_id:
+			plan["error"] = LAUNCH_ERR_SECTOR
+			plan["sector_error"] = Military.SECTOR_ERR_ORIGIN_NOT_OWNED
+			return plan
+		plan["sector_id"] = sector_id
+		plan["state"] = sector_state(sector_id)
+		plan["assigned"] = sector["soldiers"]
+		front = _front_for(sector_id, sector)
+	else:
+		var sector_error := _military.validate_sector(nation_id, origin, direction, 0)
+		if sector_error != Military.SECTOR_OK:
+			plan["error"] = LAUNCH_ERR_SECTOR
+			plan["sector_error"] = sector_error
+			return plan
+	var target: Vector2i = front + Military.DIRECTION_STEPS[direction]
+	plan["target"] = target
+	plan["max_soldiers"] = plan["assigned"] + maxi(0, _military.available_soldiers(nation_id))
+	var info := evaluate(nation_id, soldiers, target)
+	plan["info"] = info
+	if soldiers < 1:
+		plan["error"] = LAUNCH_ERR_NO_SOLDIERS
+	elif soldiers > plan["max_soldiers"]:
+		plan["error"] = LAUNCH_ERR_NOT_ENOUGH
+	elif info["blocked"]:
+		plan["error"] = LAUNCH_ERR_BLOCKED
+		plan["reason"] = info["reason"]
+	else:
+		plan["ok"] = true
+	return plan
+
+
+## Ejecuta el ataque de forma atómica: crea o reutiliza el frente, le deja exactamente `soldiers`
+## soldados y lanza (o reanuda) la ofensiva. Con la ofensiva ya activa solo ajusta los soldados. Si
+## plan_attack lo rechaza, o algo falla después, no cambia nada (no queda un frente a medias ni
+## soldados comprometidos). Devuelve {ok, error, sector_error, reason, sector_id, created, max_soldiers} con
+## los mismos códigos que plan_attack; created indica que el frente se creó en esta orden.
+func launch_attack(nation_id: int, origin: Vector2i, direction: int, soldiers: int) -> Dictionary:
+	var plan := plan_attack(nation_id, origin, direction, soldiers)
+	var result := {"ok": false, "error": plan["error"], "sector_error": plan["sector_error"], "reason": plan["reason"],
+			"sector_id": plan["sector_id"], "created": false, "max_soldiers": plan["max_soldiers"]}
+	if not plan["ok"]:
+		return result
+	var sector_id: int = plan["sector_id"]
+	var previous: int = plan["assigned"]
+	var created := false
+	if sector_id == Military.NO_SECTOR:
+		var creation := _military.create_sector(nation_id, origin, direction, soldiers)
+		if not creation["ok"]:
+			result["error"] = LAUNCH_ERR_SECTOR
+			result["sector_error"] = creation["error"]
+			return result
+		sector_id = creation["id"]
+		created = true
+	elif soldiers != previous:
+		if _military.set_sector_soldiers(sector_id, soldiers) != Military.ASSIGN_OK:
+			result["error"] = LAUNCH_ERR_NOT_ENOUGH
+			return result
+	result["sector_id"] = sector_id
+	result["created"] = created
+	if not is_active(sector_id):
+		var started := start_offensive(sector_id)
+		if not started["ok"]:
+			if created:
+				_military.remove_sector(sector_id)
+				result["sector_id"] = Military.NO_SECTOR
+				result["created"] = false
+			else:
+				_military.set_sector_soldiers(sector_id, previous)
+			result["error"] = LAUNCH_ERR_BLOCKED
+			result["reason"] = started["reason"]
+			return result
+	result["ok"] = true
+	result["error"] = LAUNCH_OK
+	return result
+
+
 func _stop(sector_id: int, reason: int) -> void:
 	var offensive: Dictionary = _offensives[sector_id]
 	offensive["state"] = STATE_STOPPED
@@ -341,7 +503,26 @@ static func stop_reason_message(code: int) -> String:
 			return "se perdió el frente"
 		STOP_CANNOT_CLAIM:
 			return "sin contacto con territorio propio para reclamar"
+		STOP_TRUCE:
+			return "tregua vigente"
 	return "motivo desconocido"
+
+
+static func launch_error_message(plan: Dictionary) -> String:
+	match plan["error"]:
+		LAUNCH_OK:
+			return "Ataque en marcha."
+		LAUNCH_ERR_UNKNOWN_NATION:
+			return "Nación desconocida."
+		LAUNCH_ERR_SECTOR:
+			return Military.attack_target_error_message(plan["sector_error"])
+		LAUNCH_ERR_NO_SOLDIERS:
+			return "Elige al menos 1 soldado."
+		LAUNCH_ERR_NOT_ENOUGH:
+			return "No hay tantos soldados disponibles (máximo %d)." % plan["max_soldiers"]
+		LAUNCH_ERR_BLOCKED:
+			return "No se puede avanzar: %s." % stop_reason_message(plan["reason"])
+	return "Error desconocido."
 
 
 static func start_error_message(code: int, reason: int = STOP_NONE) -> String:
@@ -461,6 +642,8 @@ func _step(sector_id: int) -> void:
 		defender_losses = _population.remove_soldiers(info["defender"], info["defender_losses"])
 	offensive["attacker_losses"] += attacker_losses
 	offensive["defender_losses"] += defender_losses
+	if kind == KIND_ENEMY:
+		_wars.record_clash(attacker, info["defender"], attacker_losses, defender_losses)
 	var wins: bool = info["attacker_wins"]
 	offensive["last_clash"] = {
 		"cell": target, "won": wins, "attackers": attackers, "defense": info["defense"],
@@ -477,6 +660,7 @@ func _step(sector_id: int) -> void:
 				conquered = result["changed_cells"]
 		elif _occupation.occupy(attacker, target) == Occupation.OCC_OK:
 			offensive["occupied"] += 1
+			_wars.record_occupation(attacker, info["defender"])
 			advanced = true
 		if advanced:
 			offensive["front"] = target

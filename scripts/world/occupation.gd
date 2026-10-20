@@ -10,9 +10,10 @@
 ## propietario oficial ya no es el que tenían (por ejemplo, la celda fue conquistada: por el propio
 ## ocupante, con lo que ya es suya, o por un tercero). Así una ocupación nunca queda obsoleta.
 ##
-## Preparado para tratados de paz (no implementados): transferir las zonas ocupadas sería
-## conquistar con el ocupante las celdas de `get_cells(ocupante)`; restaurar las fronteras previas
-## a la guerra sería `release_all_of(ocupante)`. Ninguna de las dos ocurre sola.
+## Tratados de paz (hito 10, Diplomacy): transferir las zonas ocupadas es conquistar con el ocupante
+## las celdas de `get_cells_between(ocupante, propietario)`; restaurar las fronteras previas a la
+## guerra es `release_between(a, b)`, que solo toca las ocupaciones de ESA pareja de naciones (no las
+## de otras guerras). Ninguna de las dos ocurre sola.
 extends RefCounted
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -85,6 +86,40 @@ func count_taken_from(owner_id: int) -> int:
 	return total
 
 
+## Celdas que `occupier_id` ocupa y cuyo propietario oficial es `owner_id`, en orden de ocupación.
+func get_cells_between(occupier_id: int, owner_id: int) -> Array:
+	var result: Array = []
+	for cell: Vector2i in _cells:
+		if _cells[cell]["occupier"] == occupier_id and _cells[cell]["owner"] == owner_id:
+			result.append(cell)
+	return result
+
+
+## Número de celdas que `occupier_id` ocupa a `owner_id`.
+func count_between(occupier_id: int, owner_id: int) -> int:
+	return get_cells_between(occupier_id, owner_id).size()
+
+
+## Copia del estado completo (para deshacer una operación que falla a medias).
+func export_state() -> Dictionary:
+	return _cells.duplicate(true)
+
+
+## Restaura un estado obtenido con export_state y avisa de todas las celdas cuya ocupación cambió.
+func import_state(state: Dictionary) -> void:
+	var touched: Array = []
+	for cell: Vector2i in _cells:
+		if not state.has(cell) or state[cell] != _cells[cell]:
+			touched.append(cell)
+	for cell: Vector2i in state:
+		if not _cells.has(cell) and not touched.has(cell):
+			touched.append(cell)
+	_cells = state.duplicate(true)
+	if not touched.is_empty():
+		cells_changed.emit(touched)
+		changed.emit()
+
+
 # ---------------------------------------------------------------------------
 # Órdenes
 # ---------------------------------------------------------------------------
@@ -131,6 +166,20 @@ func release(cell: Vector2i) -> bool:
 ## Libera todas las celdas que ocupa una nación (restaurar fronteras). Devuelve cuántas.
 func release_all_of(occupier_id: int) -> int:
 	var released: Array = get_cells(occupier_id)
+	for cell: Vector2i in released:
+		_cells.erase(cell)
+	if not released.is_empty():
+		cells_changed.emit(released)
+		changed.emit()
+	return released.size()
+
+
+## Libera las ocupaciones entre dos naciones: las que `first_id` tiene sobre territorio de `second_id`
+## y las que `second_id` tiene sobre el de `first_id`. No toca las ocupaciones de otras parejas.
+## Devuelve cuántas liberó.
+func release_between(first_id: int, second_id: int) -> int:
+	var released: Array = get_cells_between(first_id, second_id)
+	released.append_array(get_cells_between(second_id, first_id))
 	for cell: Vector2i in released:
 		_cells.erase(cell)
 	if not released.is_empty():
