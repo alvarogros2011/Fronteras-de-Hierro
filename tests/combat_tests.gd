@@ -181,6 +181,9 @@ func _make_world(initial: Dictionary, grid: TerritoryGrid = null, with_city: boo
 	var military := Military.new(grid, population)
 	var wars := WarState.new()
 	var offensives := Offensives.new(grid, population, military, cities, occupation, wars)
+	# Escenarios celda a celda del hito 9: frente de una sola celda (el frente ancho del hito 11 se prueba en
+	# tests/gameplay_tests.gd).
+	offensives.front_half_width = 0
 	return {"grid": grid, "economy": economy, "cities": cities, "pop": population, "mil": military,
 			"occ": occupation, "wars": wars, "off": offensives}
 
@@ -763,8 +766,15 @@ func _test_war_state() -> Array:
 	_expect(errors, march["wars"].war_count(), 0, "apuntar a tierra sin reclamar no declara nada")
 	_ticks(march, Balance.ADVANCE_INTERVAL_TICKS * 2)
 	_expect(errors, [march["off"].get_offensive(msid)["front"], march["off"].get_offensive(msid)["claimed"], march["wars"].at_war(PLAYER, AI_1)], [Vector2i(26, 15), 2, false], "tras conquistar las dos celdas libres sigue sin haber guerra")
+	# Hito 11: una expansión (objetivo: tierra sin reclamar) nunca ataca; al tocar a la IA 1 se detiene.
 	_ticks(march, Balance.ADVANCE_INTERVAL_TICKS)
-	_expect(errors, [march["off"].get_offensive(msid)["front"], march["wars"].at_war(PLAYER, AI_1), march["occ"].get_cells()], [Vector2i(27, 15), true, [Vector2i(27, 15)]], "al entrar en territorio de la IA 1 empieza la guerra y se ocupa la celda")
+	_expect(errors, [march["off"].sector_state(msid), march["off"].get_offensive(msid)["reason"], march["wars"].at_war(PLAYER, AI_1), march["occ"].count()],
+			[Offensives.STATE_STOPPED, Offensives.STOP_CONTACT, false, 0], "la expansión llega a la IA 1 y se detiene sin declarar la guerra")
+	# Atacar es una orden explícita: reanudar ahora tiene como objetivo a la IA 1 y declara la guerra.
+	_expect(errors, march["off"].start_offensive(msid)["ok"], true, "se ordena el ataque")
+	_expect(errors, [march["wars"].at_war(PLAYER, AI_1), march["off"].goal_of(msid)], [true, AI_1], "la orden explícita declara la guerra")
+	_ticks(march, Balance.ADVANCE_INTERVAL_TICKS)
+	_expect(errors, [march["off"].get_offensive(msid)["front"], march["wars"].at_war(PLAYER, AI_1), march["occ"].get_cells()], [Vector2i(27, 15), true, [Vector2i(27, 15)]], "y se ocupa la celda")
 	return errors
 
 
@@ -793,9 +803,11 @@ func _test_economy_rules() -> Array:
 	var data := cities.get_city(ai_city)
 	_expect(errors, [data["occupied"], data["money_rate"], data["resource_rate"]], [true, 0, 0], "los datos de la ciudad reflejan la suspensión")
 	_expect(errors, cities.get_city(player_city)["occupied"], false, "la ciudad del jugador no está ocupada")
+	var worker_money_before: int = world["pop"].get_stats(PLAYER)["worker_money"]
 	_ticks(world, 5)
-	_expect(errors, economy.get_money(AI_1), ai_money, "la ciudad ocupada no cobra mientras dura la ocupación")
-	_expect(errors, economy.get_money(PLAYER), player_money + 10, "el jugador solo cobra lo de su propia ciudad (2 por tick)")
+	_expect(errors, economy.get_money(AI_1), ai_money, "la ciudad ocupada no cobra mientras dura la ocupación (ni sus trabajadores: sin puestos)")
+	var worker_money: int = world["pop"].get_stats(PLAYER)["worker_money"] - worker_money_before
+	_expect(errors, economy.get_money(PLAYER), player_money + 10 + worker_money, "el jugador solo cobra lo de su propia ciudad (2 por tick) y lo de sus trabajadores (hito 11)")
 	_expect(errors, cities.get_city(ai_city)["progress"], ai_progress + 5, "el crecimiento de nivel de la ciudad sigue (regla provisional documentada)")
 	_expect(errors, world["pop"].growth_milli(AI_1), growth_before, "y su contribución a la población también (regla provisional documentada)")
 	_expect(errors, grid.get_cell_owner(ai_city_cell.x, ai_city_cell.y), AI_1, "el paso del tiempo no transfiere la ciudad")
@@ -1133,6 +1145,10 @@ func _test_screen() -> Array:
 	var occ: Occupation = screen.occupation
 	var wars: WarState = screen.wars
 	var panel: MilitaryPanel = screen.get_node("%Militar")
+	# Escenario celda a celda sin decisiones de la IA (hito 11: se prueban en tests/gameplay_tests.gd).
+	if off != null:
+		off.front_half_width = 0
+	screen.ai.enabled = false
 	var layer = screen.get_node("%Sectores")
 	var view = screen.get_node("%Mapa")
 	_expect(errors, off != null and occ != null and wars != null, true, "la pantalla crea las ofensivas, la ocupación y el estado de guerra")

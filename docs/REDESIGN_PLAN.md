@@ -124,6 +124,7 @@ Las ciudades **no** modifican el propietario de las celdas ni las fronteras. Se 
 | Población | Trabajadores y soldados; reparto de población nueva (control deslizante); conversión por reclutamiento forzoso | Ciudades, naciones | Dibujar o tocar territorio |
 | Economía | Dinero y recursos (solo dos); producción, mantenimiento, construcciones | Ciudades, población | Añadir recursos nuevos |
 | Ejército (`Military`, hito 8: sectores y asignación; combate pendiente) | Reparto de los soldados de `Population` entre sectores de despliegue; en el futuro fuerza, previsión de combate y ataques | Territorio (lectura), población (lectura de soldados) | Escribir en el territorio, duplicar el contador de soldados, simular soldados individuales |
+| IA estratégica (`AIController`, hito 11) | Decisiones de las naciones de la IA (economía, frentes, ataques, paz) con las mismas órdenes públicas que el jugador | Todas (lectura) y sus órdenes | Escribir datos directamente, crear soldados, dinero, recursos o ciudades, usar un reloj propio |
 | Simulación | Reloj de pasos fijos y orden de actualización de las capas | Todas | Dibujar |
 | Presentación | Vistas y HUD que leen el estado; transmiten las órdenes | Estado de la simulación | Contener reglas del juego |
 
@@ -143,7 +144,8 @@ Las dependencias van en una sola dirección (de abajo hacia arriba en la tabla).
 | 8 | **Organización militar** (sectores de una celda en cuatro direcciones, reserva y asignación de soldados, panel y marcadores) — **hecho; el propietario probó a mano la interfaz simplificada; pruebas por ejecutar en Godot** | 7 | D7 y D20 (valores provisionales) |
 | 9 | **Ataques, combate determinista, invasiones progresivas, ocupación provisional y estado de guerra** sobre los sectores (absorbe el antiguo «hito 10») — **implementado; pruebas por ejecutar en Godot** | 6, 7, 8 | D3, D7, D8, D12, D18, D21 y D22 (valores provisionales) |
 | 10 | **Guerra, diplomacia y jugabilidad simplificada** (ataque en un paso, tratados de paz con pagos, treguas, respuesta de la IA, pausa) — **implementado; pruebas por ejecutar en Godot** | 9 | D3, D10, D20–D26 (valores provisionales) |
-| 11 | Construcciones y producción según trabajadores (antes «hito 10» y, antes, «hito 9») | 7 | D14 |
+| 11 | **Gran reforma de jugabilidad** (trabajadores productivos, frente ancho, liberación, defensa, ciudades que defienden, IA estratégica) — **implementado; pruebas por ejecutar en Godot** | 10 | D5, D14, D18, D19, D21, D25 (valores provisionales) |
+| — | Construcciones (antes «hito 11») | 11 | D14 |
 | 11 | (absorbido por el hito 7 como movilización progresiva) | — | D13 |
 | — | Diplomacia: paz, tratados, treguas y destino de lo ocupado (recomendado tras el 9) | 9 | D21, D22 |
 | 12 | IA | 9 | — |
@@ -302,3 +304,13 @@ Propuestas técnicas provisionales; el propietario puede revertirlas. Base: rama
 - **Interfaz:** el panel de ataque se reescribió (un botón principal por estado, previsión compacta) y se añadió el panel de diplomacia, ambos en una columna izquierda `VBoxContainer` con barra de desplazamiento; el de diplomacia solo aparece con una guerra, propuesta o tregua. Las pruebas de interfaz de `combat_tests.gd` y `military_tests.gd` (que usaban los controles antiguos) se reescribieron para el flujo nuevo; los textos reutilizados conservan sus aserciones. Pendiente de validar visualmente en el PC.
 - **Ciudad ocupada (D26):** se comprobó y se mantiene que su crecimiento de nivel y su aporte a la población nacional no se suspenden; solo se suspende su producción económica.
 - **Límites:** sin declaración formal, rendición, alianzas, IA estratégica, rotura de tregua ni control de velocidad.
+
+## Decisiones técnicas del hito 11 (gran reforma de jugabilidad)
+
+- **Producción de los trabajadores en `Population`, no en `CityManager`.** `Population` es quien conoce a los trabajadores y ya cobra el mantenimiento; `CityManager` sigue pagando solo la producción base por nivel (sus pruebas no cambian). Los puestos se derivan de las ciudades (sin datos nuevos guardados), así que una ciudad ocupada o conquistada cambia los puestos sola. Las fracciones se acumulan en milésimas como el mantenimiento.
+- **Prioridad con coste:** la cobra `Population` en el mismo tick; el crecimiento de nivel extra entra por `CityManager.add_growth`, la única vía nueva para tocar el progreso de una ciudad (no toca la cuadrícula ni la producción).
+- **Frente ancho dentro de `Offensives` con una sola función de plan (`_plan_step`).** Previsión, `plan_attack`, `start_offensive` y el avance real usan la misma función: la previsión coincide con el resultado por construcción. Un solo enfrentamiento por avance (la fórmula de `Combat` no cambia; solo acepta una bonificación distinta). Las celdas se ordenan con una clave entera (distancia, fila, columna) para que el orden sea determinista sin comparar arrays.
+- **`front_half_width` como variable de instancia** (por defecto `FRONT_HALF_WIDTH`): con 0 reproduce exactamente el avance de una celda del hito 9. Las suites de los hitos 9 y 10 lo fijan a 0 para conservar sus escenarios celda a celda; las reglas nuevas se prueban en `gameplay_tests.gd`. No es un modo del juego: el juego siempre usa el valor de equilibrio.
+- **Objetivo fijo por ofensiva (`goal`):** separa expansiones de ataques y hace que la guerra sea siempre una orden explícita. Lo usan también `stop_between` (tratados) y `attacks_against` (interfaz e IA).
+- **Liberación sin un sistema nuevo:** `evaluate` trata la celda propia ocupada por otra nación como objetivo contra el ocupante; `Military` admite crear ese frente con `allow_own_target` (decidido por `Offensives`, que conoce la ocupación).
+- **IA como un consumidor más de la API pública** (`scripts/world/ai_controller.gd`, sin `class_name`, cargada con `preload`): cuelga de `CityManager.ticked`, decide escalonada cada 4 ticks y hace un único barrido del mapa por decisión (frontera, vecinos y orígenes de expansión) que solo se guarda mientras decide. `enabled` permite desactivarla en las pruebas de pantalla que necesitan un escenario controlado. Riesgo: el coste de los barridos (57.600 celdas) en el PC no se ha medido.

@@ -22,9 +22,10 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 | 8 | **Organización militar y asignación de soldados** (sectores de despliegue de una celda y cuatro direcciones, reserva de soldados, panel militar y marcadores en el mapa; sin combate) | Hecho; el propietario probó a mano la interfaz simplificada y confirmó que funciona; pruebas MI-01…MI-21 escritas, **ejecución en Godot sin confirmar** |
 | 9 | **Ataques, combate determinista, invasiones progresivas, ocupación provisional y estado de guerra** (sobre los sectores del hito 8; absorbe el antiguo «hito 10») | Implementado; pruebas CB-01…CB-25 escritas, **pendientes de ejecutar y validar en Godot** |
 | 10 | **Guerra, diplomacia y jugabilidad simplificada** (ataque en un paso, combate legible, paz con conquistas y paz blanca con pagos, respuesta y propuestas de la IA, treguas, pausa en el modo individual; corrige los dos fallos de color de las pruebas del hito 9) | Implementado; pruebas DI-01…DI-19 escritas y pruebas de interfaz de CB y MI reescritas, **pendientes de ejecutar y validar en Godot** |
-| 11 | Construcciones y producción según trabajadores (antes «hito 10» y, antes, «hito 9»; el mantenimiento ya está en el hito 7) | Pendiente; requiere D14 |
+| 11 | **Gran reforma de jugabilidad** (trabajadores productivos, prioridad con coste, desmovilización, frente ancho, expansión que no ataca, liberación, defensa sin las tropas atacantes, ciudades que defienden, IA estratégica e interfaz de amenazas) | Implementado en la nube sin Godot; pruebas GP-01…GP-19 escritas y suites anteriores adaptadas, **pendientes de ejecutar y validar en Godot**; diversión por evaluar |
+| — | Construcciones (antes «hito 11»; la producción según trabajadores se hizo en el hito 11) | Pendiente; requiere D14 |
 | — | ~~Reclutamiento forzoso~~ (antes «hito 11») | **Absorbido por el hito 7** como movilización progresiva (porcentaje elegible, duración y penalizaciones definitivas, D13, siguen abiertos) |
-| 12 | IA enemiga | Pendiente |
+| 12 | IA enemiga | **IA estratégica básica hecha en el hito 11**; pendiente de revisar tras probarla (personalidades, dificultad) |
 | 13 | Victoria, derrota y reinicio | Pendiente; requiere D11 |
 | 14 | Pulido y cierre del MVP | Pendiente |
 
@@ -139,16 +140,25 @@ Cada hito se pide y se revisa por separado. El orden respeta las dependencias t�
 - **Criterios:** pruebas DI-01…DI-19 (`tests/test_diplomacy.gd`) y las suites anteriores (con las pruebas de interfaz de `combat_tests.gd` y `military_tests.gd` reescritas para el nuevo flujo; ver `docs/TEST_PLAN.md`).
 - **Fuera de alcance (no implementado):** declaración formal de guerra, rendición, alianzas, IA estratégica, rotura de tregua, frentes de varias celdas, control de velocidad y diseño visual definitivo.
 
-## Hito 11 — Construcciones y producción según trabajadores
-- (Antes «hito 10» y, antes, «hito 9».) El mantenimiento de trabajadores y soldados **ya existe desde el hito 7**; la producción de las ciudades sigue dependiendo solo de su nivel (hito 6). Este hito añadiría construcciones según D14 y, si se decide, producción según trabajadores.
-- **Criterios:**
-  - Las construcciones se rechazan sin dinero suficiente (prueba automática).
-  - Si la producción depende de los trabajadores, la prueba comprueba la relación sin romper el equilibrio inicial del hito 7.
+## Hito 11 — Gran reforma de jugabilidad
+**Estado: implementado en la nube sin Godot; pruebas GP-01…GP-19 escritas y suites anteriores adaptadas, no ejecutadas; validación local pendiente.** Base: rama `claude/ecstatic-bardeen-1de9nl`, commit `81efaa6` (hito 10). Detalle: `docs/GDD.md`, «Reforma de jugabilidad (hito 11)».
+- **Economía:** puestos de trabajo por nivel de ciudad; los trabajadores empleados producen dinero y recursos; prioridad de crecimiento con coste (y nivel más rápido); desmovilización de la reserva; balance real en el HUD.
+- **Guerra:** frente ancho (una franja de hasta 12 celdas por avance según los soldados), expansión que nunca ataca, liberación de celdas propias ocupadas, los soldados que atacan no defienden, bonificación de defensa junto a las ciudades, ataque a cualquier celda pulsada desde la frontera más cercana.
+- **IA estratégica** (`scripts/world/ai_controller.gd`, `scripts/data/ai_balance.gd`): economía, expansión, defensa, ataques con previsión de victoria, declaraciones de guerra limitadas, paz entre IA; mismas órdenes que el jugador.
+- **Diplomacia:** la IA también pesa el déficit y sus ciudades ocupadas; tope a la esperanza por celdas ocupadas.
+- **Interfaz:** defensa y amenazas en el panel militar, ofensivas enemigas en rojo en el mapa, empleo y «Desmovilizar» en el panel de población, avisos de la IA.
+- **Criterios:** pruebas GP-01…GP-19 (`tests/test_gameplay.gd`) y las suites anteriores, adaptadas donde la regla cambió (ver `docs/TEST_PLAN.md`).
+- **Fuera de alcance (no implementado):** construcciones, victoria, fundación con tiempo, flecha de dirección libre, personalidades de IA, control de velocidad y diseño visual definitivo.
+
+## Construcciones (pendiente; antes «hito 11»)
+- La producción según trabajadores ya existe (hito 11). Quedan las construcciones según D14.
+- **Criterios:** las construcciones se rechazan sin dinero suficiente (prueba automática) sin romper el equilibrio de la economía del hito 11.
 
 ## Reclutamiento forzoso (antes «hito 11», absorbido por el hito 7)
 La conversión progresiva de un porcentaje de trabajadores en soldados se implementó en el hito 7 como «movilización». Siguen abiertas las cifras definitivas y las penalizaciones asociadas (D13).
 
 ## Hito 12 — IA enemiga
+- **La IA estratégica básica se hizo en el hito 11** (ver arriba). Lo que quede de este hito se redefinirá tras probarla: personalidades, dificultad y ajustes.
 - IA simple que usa las mismas reglas y órdenes que el jugador.
 - **Criterios:**
   - La IA solo emite órdenes válidas (prueba automática).
@@ -169,12 +179,12 @@ La conversión progresiva de un porcentaje de trabajadores en soldados se implem
 ## Pendientes registrados (no olvidados)
 - **Fundación de ciudades instantánea** (hito 6): el diseño confirmado prevé un breve tiempo de fundación (D4). Hoy el clic funda y cobra en el acto. No se ha cambiado en el hito 7 para no alterar reglas sin pedirlo.
 - **Control de velocidad** del tiempo de juego (D10; la pausa se hizo en el hito 10).
-- **Producción según trabajadores** y construcciones (D14, hito 9): hoy la producción solo depende del nivel de la ciudad.
+- **Construcciones** (D14). La producción según trabajadores se hizo en el hito 11.
 - **Tiempo de medición** de la vista pixelada en el PC (hito 4) y validación visual del panel de población (hito 7).
 - **Diplomacia avanzada** (tras el hito 10): hoy solo hay paz con conquistas y paz blanca entre naciones en guerra; faltan declaración formal de guerra (D21, a confirmar), rendición, reparaciones, alianzas, rotura de tregua y una IA que negocie con criterios propios (D23–D25).
-- **Mejoras a decidir (hitos 9–10):** suspender también el crecimiento de una ciudad ocupada (D26: mantenido), duración de la tregua (60 s provisional), defensa activa, frentes de varias celdas con flecha (D18), coste de atacar, resistencia de la tierra sin reclamar y medir el coste del recuento de celdas expuestas en el PC.
+- **Mejoras a decidir (hitos 9–11):** suspender también el crecimiento de una ciudad ocupada (D26: mantenido), duración de la tregua (60 s provisional), flecha de dirección libre (D18; el frente ancho ya existe), coste de atacar o de expandirse, resistencia de la tierra sin reclamar, medir en el PC el coste del recuento de celdas expuestas y de las decisiones de la IA (barridos del mapa), y equilibrar todos los valores del hito 11 tras jugar.
 
 ## Notas de orden
-- El 3→4→5 es obligatorio. La secuencia vigente es 6 (ciudades) → 7 (población y mantenimiento) → 8 (organización militar) → 9 (ataques, combate y ocupación) → 10 (guerra, diplomacia y jugabilidad simplificada, con pausa) → 11 (construcciones); el antiguo 11 (reclutamiento) quedó dentro del 7 y la expansión territorial automática sigue descartada. Tras el 10 se recomienda validar el bucle de guerra a mano y equilibrarlo antes de la IA (hito 12).
+- El 3→4→5 es obligatorio. La secuencia vigente es 6 (ciudades) → 7 (población y mantenimiento) → 8 (organización militar) → 9 (ataques, combate y ocupación) → 10 (guerra, diplomacia y jugabilidad simplificada, con pausa) → 11 (gran reforma de jugabilidad, con IA estratégica básica); el antiguo 11 (reclutamiento) quedó dentro del 7, las construcciones siguen pendientes y la expansión territorial automática sigue descartada. Tras el 11 toca probar la versión en el PC, debatir los resultados y hacer la revisión de diseño antes de seguir.
 - Un hito no empieza hasta que sus decisiones abiertas tengan respuesta.
 - Más allá del MVP (sin planificar): mapas adicionales, más naciones, diplomacia, investigación, guardado de partida.

@@ -20,6 +20,15 @@
 ## deslizador nunca ofrece más de lo que se puede comprometer (lo que ya tiene el frente más la reserva).
 ## Los textos salen de funciones estáticas para poder probarlos sin nodos. Es un panel funcional: el
 ## aspecto se mejorará en la fase visual.
+##
+## Hito 11:
+##   - Se puede pulsar CUALQUIER celda atacable del mapa, aunque esté lejos: el panel propone el frente desde
+##     la celda propia de frontera más cercana (Offensives.suggest_front). También las celdas propias ocupadas
+##     por el enemigo (liberación).
+##   - «AMENAZAS»: qué naciones te atacan ahora y con cuántos soldados (también se ven en rojo en el mapa).
+##   - «Defensa»: los soldados que defienden de verdad (los que están atacando no defienden).
+##   - La previsión dice cuántas celdas toma la franja si vence, si una ciudad refuerza la defensa y por qué
+##     se detendría la punta (por ejemplo, una expansión que llega a otra nación).
 extends PanelContainer
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -42,6 +51,7 @@ const TEXT_COLOR := Color(0.85, 0.87, 0.9)
 const MUTED_COLOR := Color(0.6, 0.64, 0.7)
 const WARN_COLOR := Color(0.95, 0.75, 0.3)
 const ATTACK_COLOR := Color(1.0, 0.6, 0.25)
+const THREAT_COLOR := Color(0.95, 0.35, 0.35)
 const LIST_HEIGHT := 48
 const QUICK_PERCENTS: Array[int] = [25, 50, 75, 100]
 
@@ -65,6 +75,8 @@ var _refreshing: bool = false
 
 var _scroll: ScrollContainer
 var _summary_label: Label
+var _defense_label: Label
+var _threat_label: Label
 var _war_label: Label
 var _target_label: Label
 var _direction_buttons: Array[Button] = []
@@ -91,6 +103,9 @@ func _ready() -> void:
 	_scroll.add_child(box)
 	_add_heading(box, "EJÉRCITO")
 	_summary_label = _add_label(box, TEXT_COLOR, "ResumenMilitar")
+	_defense_label = _add_label(box, MUTED_COLOR, "DefensaMilitar")
+	_threat_label = _add_label(box, THREAT_COLOR, "AmenazaMilitar")
+	_threat_label.visible = false
 	_war_label = _add_label(box, WARN_COLOR, "GuerraMilitar")
 	_war_label.visible = false
 
@@ -238,19 +253,17 @@ func _resolve_cell(cell: Vector2i) -> void:
 	if not _grid.is_land(cell.x, cell.y):
 		_clear_choice("El agua no se puede atacar.")
 		return
-	if _grid.get_cell_owner(cell.x, cell.y) == _nation_id:
-		_origin = cell
-		_direction = _only_attack_direction(cell)
+	var front := _offensives.suggest_front(_nation_id, cell)
+	if front.is_empty():
+		_clear_choice("No hay forma de llegar ahí desde tu territorio.")
+		return
+	_origin = front["origin"]
+	_direction = front["direction"]
+	if _origin == cell:
 		if _direction == NO_DIRECTION and not _has_attack_direction(cell):
 			_hint = "Esa celda no da a tierra libre ni enemiga."
-		return
-	for direction in Military.DIRECTION_STEPS.size():
-		var origin_candidate: Vector2i = cell - Military.DIRECTION_STEPS[direction]
-		if _grid.is_valid_coord(origin_candidate.x, origin_candidate.y) and _grid.get_cell_owner(origin_candidate.x, origin_candidate.y) == _nation_id:
-			_origin = origin_candidate
-			_direction = direction
-			return
-	_clear_choice("Elige una celda de tu frontera o una celda enemiga o libre pegada a tu territorio.")
+	elif absi(_origin.x - cell.x) + absi(_origin.y - cell.y) > 1:
+		_hint = "Atacas hacia (%d, %d) desde tu frontera más cercana." % [cell.x, cell.y]
 
 
 func _clear_choice(hint: String) -> void:
@@ -263,7 +276,7 @@ func _clear_choice(hint: String) -> void:
 func _attack_directions(cell: Vector2i) -> Array:
 	var result: Array = []
 	for direction in Military.DIRECTION_STEPS.size():
-		if _military.validate_sector(_nation_id, cell, direction, 0) == Military.SECTOR_OK:
+		if _offensives.can_attack_from(_nation_id, cell, direction):
 			result.append(direction)
 	return result
 
@@ -340,10 +353,27 @@ func refresh() -> void:
 		return
 	_refreshing = true
 	_summary_label.text = summary_text(_military.get_summary(_nation_id))
+	_defense_label.text = defense_text(_offensives.defending_soldiers(_nation_id), _offensives.attacking_soldiers(_nation_id))
+	_refresh_threats()
 	_refresh_war()
 	_refresh_attack()
 	_rebuild_list()
 	_refreshing = false
+
+
+## Amenazas: ofensivas enemigas activas contra el jugador, agrupadas por nación (oculta si no hay).
+func _refresh_threats() -> void:
+	var by_nation := {}
+	for attack: Dictionary in _offensives.attacks_against(_nation_id):
+		var attacker: int = attack["attacker"]
+		by_nation[attacker] = by_nation.get(attacker, 0) + int(attack["soldiers"])
+	var rows: Array = []
+	var ids: Array = by_nation.keys()
+	ids.sort()
+	for attacker: int in ids:
+		rows.append([_grid.get_nation(attacker)["name"], by_nation[attacker]])
+	_threat_label.text = threats_text(rows)
+	_threat_label.visible = _threat_label.text != ""
 
 
 ## Línea de conflicto (guerras activas y ocupaciones); oculta si no hay nada que mostrar.
@@ -391,6 +421,8 @@ func _refresh_attack() -> void:
 	if not info.is_empty() and info["defender"] != TerritoryGrid.OWNER_NONE:
 		defender_name = _grid.get_nation(info["defender"])["name"]
 	_target_label.text = target_text(_origin, _direction, plan, _owner_text(plan["target"]))
+	if _hint != "":
+		_target_label.text += "\n" + _hint
 	_amount_label.text = amount_text(wanted, limit) if limit > 0 else "Sin soldados disponibles"
 	_forecast_label.text = forecast_text(info, defender_name) if plan["error"] != Offensives.LAUNCH_ERR_SECTOR else ""
 	_state_label.visible = sector_id != Military.NO_SECTOR and state != Offensives.STATE_READY
@@ -443,6 +475,8 @@ func _owner_text(cell: Vector2i) -> String:
 		return "Agua"
 	var owner_id := _grid.get_cell_owner(cell.x, cell.y)
 	if owner_id == _nation_id:
+		if _occupation != null and _occupation.is_occupied(cell) and _occupation.occupier_at(cell) != _nation_id:
+			return "Tu territorio, ocupado por %s" % _grid.get_nation(_occupation.occupier_at(cell))["name"]
 		return "Tu territorio"
 	if owner_id == TerritoryGrid.OWNER_NONE:
 		return "Sin reclamar"
@@ -528,6 +562,23 @@ static func summary_text(summary: Dictionary) -> String:
 	return "Soldados %d\nAsignados %d\nDisponibles %d" % [summary["total"], summary["assigned"], summary["available"]]
 
 
+## "Defensa 12 (8 atacando no defienden)" (hito 11): los soldados que defienden tu territorio.
+static func defense_text(defending: int, attacking: int) -> String:
+	if attacking > 0:
+		return "Defensa %d (%d atacando no defienden)" % [defending, attacking]
+	return "Defensa %d" % defending
+
+
+## "AMENAZAS\nReino de Cobre: 14 soldados" (hito 11) a partir de [[nombre, soldados], ...]; vacío si no hay.
+static func threats_text(rows: Array) -> String:
+	if rows.is_empty():
+		return ""
+	var lines: Array[String] = ["TE ATACAN"]
+	for row: Array in rows:
+		lines.append("%s: %d soldados" % [row[0], row[1]])
+	return "\n".join(PackedStringArray(lines))
+
+
 ## Texto del botón principal según el estado del frente: Atacar / Detener / Continuar.
 static func main_button_text(state: int) -> String:
 	match state:
@@ -584,12 +635,17 @@ static func state_text(state: int, offensive: Dictionary) -> String:
 		head = "Detenido: " + Offensives.stop_reason_message(offensive["reason"])
 	var front: Vector2i = offensive["front"]
 	var next_cell: Vector2i = offensive["next_cell"]
-	var text := "%s\nFrente (%d, %d) → (%d, %d)\nSoldados %d\nCeldas: %d ocupadas · %d reclamadas\nBajas: propias %d · enemigas %d" % [head, front.x, front.y,
-			next_cell.x, next_cell.y, offensive["soldiers"], offensive["occupied"], offensive["claimed"], offensive["attacker_losses"], offensive["defender_losses"]]
+	var cells_text := "%d ocupadas · %d reclamadas" % [offensive["occupied"], offensive["claimed"]]
+	if offensive.get("liberated", 0) > 0:
+		cells_text += " · %d liberadas" % offensive["liberated"]
+	var text := "%s\nFrente (%d, %d) → (%d, %d)\nSoldados %d\nCeldas: %s\nBajas: propias %d · enemigas %d" % [head, front.x, front.y,
+			next_cell.x, next_cell.y, offensive["soldiers"], cells_text, offensive["attacker_losses"], offensive["defender_losses"]]
 	var clash: Dictionary = offensive["last_clash"]
 	if not clash.is_empty():
 		var cell: Vector2i = clash["cell"]
 		text += "\nÚltimo: %s en (%d, %d) · bajas %d / %d" % ["victoria" if clash["won"] else "derrota", cell.x, cell.y, clash["attacker_losses"], clash["defender_losses"]]
+		if clash.get("cells", 1) > 1:
+			text += " · %d celdas" % clash["cells"]
 	return text
 
 
@@ -627,9 +683,18 @@ static func forecast_text(info: Dictionary, defender_name: String) -> String:
 		return head + " · propia\nAvance sin combate."
 	if info["kind"] == Offensives.KIND_OCCUPIED:
 		return head + " · ya ocupada\nAvance sin combate."
-	var enemy: bool = info["kind"] == Offensives.KIND_ENEMY
+	var enemy: bool = info["kind"] == Offensives.KIND_ENEMY or info["kind"] == Offensives.KIND_LIBERATE
+	var liberate: bool = info["kind"] == Offensives.KIND_LIBERATE
 	var lines: Array[String] = [head + (" · " + defender_name if enemy else " · sin reclamar"), "Atacantes %d" % info["attackers"]]
 	var gain := "ocupas la celda; sigue siendo de %s" % defender_name if enemy else "reclamas la celda"
+	if liberate:
+		gain = "liberas tu celda ocupada por %s" % defender_name
+	var cells: Array = info.get("cells", [])
+	if cells.size() > 1:
+		gain += " (y %d celdas más de la franja)" % (cells.size() - 1)
+	var spear_reason: int = info.get("spear_reason", Offensives.STOP_NONE)
+	if spear_reason != Offensives.STOP_NONE:
+		lines.append("La punta no avanza: %s." % Offensives.stop_reason_message(spear_reason))
 	if info["defense"] <= 0:
 		lines.append("Sin resistencia: %s, sin bajas." % gain)
 		return "\n".join(PackedStringArray(lines))
@@ -637,6 +702,8 @@ static func forecast_text(info: Dictionary, defender_name: String) -> String:
 		lines.append("Defensa local ~%d (%d soldados en %d tramos de frontera)" % [info["defense"], info["defender_soldiers"], info["fronts"]])
 	else:
 		lines.append("Defensa local ~%d" % info["defense"])
+	if info.get("city_bonus", false):
+		lines.append("Ciudad cercana: defensa x%s" % ("%.1f" % (info["bonus_percent"] / 100.0)).replace(".", ","))
 	lines.append("%s (%s)" % [category_text(info["category"]), ratio_text(info["ratio_permille"])])
 	if info["attacker_wins"]:
 		lines.append("Victoria prevista: %s" % gain)

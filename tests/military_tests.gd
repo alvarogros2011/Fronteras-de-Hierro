@@ -779,6 +779,7 @@ func _test_screen() -> Array:
 		return errors
 	var screen: Screen = scene.instantiate()
 	tree.root.add_child(screen)
+	screen.ai.enabled = false  # sin decisiones de la IA estratégica (hito 11): escenario controlado
 	var grid: TerritoryGrid = screen.grid
 	var economy: Economy = screen.economy
 	var cities: CityManager = screen.cities
@@ -888,7 +889,9 @@ func _test_screen() -> Array:
 		if cities.get_owner(city_id) == TerritoryGrid.OWNER_AI_1:
 			enemy_cell = cities.get_city(city_id)["cell"]
 	view.pointer_pressed(view.cell_center_global(enemy_cell))
-	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), attack.disabled], [Military.NO_SECTOR, Military.NO_SECTOR, true], "una celda ajena y lejana limpia la elección y no permite atacar")
+	# Hito 11: pulsar una celda ajena lejana propone el frente desde la frontera propia más cercana.
+	_expect(errors, [panel.chosen_origin() != MilitaryPanel.NO_CELL, panel.chosen_direction() != MilitaryPanel.NO_DIRECTION, attack.disabled], [true, true, false], "una celda ajena y lejana propone un frente desde tu frontera más cercana")
+	_expect(errors, grid.get_cell_owner(panel.chosen_origin().x, panel.chosen_origin().y), player_id, "el origen propuesto es tuyo")
 	_expect(errors, mil.sector_count(), 1, "pero el frente sigue existiendo")
 	list.item_selected.emit(0)
 	_expect(errors, [panel.selected_sector(), layer.highlighted_sector(), withdraw.visible], [sector_id, sector_id, true], "elegir en la lista selecciona y resalta el frente")

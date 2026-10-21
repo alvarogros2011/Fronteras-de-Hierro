@@ -38,3 +38,25 @@ const LOSER_LOSS_PERCENT := 70
 const ADVANTAGE_RATIO_PERMILLE := 1500
 ## Por debajo de este valor: «defensa superior». Entre ambos: «combate equilibrado».
 const DEFENSE_RATIO_PERMILLE := 800
+
+# --- Frente ancho (hito 11) ---
+## Una ofensiva ya no avanza en una línea de una celda: en cada intento de avance toma una franja del
+## objetivo alrededor de su punta. Semiancho de esa franja (distancia Chebyshev a la celda siguiente
+## a la punta): 4 = una ventana de 9 x 9 celdas. 0 reproduce el avance de una celda del hito 9.
+const FRONT_HALF_WIDTH := 4
+## Celdas que puede tomar como mucho una ofensiva en un intento de avance.
+const MAX_CELLS_PER_STEP := 12
+## Soldados del frente por cada celda que puede tomar en un avance (redondeo hacia abajo, al menos 1):
+## contra una nación, con 3 soldados toma 1 celda por avance y con 36 o más, el máximo. Más tropas =
+## avance más rápido. En una expansión (tierra sin reclamar, sin defensa) basta 1 soldado por celda.
+const SOLDIERS_PER_CELL := 3
+const EXPANSION_SOLDIERS_PER_CELL := 1
+
+# --- Defensa (hito 11) ---
+## Los soldados comprometidos en una ofensiva ACTIVA no defienden: el fondo de defensa de una nación
+## son sus soldados menos los que están atacando (reserva + frentes detenidos). Atacar con todo deja
+## la retaguardia expuesta.
+## Bonificación EXTRA de defensa (porcentaje que se suma a DEFENSE_BONUS_PERCENT) en las celdas a
+## distancia Chebyshev <= CITY_DEFENSE_RADIUS del centro de una ciudad del defensor: 120 + 60 = 180 %.
+const CITY_DEFENSE_BONUS_PERCENT := 60
+const CITY_DEFENSE_RADIUS := 3

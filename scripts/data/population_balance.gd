@@ -1,4 +1,5 @@
-## Valores de equilibrio de población, movilización y mantenimiento (hito 7). TODOS son
+## Valores de equilibrio de población, movilización y mantenimiento (hito 7; trabajo, prioridad con
+## coste y desmovilización desde el hito 11). TODOS son
 ## PROVISIONALES: sirven para que el prototipo sea jugable y se ajustarán al equilibrar.
 ## Es el único sitio donde cambiarlos (los de ciudades y economía siguen en economy_balance.gd).
 ##
@@ -54,3 +55,30 @@ const DEFICIT_GRACE_TICKS := 5
 ## miembros (10 = 1 %), siempre al menos 1 persona. Trabajadores: mueren o emigran.
 ## Soldados: desertan. No son bajas de combate (el combate no existe todavía).
 const DEFICIT_LOSS_PERMILLE := 10
+
+# --- Trabajo (hito 11) ---
+## Puestos de trabajo que ofrece cada ciudad activa y no ocupada, según su nivel. Los trabajadores
+## empleados (como mucho, la suma de puestos de la nación) producen; los demás solo consumen. Así
+## más trabajadores rinden más, pero nunca sin límite: hacen falta ciudades (y subirlas de nivel).
+## Quedan por debajo de la capacidad: con la población al máximo siempre sobra algo de gente para
+## el ejército sin perder producción.
+const JOBS_PER_LEVEL: Array[int] = [0, 30, 55, 90, 140]
+## Producción de cada trabajador empleado por tick, en milésimas (40 = 0,04 de dinero por tick).
+## Con 30 empleados, una ciudad de nivel 1 casi duplica lo que produce por sí sola.
+const WORKER_MONEY_MILLI := 40
+const WORKER_RESOURCES_MILLI := 30
+
+# --- Prioridad de crecimiento con coste (hito 11) ---
+## Dinero por tick que cuesta mantener cada ciudad prioritaria (entero). Si la nación no puede pagarlo
+## en un tick, esa ciudad no recibe la prioridad en ese tick (nunca deja el saldo negativo).
+const PRIORITY_MONEY_PER_TICK := 1
+## Puntos de crecimiento de NIVEL extra que gana por tick una ciudad prioritaria pagada (además de
+## los de CityManager): sube de nivel antes. El crecimiento de población se multiplica por
+## PRIORITY_GROWTH_PERCENT, como antes.
+const PRIORITY_CITY_GROWTH := 1
+
+# --- Desmovilización (hito 11) ---
+## Devolver soldados a la vida civil es inmediato y sin coste (la vía para salir de un déficit
+## causado por un ejército demasiado grande). Solo se desmovilizan soldados de la reserva: los
+## comprometidos en un frente no (lo comprueba quien da la orden, que conoce los frentes).
+## No hay constantes: la cantidad la elige el jugador o la IA.

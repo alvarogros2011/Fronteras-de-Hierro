@@ -31,6 +31,10 @@
 ## más ancho); hoy "target" es una sola celda y se guarda aparte del origen y la dirección para
 ## poder sustituirla por una lista sin cambiar el resto. Ni IA ni multijugador crean sectores todavía.
 ##
+## Hito 11: validate_sector y create_sector admiten `allow_own_target` para los frentes de LIBERACIÓN
+## (objetivo propio ocupado por otra nación). Lo decide Offensives, que conoce la ocupación; por defecto
+## la regla de siempre (objetivo no propio) no cambia.
+##
 ## Hito 9: este sistema sigue sin saber de combate. Las ofensivas viven en Offensives, que usa los
 ## soldados asignados al sector como fuerza atacante y registra las bajas del atacante mediante
 ## apply_casualties (única vía de combate que cambia la asignación de un sector).
@@ -177,7 +181,7 @@ static func target_cell(origin: Vector2i, direction: int) -> Vector2i:
 ## objetivo no propio, sector duplicado, soldados no negativos, soldados dentro de la reserva.
 ## El objetivo puede ser tierra sin reclamar o de otra nación: preparar un sector no inicia
 ## ninguna guerra ni exige nada diplomático.
-func validate_sector(nation_id: int, origin: Vector2i, direction: int, soldiers: int = 0) -> int:
+func validate_sector(nation_id: int, origin: Vector2i, direction: int, soldiers: int = 0, allow_own_target: bool = false) -> int:
 	if not _population.has_nation(nation_id):
 		return SECTOR_ERR_UNKNOWN_NATION
 	if direction < DIR_NORTH or direction > DIR_WEST:
@@ -191,7 +195,7 @@ func validate_sector(nation_id: int, origin: Vector2i, direction: int, soldiers:
 		return SECTOR_ERR_TARGET_OUT_OF_BOUNDS
 	if not _grid.is_land(target.x, target.y):
 		return SECTOR_ERR_TARGET_WATER
-	if _grid.get_cell_owner(target.x, target.y) == nation_id:
+	if _grid.get_cell_owner(target.x, target.y) == nation_id and not allow_own_target:
 		return SECTOR_ERR_TARGET_OWN
 	if sector_at(origin, direction) != NO_SECTOR:
 		return SECTOR_ERR_DUPLICATE
@@ -207,8 +211,8 @@ func validate_sector(nation_id: int, origin: Vector2i, direction: int, soldiers:
 ## cambia nada (nunca queda un sector vacío a medias). Emite changed una sola vez. Devuelve
 ## {"ok": bool, "error": int, "id": int}; si falla, id es NO_SECTOR. Los ids son estables y no se
 ## reutilizan.
-func create_sector(nation_id: int, origin: Vector2i, direction: int, soldiers: int = 0) -> Dictionary:
-	var error := validate_sector(nation_id, origin, direction, soldiers)
+func create_sector(nation_id: int, origin: Vector2i, direction: int, soldiers: int = 0, allow_own_target: bool = false) -> Dictionary:
+	var error := validate_sector(nation_id, origin, direction, soldiers, allow_own_target)
 	if error != SECTOR_OK:
 		return {"ok": false, "error": error, "id": NO_SECTOR}
 	var sector_id := _next_id

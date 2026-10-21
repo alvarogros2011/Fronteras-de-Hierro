@@ -2,6 +2,8 @@
 ## terreno y propietario. Solo lee de TerritoryGrid. Desde el hito 7, si la celda pertenece a una
 ## ciudad del jugador, añade un control para activar o quitar su prioridad de crecimiento de
 ## población (solo cambia el crecimiento de población: nunca territorio, dinero ni nivel).
+## Hito 11: la ciudad muestra también sus puestos de trabajo, y la prioridad su coste en dinero y su
+## efecto (población x2 y nivel más rápido).
 extends PanelContainer
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -9,6 +11,7 @@ const CityManager := preload("res://scripts/world/city_manager.gd")
 const Population := preload("res://scripts/world/population.gd")
 const Occupation := preload("res://scripts/world/occupation.gd")
 const PopulationPanel := preload("res://scripts/ui/population_panel.gd")
+const PopulationBalance := preload("res://scripts/data/population_balance.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
 const NO_CELL := Vector2i(-1, -1)
@@ -80,6 +83,17 @@ static func describe_city(source: TerritoryGrid, manager: CityManager, city_id: 
 	return text
 
 
+## Línea de trabajo de la ciudad (hito 11): «Puestos de trabajo 30» (0 si está ocupada) y, si es
+## prioritaria, su coste.
+static func city_work_text(source: Population, manager: CityManager, city_id: int) -> String:
+	var city := manager.get_city(city_id)
+	var jobs: int = 0 if city["occupied"] else PopulationBalance.JOBS_PER_LEVEL[city["level"]]
+	var text := "Puestos de trabajo %d" % jobs
+	if source.is_city_priority(city_id):
+		text += " · Prioridad: -%d dinero/s" % PopulationBalance.PRIORITY_MONEY_PER_TICK
+	return text
+
+
 ## Cantidad por tick convertida a por segundo ("2" o "0,5").
 static func format_rate(per_tick: int) -> String:
 	var per_second := per_tick / Balance.TICK_SECONDS
@@ -105,6 +119,8 @@ func show_cell(cell: Vector2i) -> void:
 		city_id = cities.city_covering(cell)
 		if city_id != CityManager.NO_CITY:
 			text += "\n" + describe_city(grid, cities, city_id)
+			if population != null:
+				text += "\n" + city_work_text(population, cities, city_id)
 	_label.text = text
 	_shown_city_id = CityManager.NO_CITY
 	_priority_button.visible = false
@@ -112,6 +128,7 @@ func show_cell(cell: Vector2i) -> void:
 		_shown_city_id = city_id
 		_priority_button.visible = true
 		_priority_button.text = priority_text(population, city_id)
+		_priority_button.tooltip_text = "Cuesta %d de dinero por segundo: duplica el crecimiento de población de la ciudad y acelera su subida de nivel." % PopulationBalance.PRIORITY_MONEY_PER_TICK
 		_priority_button.set_pressed_no_signal(population.is_city_priority(city_id))
 
 

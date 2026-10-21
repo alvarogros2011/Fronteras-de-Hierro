@@ -31,6 +31,23 @@
 ## Valores de equilibrio: population_balance.gd. Las bajas de combate (hito 9) llegan solo por
 ## remove_soldiers: quitan soldados, nunca trabajadores, y la población total se deriva sola.
 ## El reparto de soldados entre frentes vive en Military (hito 8) y el combate en Offensives.
+##
+## HITO 11 (reforma de la economía). Antes de los cuatro pasos, en cada tick y por nación:
+##   0a. TRABAJO: los trabajadores empleados producen dinero y recursos. Puestos de trabajo = suma de
+##       JOBS_PER_LEVEL[nivel] de sus ciudades con dueño y SIN OCUPAR; empleados = min(trabajadores,
+##       puestos). Cada empleado produce WORKER_MONEY_MILLI / WORKER_RESOURCES_MILLI milésimas por tick
+##       (el sobrante se acumula). Los desempleados solo consumen. Así los trabajadores compensan su
+##       coste, pero la producción tiene techo: crecer de verdad exige más ciudades y más nivel. Una
+##       ciudad ocupada pierde sus puestos (sus trabajadores dejan de producir).
+##   0b. PRIORIDAD DE CRECIMIENTO CON COSTE: cada ciudad prioritaria cobra PRIORITY_MONEY_PER_TICK de
+##       dinero (en orden de id). Si se paga, ese tick su crecimiento de población se multiplica por
+##       PRIORITY_GROWTH_PERCENT y además gana PRIORITY_CITY_GROWTH puntos de nivel (CityManager.add_growth).
+##       Sin dinero suficiente, ese tick no recibe nada (y el saldo nunca queda negativo).
+## DESMOVILIZAR (demobilize) convierte soldados en trabajadores al instante y sin coste: es la palanca
+## para salir de un déficit causado por un ejército grande. Quien da la orden limita la cantidad a la
+## reserva (los soldados comprometidos en frentes no se desmovilizan).
+## Estadísticas acumuladas por nación (get_stats): lo producido por los trabajadores, lo pagado por las
+## prioridades y por el mantenimiento. Solo se leen (interfaz y pruebas).
 extends RefCounted
 
 const Economy := preload("res://scripts/world/economy.gd")
@@ -59,6 +76,11 @@ const MOB_ERR_UNKNOWN_NATION := 1
 const MOB_ERR_ACTIVE := 2  # ya hay una movilización en curso
 const MOB_ERR_PERCENT := 3  # fuera de 1..MOBILIZATION_MAX_PERCENT
 const MOB_ERR_NOTHING := 4  # el porcentaje no llega a una persona
+
+const DEMOB_OK := 0
+const DEMOB_ERR_UNKNOWN_NATION := 1
+const DEMOB_ERR_AMOUNT := 2  # cantidad < 1
+const DEMOB_ERR_NOT_ENOUGH := 3  # más soldados de los que hay
 
 var _cities: CityManager
 var _economy: Economy
@@ -102,6 +124,8 @@ func _new_nation_data(nation_id: int) -> Dictionary:
 		"mob_total": 0,  # trabajadores reservados por la orden
 		"mob_converted": 0,
 		"mob_elapsed": 0,
+		"work_carry": [0, 0],  # milésimas de dinero y de recursos producidas y aún no pagadas (< 1000)
+		"stats": {"worker_money": 0, "worker_resources": 0, "priority_paid": 0, "upkeep_paid": 0},
 	}
 
 
@@ -201,6 +225,62 @@ func upkeep_milli(nation_id: int) -> Dictionary:
 	return {"workers": worker_cost, "soldiers": soldier_cost, "total": worker_cost + soldier_cost}
 
 
+## Puestos de trabajo de la nación (hito 11): suma de JOBS_PER_LEVEL de sus ciudades sin ocupar.
+func jobs(nation_id: int) -> int:
+	var total := 0
+	for city_id: int in _cities.get_city_ids():
+		if _cities.get_owner(city_id) == nation_id and not _cities.is_occupied(city_id):
+			total += Balance.JOBS_PER_LEVEL[_cities.get_city(city_id)["level"]]
+	return total
+
+
+## Trabajadores que producen: min(trabajadores, puestos) (0 si la nación no existe).
+func employed(nation_id: int) -> int:
+	if not _nations.has(nation_id):
+		return 0
+	return mini(_nations[nation_id]["workers"], jobs(nation_id))
+
+
+## Producción de los trabajadores empleados por tick, en milésimas: {"money", "resources"}.
+func worker_output_milli(nation_id: int) -> Dictionary:
+	var count := employed(nation_id)
+	return {"money": count * Balance.WORKER_MONEY_MILLI, "resources": count * Balance.WORKER_RESOURCES_MILLI}
+
+
+## Ciudades prioritarias de la nación (solo las que siguen siendo suyas), por id.
+func priority_cities(nation_id: int) -> Array:
+	var result: Array = []
+	for city_id: int in _cities.get_city_ids():
+		if is_city_priority(city_id) and _cities.get_owner(city_id) == nation_id:
+			result.append(city_id)
+	return result
+
+
+## Dinero por tick que cuestan las prioridades de la nación si se pagan todas.
+func priority_cost(nation_id: int) -> int:
+	return priority_cities(nation_id).size() * Balance.PRIORITY_MONEY_PER_TICK
+
+
+## Balance económico por tick de la nación, en milésimas (para la interfaz y la IA): money (ciudades +
+## trabajadores - prioridades) y resources (ciudades + trabajadores - mantenimiento). Negativo = pierde.
+func net_income_milli(nation_id: int) -> Dictionary:
+	if not _nations.has(nation_id):
+		return {"money": 0, "resources": 0}
+	var base := _cities.income_for(nation_id)
+	var output := worker_output_milli(nation_id)
+	return {
+		"money": base["money"] * 1000 + output["money"] - priority_cost(nation_id) * 1000,
+		"resources": base["resources"] * 1000 + output["resources"] - upkeep_milli(nation_id)["total"],
+	}
+
+
+## Copia de las cifras acumuladas de la nación: worker_money, worker_resources (lo producido por los
+## trabajadores), priority_paid (dinero pagado por prioridades) y upkeep_paid (recursos pagados en
+## mantenimiento). Vacío si la nación no existe.
+func get_stats(nation_id: int) -> Dictionary:
+	return _nations[nation_id]["stats"].duplicate() if _nations.has(nation_id) else {}
+
+
 ## Resumen de la población de la nación (vacío si no existe): total, workers, soldiers,
 ## workers_free (sin reservar), pending (en movilización), capacity, growth_milli (efectivo en
 ## el próximo tick: 0 si hay déficit o no queda capacidad), new_soldier_percent y new_worker_percent.
@@ -222,6 +302,8 @@ func get_summary(nation_id: int) -> Dictionary:
 		"growth_milli": effective,
 		"new_soldier_percent": data["new_soldier_percent"],
 		"new_worker_percent": 100 - data["new_soldier_percent"],
+		"jobs": jobs(nation_id),
+		"employed": employed(nation_id),
 	}
 
 
@@ -287,6 +369,19 @@ static func mobilization_error_message(code: int) -> String:
 			return "El porcentaje debe estar entre 1 y %d." % Balance.MOBILIZATION_MAX_PERCENT
 		MOB_ERR_NOTHING:
 			return "No hay trabajadores suficientes para movilizar ese porcentaje."
+	return "Error desconocido."
+
+
+static func demobilization_error_message(code: int) -> String:
+	match code:
+		DEMOB_OK:
+			return "Soldados desmovilizados: vuelven a trabajar."
+		DEMOB_ERR_UNKNOWN_NATION:
+			return "Nación desconocida."
+		DEMOB_ERR_AMOUNT:
+			return "Elige al menos 1 soldado."
+		DEMOB_ERR_NOT_ENOUGH:
+			return "No hay tantos soldados en la reserva."
 	return "Error desconocido."
 
 
@@ -357,6 +452,24 @@ func start_mobilization(nation_id: int, percent: int) -> int:
 	return MOB_OK
 
 
+## Desmoviliza `amount` soldados (hito 11): pasan a trabajadores al instante, sin coste, sin bajas y sin
+## cambiar la población total. Devuelve DEMOB_OK o el motivo (DEMOB_ERR_*) sin cambiar nada. No sabe de
+## frentes: quien ordena (interfaz o IA) limita la cantidad a la reserva de Military; si aun así se
+## desmovilizara un soldado asignado, Military recorta sus frentes como con cualquier baja.
+func demobilize(nation_id: int, amount: int) -> int:
+	if not _nations.has(nation_id):
+		return DEMOB_ERR_UNKNOWN_NATION
+	if amount < 1:
+		return DEMOB_ERR_AMOUNT
+	var data: Dictionary = _nations[nation_id]
+	if amount > data["soldiers"]:
+		return DEMOB_ERR_NOT_ENOUGH
+	data["soldiers"] -= amount
+	data["workers"] += amount
+	changed.emit()
+	return DEMOB_OK
+
+
 ## Baja de combate (hito 9): quita hasta `amount` soldados de la nación (nunca trabajadores) y
 ## devuelve cuántos quitó (0 si la nación no existe o amount <= 0). No toca la movilización en
 ## curso ni los trabajadores; los totales se derivan, así que la población total baja lo mismo.
@@ -378,18 +491,61 @@ func remove_soldiers(nation_id: int, amount: int) -> int:
 func _on_tick() -> void:
 	for nation_id: int in _nations:
 		var data: Dictionary = _nations[nation_id]
-		_grow(nation_id, data)
+		_work(nation_id, data)
+		var boosted := _pay_priorities(nation_id, data)
+		_grow(nation_id, data, boosted)
 		_progress_mobilization(data)
 		_maintain(nation_id, data)
 		_apply_deficit(data)
 	changed.emit()
 
 
+## 0a. Producción de los trabajadores empleados (con el sobrante en milésimas acumulado).
 @warning_ignore("integer_division")
-func _grow(nation_id: int, data: Dictionary) -> void:
+func _work(nation_id: int, data: Dictionary) -> void:
+	var output := worker_output_milli(nation_id)
+	var money: int = data["work_carry"][0] + output["money"]
+	var resources: int = data["work_carry"][1] + output["resources"]
+	data["work_carry"][0] = money % 1000
+	data["work_carry"][1] = resources % 1000
+	var paid_money: int = money / 1000
+	var paid_resources: int = resources / 1000
+	if paid_money > 0 or paid_resources > 0:
+		_economy.add(nation_id, paid_money, paid_resources)
+		data["stats"]["worker_money"] += paid_money
+		data["stats"]["worker_resources"] += paid_resources
+
+
+## 0b. Cobra las prioridades de crecimiento (en orden de id de ciudad) y aplica su crecimiento de nivel
+## extra. Devuelve el conjunto (Dictionary id -> true) de ciudades pagadas en este tick.
+func _pay_priorities(nation_id: int, data: Dictionary) -> Dictionary:
+	var boosted := {}
+	for city_id: int in priority_cities(nation_id):
+		if not _economy.spend_money(nation_id, Balance.PRIORITY_MONEY_PER_TICK):
+			continue
+		data["stats"]["priority_paid"] += Balance.PRIORITY_MONEY_PER_TICK
+		boosted[city_id] = true
+		_cities.add_growth(city_id, Balance.PRIORITY_CITY_GROWTH)
+	return boosted
+
+
+## Crecimiento por tick de la nación con la prioridad aplicada solo a las ciudades pagadas.
+@warning_ignore("integer_division")
+func _paid_growth_milli(nation_id: int, boosted: Dictionary) -> int:
+	var total := 0
+	for city_id: int in _cities.get_city_ids():
+		if _cities.get_owner(city_id) != nation_id:
+			continue
+		var base: int = Balance.GROWTH_MILLI_PER_LEVEL[_cities.get_city(city_id)["level"]]
+		total += base * Balance.PRIORITY_GROWTH_PERCENT / 100 if boosted.has(city_id) else base
+	return total
+
+
+@warning_ignore("integer_division")
+func _grow(nation_id: int, data: Dictionary, boosted: Dictionary) -> void:
 	if _stage_of(data) != STAGE_OK:
 		return
-	var pending: int = data["growth_carry"] + growth_milli(nation_id)
+	var pending: int = data["growth_carry"] + _paid_growth_milli(nation_id, boosted)
 	var room := maxi(0, capacity(nation_id) - data["workers"] - data["soldiers"])
 	var born := mini(pending / 1000, room)
 	pending -= born * 1000
@@ -441,6 +597,7 @@ func _maintain(nation_id: int, data: Dictionary) -> void:
 		data["debt"][group] = mini(demand[group] - paid, debt_limit)
 	if spent > 0:
 		_economy.spend_resources(nation_id, spent)
+		data["stats"]["upkeep_paid"] += spent
 
 
 func _apply_deficit(data: Dictionary) -> void:

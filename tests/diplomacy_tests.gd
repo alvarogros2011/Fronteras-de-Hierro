@@ -171,6 +171,8 @@ func _make_world(initial: Dictionary, grid: TerritoryGrid = null, with_city: boo
 	var military := Military.new(grid, population)
 	var wars := WarState.new(cities)
 	var offensives := Offensives.new(grid, population, military, cities, occupation, wars)
+	# Escenarios celda a celda de los hitos 9 y 10 (el frente ancho del hito 11 está en tests/gameplay_tests.gd).
+	offensives.front_half_width = 0
 	var diplomacy := Diplomacy.new(grid, economy, cities, population, occupation, wars, offensives)
 	return {"grid": grid, "economy": economy, "cities": cities, "pop": population, "mil": military,
 			"occ": occupation, "wars": wars, "off": offensives, "dip": diplomacy}
@@ -983,6 +985,7 @@ func _test_diplomacy_panel() -> Array:
 		return errors
 	var screen: Screen = scene.instantiate()
 	tree.root.add_child(screen)
+	screen.ai.enabled = false  # sin decisiones de la IA estratégica (hito 11): escenario controlado
 	var panel: DiplomacyPanel = screen.get_node("%Diplomacia")
 	var dip: Diplomacy = screen.diplomacy
 	var wars: WarState = screen.wars
@@ -1081,6 +1084,7 @@ func _test_screen() -> Array:
 		return errors
 	var screen: Screen = scene.instantiate()
 	tree.root.add_child(screen)
+	screen.ai.enabled = false  # sin decisiones de la IA estratégica (hito 11): escenario controlado
 	var cities: CityManager = screen.cities
 	var pause_button: Button = screen.get_node("%BotonPausa")
 	var indicator: Label = screen.get_node("%IndicadorPausa")

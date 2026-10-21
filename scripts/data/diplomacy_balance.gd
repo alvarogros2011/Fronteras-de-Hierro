@@ -32,3 +32,13 @@ const CASUALTY_WEIGHT := 2
 const PEACE_SEEK_MARGIN := 15
 ## La IA contraoferta (en vez de rechazar) si le faltan como mucho estos puntos para aceptar.
 const COUNTER_MAX_SHORTFALL := 40
+
+# --- Hito 11: la guerra también se mide en economía ---
+## Con el frente ancho se ocupan muchas celdas: la parte de la «esperanza» que sale de las celdas
+## ocupadas (diferencia * CELL_VALUE) se limita a ± este valor, para que una IA que ocupa mucho siga
+## pudiendo cansarse de la guerra.
+const HELD_HOPE_CAP := 60
+## Cansancio extra mientras la IA está en déficit de recursos (no puede sostener su ejército).
+const DEFICIT_WEARINESS := 40
+## Cansancio extra por cada ciudad propia cuyo centro ocupa el rival (pierde su producción).
+const OCCUPIED_CITY_WEARINESS := 25

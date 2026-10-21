@@ -387,16 +387,43 @@ func _tick() -> void:
 		if not is_occupied(city_id):
 			money[owner_id] = money.get(owner_id, 0) + Balance.MONEY_PER_TICK[level]
 			resources[owner_id] = resources.get(owner_id, 0) + Balance.RESOURCES_PER_TICK[level]
-		if level < Balance.MAX_LEVEL:
-			city["progress"] += Balance.GROWTH_PER_TICK
-			while city["level"] < Balance.MAX_LEVEL and city["progress"] >= growth_needed(city["level"]):
-				city["progress"] -= growth_needed(city["level"])
-				city["level"] += 1
-				leveled = true
-			if city["level"] >= Balance.MAX_LEVEL:
-				city["progress"] = 0
+		if _grow(city, Balance.GROWTH_PER_TICK):
+			leveled = true
 	for owner_id: int in money:
 		_economy.add(owner_id, money[owner_id], resources[owner_id])
 	if leveled:
 		changed.emit()
 	ticked.emit()
+
+
+## Suma `points` de crecimiento a la ciudad y sube de nivel al alcanzar los umbrales (el sobrante se
+## conserva; en el nivel máximo el progreso queda a 0). Devuelve si subió de nivel.
+func _grow(city: Dictionary, points: int) -> bool:
+	if city["level"] >= Balance.MAX_LEVEL:
+		return false
+	var leveled := false
+	city["progress"] += points
+	while city["level"] < Balance.MAX_LEVEL and city["progress"] >= growth_needed(city["level"]):
+		city["progress"] -= growth_needed(city["level"])
+		city["level"] += 1
+		leveled = true
+	if city["level"] >= Balance.MAX_LEVEL:
+		city["progress"] = 0
+	return leveled
+
+
+## Crecimiento de nivel EXTRA (hito 11): lo usa la prioridad de crecimiento pagada (Population). Suma
+## `points` a una ciudad con propietario, igual que un tick. No produce nada ni toca la cuadrícula.
+## Devuelve false, sin cambiar nada, si la ciudad no existe, no tiene dueño, points <= 0 o ya es de
+## nivel máximo. Emite `changed` si sube de nivel.
+func add_growth(city_id: int, points: int) -> bool:
+	if not _cities.has(city_id) or points <= 0:
+		return false
+	var owner_id := get_owner(city_id)
+	if owner_id == TerritoryGrid.OWNER_NONE or owner_id == TerritoryGrid.INVALID:
+		return false
+	if _cities[city_id]["level"] >= Balance.MAX_LEVEL:
+		return false
+	if _grow(_cities[city_id], points):
+		changed.emit()
+	return true

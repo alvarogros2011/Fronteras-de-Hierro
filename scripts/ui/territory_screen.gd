@@ -16,6 +16,10 @@
 ##
 ## Modo de fundación: el botón (o begin_founding) lo activa; mientras está activo el clic en el
 ## mapa intenta fundar una ciudad en vez de seleccionar. Escape o el botón lo cancelan.
+##
+## Hito 11: crea la IA estratégica (AIController, cuelga del mismo reloj) y muestra sus avisos (guerras
+## declaradas, paces) en la línea de mensajes. El resumen económico incluye a los trabajadores y el
+## mantenimiento: es el balance real por segundo.
 extends Control
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -35,6 +39,7 @@ const WarState := preload("res://scripts/world/war_state.gd")
 const Diplomacy := preload("res://scripts/world/diplomacy.gd")
 const DiplomacyPanel := preload("res://scripts/ui/diplomacy_panel.gd")
 const Offensives := preload("res://scripts/world/offensives.gd")
+const AIController := preload("res://scripts/world/ai_controller.gd")
 const Balance := preload("res://scripts/data/economy_balance.gd")
 
 ## Tope de segundos de juego por fotograma (evita un salto enorme tras una pausa de la ventana).
@@ -49,6 +54,7 @@ var occupation: Occupation
 var wars: WarState
 var offensives: Offensives
 var diplomacy: Diplomacy
+var ai: AIController
 var founding_mode: bool = false
 
 var _player_id: int = TerritoryGrid.INVALID
@@ -87,6 +93,9 @@ func _ready() -> void:
 	offensives = Offensives.new(grid, population, military, cities, occupation, wars)
 	# La diplomacia va después de las ofensivas: en cada tick las ofensivas avanzan antes de que la IA proponga.
 	diplomacy = Diplomacy.new(grid, economy, cities, population, occupation, wars, offensives)
+	# La IA decide al final de cada tick, cuando el resto de sistemas ya ha avanzado.
+	ai = AIController.new(grid, economy, cities, population, military, occupation, wars, offensives, diplomacy)
+	ai.event.connect(_on_ai_event)
 	_view.occupation = occupation
 	_info.grid = grid
 	_info.occupation = occupation
@@ -101,7 +110,7 @@ func _ready() -> void:
 	economy.balances_changed.connect(_refresh_economy)
 	cities.changed.connect(_on_cities_changed)
 	population.changed.connect(_on_population_changed)
-	_population_panel.setup(population, cities, _player_id)
+	_population_panel.setup(population, cities, _player_id, military)
 	_military_panel.setup(military, population, grid, _player_id, offensives, wars, occupation)
 	_diplomacy_panel.setup(diplomacy, wars, grid, economy, occupation, cities, _player_id)
 	_sector_layer.setup(grid, military, _player_id, offensives)
@@ -177,15 +186,32 @@ func _set_pause_ui() -> void:
 # Economía en el HUD
 # ---------------------------------------------------------------------------
 
-## "Dinero 50 (+2/s) · Recursos 0 (+1/s)" para la nación indicada.
+## "Dinero 50 (+2/s) · Recursos 0 (+1/s)" para la nación indicada (solo la producción de las ciudades).
 static func economy_summary(source: Economy, manager: CityManager, nation_id: int) -> String:
 	var income := manager.income_for(nation_id)
 	return "Dinero %d (+%s/s) · Recursos %d (+%s/s)" % [source.get_money(nation_id), InfoPanel.format_rate(income["money"]),
 			source.get_resources(nation_id), InfoPanel.format_rate(income["resources"])]
 
 
+## Hito 11: "Dinero 50 (+3,2/s) · Recursos 10 (+1,39/s)" con el balance REAL por segundo (ciudades +
+## trabajadores - prioridades; ciudades + trabajadores - mantenimiento). Un balance negativo sale con "-".
+static func net_economy_summary(source: Economy, people: Population, nation_id: int) -> String:
+	var net := people.net_income_milli(nation_id)
+	return "Dinero %d (%s/s) · Recursos %d (%s/s)" % [source.get_money(nation_id), signed_milli_rate(net["money"]),
+			source.get_resources(nation_id), signed_milli_rate(net["resources"])]
+
+
+## "+1,39", "-0,5" o "+0": milésimas por tick como cantidad por segundo con signo.
+static func signed_milli_rate(milli_per_tick: int) -> String:
+	var text := PopulationPanel.format_milli_rate(absi(milli_per_tick))
+	return ("-" if milli_per_tick < 0 else "+") + text
+
+
 func _refresh_economy() -> void:
-	_economy_label.text = economy_summary(economy, cities, _player_id)
+	if population != null:
+		_economy_label.text = net_economy_summary(economy, population, _player_id)
+	else:
+		_economy_label.text = economy_summary(economy, cities, _player_id)
 
 
 func _on_cities_changed() -> void:
@@ -197,6 +223,12 @@ func _on_cities_changed() -> void:
 ## seleccionada (estado de la prioridad de crecimiento de su ciudad).
 func _on_population_changed() -> void:
 	_info.show_cell(_view.selected_cell)
+	_refresh_economy()
+
+
+## Aviso de la IA (guerra declarada, paz firmada): se muestra en la línea de mensajes.
+func _on_ai_event(text: String) -> void:
+	_message_label.text = text
 
 
 # ---------------------------------------------------------------------------

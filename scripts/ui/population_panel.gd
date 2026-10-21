@@ -5,9 +5,15 @@
 ## No guarda datos propios: cada refresh() lee del estado real (Population, CityManager). Los
 ## controles solo llaman a las órdenes de Population; los valores mostrados vuelven siempre de ahí.
 ## Los textos salen de funciones estáticas para poder probarlos sin nodos.
+##
+## Hito 11: muestra el EMPLEO (trabajadores que producen / puestos de las ciudades y lo que aportan) y
+## añade «Desmovilizar»: devuelve a la vida civil el porcentaje elegido de la RESERVA (los soldados que no
+## están en un frente; Military da la reserva). Es la salida rápida de un déficit causado por el ejército.
+## El mantenimiento se compara con toda la producción de recursos (ciudades + trabajadores).
 extends PanelContainer
 
 const Population := preload("res://scripts/world/population.gd")
+const Military := preload("res://scripts/world/military.gd")
 const CityManager := preload("res://scripts/world/city_manager.gd")
 const Balance := preload("res://scripts/data/population_balance.gd")
 const EconomyBalance := preload("res://scripts/data/economy_balance.gd")
@@ -24,10 +30,13 @@ const MOBILIZATION_STEP := 5
 
 var _population: Population
 var _cities: CityManager
+var _military: Military = null
 var _nation_id: int = -1
 
 var _summary_label: Label
 var _growth_label: Label
+var _jobs_label: Label
+var _demob_button: Button
 var _split_slider: HSlider
 var _split_label: Label
 var _mob_slider: HSlider
@@ -47,6 +56,7 @@ func _ready() -> void:
 	_add_heading(box, "POBLACIÓN")
 	_summary_label = _add_label(box, TEXT_COLOR, "Resumen")
 	_growth_label = _add_label(box, MUTED_COLOR, "Crecimiento")
+	_jobs_label = _add_label(box, TEXT_COLOR, "Empleo")
 
 	_add_heading(box, "POBLACIÓN NUEVA")
 	_split_slider = _add_slider(box, 0, 100, 1, "SliderNueva")
@@ -69,6 +79,13 @@ func _ready() -> void:
 	_mob_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(_mob_bar)
 	_mob_label = _add_label(box, TEXT_COLOR, "EstadoMovilizacion")
+	_demob_button = Button.new()
+	_demob_button.name = "BotonDesmovilizar"
+	_demob_button.focus_mode = Control.FOCUS_NONE
+	_demob_button.add_theme_font_size_override("font_size", FONT_SIZE)
+	_demob_button.tooltip_text = "Devuelve a trabajar ese porcentaje de los soldados en reserva (no los de los frentes)"
+	_demob_button.pressed.connect(_on_demob_button_pressed)
+	box.add_child(_demob_button)
 
 	_add_heading(box, "MANTENIMIENTO")
 	_maint_label = _add_label(box, TEXT_COLOR, "EstadoMantenimiento")
@@ -116,12 +133,31 @@ func _add_slider(box: Container, min_value: int, max_value: int, step: int, node
 
 ## Conecta el panel con los datos del jugador y lo refresca. Se vuelve a dibujar solo cada vez
 ## que Population emite `changed`.
-func setup(population: Population, cities: CityManager, nation_id: int) -> void:
+func setup(population: Population, cities: CityManager, nation_id: int, military: Military = null) -> void:
 	_population = population
 	_cities = cities
 	_nation_id = nation_id
+	_military = military
 	population.changed.connect(refresh)
+	if military != null:
+		military.changed.connect(refresh)
 	refresh()
+
+
+## Soldados de la reserva (sin frente). Sin Military, todos los soldados.
+func reserve_soldiers() -> int:
+	if _military != null:
+		return maxi(0, _military.available_soldiers(_nation_id))
+	return maxi(0, _population.soldiers(_nation_id))
+
+
+## Soldados que desmovilizaría «Desmovilizar» con el porcentaje del deslizador (al menos 1 si hay reserva).
+@warning_ignore("integer_division")
+func demobilization_amount() -> int:
+	var reserve := reserve_soldiers()
+	if reserve <= 0:
+		return 0
+	return clampi(reserve * int(_mob_slider.value) / 100, 1, reserve)
 
 
 ## Vuelve a leer el estado real y actualiza todos los textos y controles.
@@ -141,8 +177,12 @@ func refresh() -> void:
 	_mob_bar.visible = mobilization["active"]
 	_mob_bar.value = mobilization["progress_percent"]
 	_mob_button.disabled = mobilization["active"]
-	var income: int = _cities.income_for(_nation_id)["resources"]
-	_maint_label.text = maintenance_text(maintenance, income)
+	var production_milli: int = _cities.income_for(_nation_id)["resources"] * 1000 + _population.worker_output_milli(_nation_id)["resources"]
+	_maint_label.text = maintenance_text_milli(maintenance, production_milli)
+	_jobs_label.text = jobs_text(summary, _population.worker_output_milli(_nation_id))
+	var demob := demobilization_amount()
+	_demob_button.text = demobilization_button_text(demob)
+	_demob_button.disabled = demob <= 0
 	_maint_label.add_theme_color_override("font_color", OK_COLOR if not maintenance["in_deficit"] else BAD_COLOR)
 	_maint_button.text = maintenance_priority_text(maintenance["priority"])
 	_deficit_label.text = deficit_text(maintenance)
@@ -155,6 +195,14 @@ func _on_split_changed(value: float) -> void:
 
 func _on_mob_slider_changed(value: float) -> void:
 	_mob_button.text = mobilization_button_text(int(value))
+	refresh()
+
+
+func _on_demob_button_pressed() -> void:
+	var amount := demobilization_amount()
+	var code := _population.demobilize(_nation_id, amount) if amount > 0 else Population.DEMOB_ERR_AMOUNT
+	_message_label.text = Population.demobilization_error_message(code) if code != Population.DEMOB_OK \
+			else "%d soldados vuelven a trabajar." % amount
 
 
 func _on_mob_button_pressed() -> void:
@@ -215,9 +263,27 @@ static func mobilization_text(mobilization: Dictionary) -> String:
 
 ## Coste de mantenimiento frente a la producción de recursos (por segundo) y si es suficiente.
 static func maintenance_text(maintenance: Dictionary, resource_income_per_tick: int) -> String:
+	return maintenance_text_milli(maintenance, resource_income_per_tick * 1000)
+
+
+## Igual que maintenance_text con la producción en milésimas por tick (ciudades + trabajadores, hito 11).
+static func maintenance_text_milli(maintenance: Dictionary, production_milli: int) -> String:
 	var state := "Suficiente" if not maintenance["in_deficit"] else "INSUFICIENTE"
 	return "Coste %s/s · Producción %s/s\n%s" % [format_milli_rate(maintenance["cost_milli"]["total"]),
-			format_milli_rate(resource_income_per_tick * 1000), state]
+			format_milli_rate(production_milli), state]
+
+
+## "Empleo 30/30 puestos\n+1,2 dinero/s · +0,9 recursos/s" (hito 11): trabajadores que producen, puestos
+## de las ciudades y lo que aportan por segundo.
+static func jobs_text(summary: Dictionary, output_milli: Dictionary) -> String:
+	var text := "Empleo %d/%d puestos" % [summary["employed"], summary["jobs"]]
+	if summary["workers"] > summary["jobs"]:
+		text += " (%d sin trabajo)" % (summary["workers"] - summary["jobs"])
+	return text + "\n+%s dinero/s · +%s recursos/s" % [format_milli_rate(output_milli["money"]), format_milli_rate(output_milli["resources"])]
+
+
+static func demobilization_button_text(amount: int) -> String:
+	return "Desmovilizar %d" % amount if amount > 0 else "Sin reserva que desmovilizar"
 
 
 static func maintenance_priority_text(priority: int) -> String:

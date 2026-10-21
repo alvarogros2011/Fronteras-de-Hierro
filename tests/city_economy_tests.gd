@@ -553,7 +553,7 @@ func _test_screen() -> Array:
 	var button: Button = screen.get_node("%BotonFundar")
 	var view = screen.get_node("%Mapa")
 	_expect(errors, cities.city_count(), 4, "la pantalla arranca con 4 ciudades")
-	_expect(errors, label.text, Screen.economy_summary(economy, cities, PLAYER), "el HUD muestra la economía del jugador")
+	_expect(errors, label.text, Screen.net_economy_summary(economy, screen.population, PLAYER), "el HUD muestra la economía del jugador (balance real, hito 11)")
 	_expect(errors, label.text.contains("Dinero %d" % Balance.INITIAL_MONEY), true, "el HUD muestra el dinero inicial")
 	_expect(errors, screen.is_processing(), false, "sin cambios no se recalcula")
 	# Modo de fundación: botón y cancelación.
@@ -586,7 +586,7 @@ func _test_screen() -> Array:
 	_expect(errors, economy.get_money(PLAYER), money - Balance.FOUND_COST, "clic válido: se cobra el coste")
 	_expect(errors, screen.founding_mode, false, "tras fundar termina el modo")
 	_expect(errors, grid.copy_owner_data() == owners_before, true, "el territorio no cambió")
-	_expect(errors, label.text, Screen.economy_summary(economy, cities, PLAYER), "el HUD se actualiza tras fundar")
+	_expect(errors, label.text, Screen.net_economy_summary(economy, screen.population, PLAYER), "el HUD se actualiza tras fundar")
 	# Fuera del modo el clic vuelve a seleccionar.
 	view.pointer_pressed(view.cell_center_global(target))
 	_expect(errors, view.selected_cell, target, "fuera del modo, el clic selecciona")

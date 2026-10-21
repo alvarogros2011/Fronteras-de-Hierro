@@ -361,9 +361,12 @@ func _test_priority_growth() -> Array:
 	_advance(boosted, 20)
 	_expect(errors, pop_a.total_population(PLAYER) - 10, 3, "sin prioridad: 3 nacidos en 20 ticks")
 	_expect(errors, pop_b.total_population(PLAYER) - 10, 6, "con prioridad: 6 nacidos en 20 ticks")
-	# La prioridad no cambia dinero, niveles, progreso ni territorio.
-	_expect(errors, boosted["economy"].get_money(PLAYER), plain["economy"].get_money(PLAYER), "mismo dinero")
-	_expect(errors, [boosted["cities"].get_city(1)["level"], boosted["cities"].get_city(1)["progress"]], [plain["cities"].get_city(1)["level"], plain["cities"].get_city(1)["progress"]], "mismo nivel y progreso")
+	# Hito 11: la prioridad cuesta PRIORITY_MONEY_PER_TICK de dinero por tick y acelera el nivel de la ciudad
+	# (PRIORITY_CITY_GROWTH puntos extra por tick); nunca cambia el territorio.
+	_expect(errors, [pop_b.get_stats(PLAYER)["priority_paid"], pop_a.get_stats(PLAYER)["priority_paid"]], [20 * Balance.PRIORITY_MONEY_PER_TICK, 0], "la prioridad cobra su coste cada tick")
+	var points := 20 * (EconomyBalance.GROWTH_PER_TICK + Balance.PRIORITY_CITY_GROWTH)
+	_expect(errors, [boosted["cities"].get_city(1)["level"], boosted["cities"].get_city(1)["progress"]], [2, points - EconomyBalance.GROWTH_TO_NEXT[1]], "la ciudad prioritaria sube antes de nivel")
+	_expect(errors, [plain["cities"].get_city(1)["level"], plain["cities"].get_city(1)["progress"]], [1, 20 * EconomyBalance.GROWTH_PER_TICK], "la otra sigue su ritmo")
 	_expect(errors, boosted["grid"].copy_owner_data() == plain["grid"].copy_owner_data(), true, "mismo territorio")
 	# Se puede quitar.
 	pop_b.set_city_priority(PLAYER, 1, false)
@@ -535,11 +538,18 @@ func _test_upkeep_cost() -> Array:
 	_expect(errors, [cost["workers"], cost["soldiers"], cost["total"]], [150 * Balance.WORKER_UPKEEP_MILLI, 90 * Balance.SOLDIER_UPKEEP_MILLI, 150 * Balance.WORKER_UPKEEP_MILLI + 90 * Balance.SOLDIER_UPKEEP_MILLI], "coste por tick en milésimas")
 	var start := economy.get_resources(PLAYER)
 	var income: int = EconomyBalance.RESOURCES_PER_TICK[EconomyBalance.MAX_LEVEL]
+	# Hito 11: los trabajadores empleados (150 trabajadores, 140 puestos) también producen recursos.
+	var employed := mini(150, Balance.JOBS_PER_LEVEL[EconomyBalance.MAX_LEVEL])
+	_expect(errors, pop.employed(PLAYER), employed, "empleados = min(trabajadores, puestos)")
 	_advance(world, 10)
+	var produced_10: int = 10 * employed * Balance.WORKER_RESOURCES_MILLI / 1000
+	_expect(errors, pop.get_stats(PLAYER)["worker_resources"], produced_10, "lo producido por los empleados en 10 ticks")
 	# 10 ticks: 18.000 milésimas de trabajadores (18) y 22.500 de soldados (22, quedan 500 acumuladas).
-	_expect(errors, economy.get_resources(PLAYER), start + 10 * income - 40, "10 ticks cuestan exactamente 40 recursos")
+	_expect(errors, economy.get_resources(PLAYER), start + 10 * income + produced_10 - 40, "10 ticks cuestan exactamente 40 recursos")
+	_expect(errors, pop.get_stats(PLAYER)["upkeep_paid"], 40, "y se anotan como mantenimiento pagado")
 	_advance(world, 10)
-	_expect(errors, economy.get_resources(PLAYER), start + 20 * income - 81, "20 ticks cuestan 36 + 45 = 81: el redondeo no se acumula")
+	var produced_20: int = 20 * employed * Balance.WORKER_RESOURCES_MILLI / 1000
+	_expect(errors, economy.get_resources(PLAYER), start + 20 * income + produced_20 - 81, "20 ticks cuestan 36 + 45 = 81: el redondeo no se acumula")
 	_expect(errors, [pop.get_maintenance(PLAYER)["in_deficit"], pop.get_maintenance(PLAYER)["debt"]["total"]], [false, 0], "sin déficit ni deuda")
 	_expect(errors, _people(pop, PLAYER), [150, 90], "pagar no cambia la población")
 	# Sin población no hay coste.
@@ -577,18 +587,20 @@ func _test_maintenance_priority() -> Array:
 	_expect(errors, one["pop"].set_maintenance_priority(PLAYER, 2), false, "valor de prioridad inválido rechazado")
 	_expect(errors, one["pop"].set_maintenance_priority(99, Population.MAINT_SOLDIERS_FIRST), false, "nación inexistente rechazada")
 	_expect(errors, one["pop"].maintenance_priority(PLAYER), Population.MAINT_WORKERS_FIRST, "por defecto cobran primero los trabajadores")
-	# A largo plazo, con una producción insuficiente, el grupo sin prioridad es el que pierde gente.
+	# A largo plazo, con una producción insuficiente, el grupo sin prioridad es el que pierde gente. Desde el
+	# hito 11 los 30 trabajadores empleados aportan 0,9 recursos/tick: hacen falta 60 soldados (no 40) para que
+	# el coste (0,6 + 1,5) supere la producción (1 + 0,9).
 	for soldiers_first in [false, true]:
-		var world := _make_world({PLAYER: {"workers": 50, "soldiers": 40}})
+		var world := _make_world({PLAYER: {"workers": 50, "soldiers": 60}})
 		var pop: Population = world["pop"]
 		pop.set_maintenance_priority(PLAYER, Population.MAINT_SOLDIERS_FIRST if soldiers_first else Population.MAINT_WORKERS_FIRST)
 		_advance(world, 30)
 		if soldiers_first:
-			_expect(errors, pop.soldiers(PLAYER), 40, "prioridad ejército: los soldados no pierden a nadie")
+			_expect(errors, pop.soldiers(PLAYER), 60, "prioridad ejército: los soldados no pierden a nadie")
 			_expect(errors, pop.workers(PLAYER) < 50, true, "prioridad ejército: los trabajadores sí")
 		else:
 			_expect(errors, pop.workers(PLAYER), 50, "prioridad economía: los trabajadores no pierden a nadie")
-			_expect(errors, pop.soldiers(PLAYER) < 40, true, "prioridad economía: los soldados sí")
+			_expect(errors, pop.soldiers(PLAYER) < 60, true, "prioridad economía: los soldados sí")
 	return errors
 
 
@@ -655,10 +667,10 @@ func _test_deficit_with_mobilization() -> Array:
 
 func _test_deficit_recovers() -> Array:
 	var errors: Array = []
-	# Una ciudad (1 recurso/tick) no puede mantener 50 + 50: hay déficit hasta que se pierden soldados
-	# y sube de nivel; después se estabiliza y vuelve a crecer.
-	var world := _make_world({PLAYER: {"workers": 50, "soldiers": 50}})
-	var control := _make_world({PLAYER: {"workers": 50, "soldiers": 50}})
+	# Una ciudad (1 recurso/tick, más 0,9 de sus 30 empleados desde el hito 11) no puede mantener 40 + 60:
+	# hay déficit hasta que se pierden soldados y sube de nivel; después se estabiliza y vuelve a crecer.
+	var world := _make_world({PLAYER: {"workers": 40, "soldiers": 60}})
+	var control := _make_world({PLAYER: {"workers": 40, "soldiers": 60}})
 	var pop: Population = world["pop"]
 	var economy: Economy = world["economy"]
 	var seen_deficit := false
@@ -763,15 +775,18 @@ func _test_previous_behavior_kept() -> Array:
 	with_pop["cities"].ticked.connect(_count_tick)
 	var pop: Population = with_pop["pop"]
 	pop.start_mobilization(PLAYER, 50)
-	pop.set_city_priority(PLAYER, 1, true)
+	# (La prioridad de crecimiento, que desde el hito 11 cuesta dinero y acelera el nivel, se prueba aparte.)
 	pop.set_maintenance_priority(PLAYER, Population.MAINT_SOLDIERS_FIRST)
 	_advance(with_pop, 100)
 	cities.advance(100.0)
 	_expect(errors, _tick_count, 100, "cada tick de ciudades emite ticked una vez")
 	_expect(errors, _signal_count, 0, "población y economía no emiten ownership_changed")
+	# Hito 11: la población solo añade lo que producen sus trabajadores empleados y resta su mantenimiento.
 	for nation_id: int in grid.get_nation_ids():
-		_expect(errors, with_pop["economy"].get_money(nation_id), economy.get_money(nation_id), "mismo dinero con y sin población (nación %d)" % nation_id)
-	_expect(errors, with_pop["economy"].get_resources(PLAYER) <= economy.get_resources(PLAYER), true, "los recursos solo pueden ser menores (mantenimiento)")
+		var stats: Dictionary = pop.get_stats(nation_id)
+		_expect(errors, with_pop["economy"].get_money(nation_id), economy.get_money(nation_id) + stats["worker_money"] - stats["priority_paid"], "dinero = el de las ciudades + lo de los trabajadores (nación %d)" % nation_id)
+		_expect(errors, with_pop["economy"].get_resources(nation_id), economy.get_resources(nation_id) + stats["worker_resources"] - stats["upkeep_paid"], "recursos = ciudades + trabajadores - mantenimiento (nación %d)" % nation_id)
+	_expect(errors, pop.get_stats(PLAYER)["worker_money"] > 0, true, "los trabajadores del jugador produjeron")
 	_expect(errors, with_pop["economy"].get_resources(PLAYER) >= 0, true, "y nunca negativos")
 	for city_id: int in cities.get_city_ids():
 		var a: Dictionary = with_pop["cities"].get_city(city_id)
@@ -849,6 +864,7 @@ func _test_screen() -> Array:
 		return errors
 	var screen: Screen = scene.instantiate()
 	tree.root.add_child(screen)
+	screen.ai.enabled = false  # sin decisiones de la IA estratégica (hito 11): escenario controlado
 	var grid: TerritoryGrid = screen.grid
 	var economy: Economy = screen.economy
 	var cities: CityManager = screen.cities

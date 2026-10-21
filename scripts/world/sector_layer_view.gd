@@ -17,6 +17,9 @@
 ## el ataque sigue activo, una punta de flecha hacia la celda a la que apunta ahora. Un ataque
 ## detenido conserva la línea hasta el frente y un pequeño cuadrado de «alto» en su color apagado. Su
 ## cifra de soldados se coloca junto a la celda siguiente al frente (no junto al objetivo original).
+##
+## Amenazas (hito 11): las ofensivas ACTIVAS de otras naciones contra el jugador se dibujan en rojo: un
+## recuadro en su frente, una punta de flecha hacia la celda a la que apuntan y su cifra de soldados.
 extends Node2D
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -30,6 +33,8 @@ const SELECT_COLOR := Color(1, 1, 1, 0.95)
 ## Color del sector en ataque (naranja vivo) y del ataque detenido (el mismo, apagado).
 const ATTACK_COLOR := Color(1.0, 0.55, 0.15)
 const STOPPED_COLOR := Color(0.62, 0.5, 0.4, 0.9)
+## Ofensiva enemiga contra el jugador.
+const THREAT_COLOR := Color(0.95, 0.2, 0.2)
 const ATTACK_LINE_WIDTH := 0.9
 const TEXT_COLOR := Color(1, 1, 1)
 const TEXT_OUTLINE_COLOR := Color(0, 0, 0, 0.9)
@@ -152,6 +157,21 @@ func _draw() -> void:
 		draw_set_transform(rect.position + Vector2(0.0, ascent), 0.0, Vector2.ONE / scale_factor)
 		draw_string_outline(font, Vector2.ZERO, str(soldiers), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, 3, TEXT_OUTLINE_COLOR)
 		draw_string(font, Vector2.ZERO, str(soldiers), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, text_color)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if _offensives == null:
+		return
+	for attack: Dictionary in _offensives.attacks_against(_nation_id):
+		var data := _offensives.get_offensive(attack["sector_id"])
+		var front: Vector2i = data["front"]
+		var next_cell: Vector2i = data["next_cell"]
+		var forward := Vector2(next_cell - front)
+		var tip := Vector2(next_cell) + Vector2(0.5, 0.5)
+		var side := Vector2(forward.y, forward.x).abs() * 0.7
+		draw_rect(Rect2(Vector2(front), Vector2.ONE).grow(0.4), THREAT_COLOR, false, 0.5)
+		draw_colored_polygon(PackedVector2Array([tip + forward * 0.7, tip - forward * 0.4 + side, tip - forward * 0.4 - side]), THREAT_COLOR)
+		draw_set_transform(Vector2(next_cell) + Vector2(1.0 + LABEL_GAP, ascent), 0.0, Vector2.ONE / scale_factor)
+		draw_string_outline(font, Vector2.ZERO, str(attack["soldiers"]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, 3, TEXT_OUTLINE_COLOR)
+		draw_string(font, Vector2.ZERO, str(attack["soldiers"]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, THREAT_COLOR)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 

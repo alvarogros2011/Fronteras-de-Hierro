@@ -22,11 +22,12 @@ godot --headless --path . --script res://tests/test_population.gd
 godot --headless --path . --script res://tests/test_military.gd
 godot --headless --path . --script res://tests/test_combat.gd
 godot --headless --path . --script res://tests/test_diplomacy.gd
+godot --headless --path . --script res://tests/test_gameplay.gd
 godot --headless --path . --script res://tests/test_province_data.gd
 godot --headless --path . --script res://tests/test_province_selection.gd
 ```
 
-Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`. Las del hito 7 (población y mantenimiento): `tests/population_tests.gd`, `tests/test_population.gd` y `tests/run_population_tests.tscn`. Las del hito 8 (organización militar): `tests/military_tests.gd`, `tests/test_military.gd` y `tests/run_military_tests.tscn`. Las del hito 9 (ataques, combate y ocupación): `tests/combat_tests.gd`, `tests/test_combat.gd` y `tests/run_combat_tests.tscn`. Las del hito 10 (guerra, diplomacia, treguas y pausa): `tests/diplomacy_tests.gd`, `tests/test_diplomacy.gd` y `tests/run_diplomacy_tests.tscn`.
+Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 1 (algún fallo). Alternativa sin terminal (pruebas del territorio): abrir `res://tests/run_territory_tests.tscn` en el editor de Godot y pulsar **F6**; la pantalla muestra PASS/FAIL, el número de correctas y el de fallidas. Las comprobaciones viven en `tests/territory_grid_tests.gd` y las usan tanto esa escena como el ejecutor headless `tests/test_territory_grid.gd`. Las del hito 5b (naciones y HUD) siguen el mismo patrón: `tests/territory_hud_tests.gd`, `tests/test_territory_hud.gd` y `tests/run_hud_tests.tscn`. Las del hito 5 (conquista) siguen el mismo patrón: `tests/territory_conquest_tests.gd`, `tests/test_territory_conquest.gd` y `tests/run_conquest_tests.tscn`. Las del hito 4 siguen el mismo patrón: `tests/territory_map_view_tests.gd`, ejecutor headless `tests/test_territory_map_view.gd` y escena F6 `tests/run_view_tests.tscn`. Las del hito 6 (ciudades y economía): `tests/city_economy_tests.gd`, `tests/test_city_economy.gd` y `tests/run_city_tests.tscn`. Las del hito 7 (población y mantenimiento): `tests/population_tests.gd`, `tests/test_population.gd` y `tests/run_population_tests.tscn`. Las del hito 8 (organización militar): `tests/military_tests.gd`, `tests/test_military.gd` y `tests/run_military_tests.tscn`. Las del hito 9 (ataques, combate y ocupación): `tests/combat_tests.gd`, `tests/test_combat.gd` y `tests/run_combat_tests.tscn`. Las del hito 10 (guerra, diplomacia, treguas y pausa): `tests/diplomacy_tests.gd`, `tests/test_diplomacy.gd` y `tests/run_diplomacy_tests.tscn`. Las del hito 11 (reforma de jugabilidad): `tests/gameplay_tests.gd`, `tests/test_gameplay.gd` y `tests/run_gameplay_tests.tscn`.
 
 ## Estado actual
 
@@ -46,7 +47,8 @@ Cada archivo imprime PASS/FAIL por prueba y termina con código 0 (todo bien) o 
 | `tests/military_tests.gd` + `tests/test_military.gd` + `tests/run_military_tests.tscn` (hito 8, 21 pruebas MI-01…MI-21) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube). El propietario probó a mano la interfaz militar simplificada y confirmó que funciona |
 | `tests/combat_tests.gd` + `tests/test_combat.gd` + `tests/run_combat_tests.tscn` (hito 9, 25 pruebas CB-01…CB-25) | El propietario ejecutó el hito 9 en Godot 4.7.2: **23 PASS y 2 FAIL** (CB-20 y CB-23, ambos por comparar con `==` colores float contra píxeles `RGBA8`; no era un defecto del juego). En el hito 10 se corrigió la comparación (tolerancia de 1/255) y CB-23 se reescribió para el flujo nuevo: **nueva ejecución pendiente** |
 | `tests/diplomacy_tests.gd` + `tests/test_diplomacy.gd` + `tests/run_diplomacy_tests.tscn` (hito 10, 19 pruebas DI-01…DI-19) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
-| Pruebas de IA estratégica y diplomacia avanzada | **No existen**: esas mecánicas no están implementadas (el hito 10 solo cubre paz, pagos, treguas y la respuesta simple de la IA) |
+| `tests/gameplay_tests.gd` + `tests/test_gameplay.gd` + `tests/run_gameplay_tests.tscn` (hito 11, 19 pruebas GP-01…GP-19: economía, frente ancho, IA estratégica, tratados, pausa, determinismo) | Escritos. **Ejecución en Godot sin confirmar** (no hay Godot en la nube) |
+| Pruebas de diplomacia avanzada | **No existen**: esas mecánicas no están implementadas |
 
 ## 1. Pruebas existentes del territorio (hito 3, sistema nuevo)
 
@@ -395,21 +397,46 @@ Las pruebas CB-20 y CB-23 (hito 9) se corrigieron en este hito: comparan los pí
 | M-86 | Pausa: con ofensivas, ciudades y población en marcha, pausar y comprobar que nada se mueve (cifras, mapa, tiempo de tregua) y que el panel sigue respondiendo; reanudar |
 | M-87 | Ritmo: ¿es razonable la tregua de 60 s?, ¿la IA propone la paz demasiado pronto o tarde?, ¿las respuestas de la IA parecen coherentes con la situación? |
 
-### Hito 11 — Construcciones y producción según trabajadores (antes «hito 10» y, antes, «hito 9»)
+### Hito 11 — Gran reforma de jugabilidad (escritas, sin ejecutar en Godot)
+Archivo `tests/gameplay_tests.gd` (ejecutor `tests/test_gameplay.gd`, escena F6 `tests/run_gameplay_tests.tscn`). Mapas controlados (duelo y abierto) salvo GP-15…GP-17, que usan la partida por defecto con la IA activada. La IA de los mundos controlados se crea desactivada y las pruebas llaman a `decide()`.
+| ID | Qué comprueba |
+|---|---|
+| GP-01 | Trabajadores empleados: 30 empleados producen 12 de dinero y 9 de recursos en 10 ticks; con 60 trabajadores y 30 puestos, lo mismo (techo) pero más consumo; más nivel = más puestos; una ciudad ocupada no da puestos; balance neto coherente |
+| GP-02 | Déficit por exceso de soldados (30 + 80): desmovilizar 50 lo corrige en 10 ticks (el mundo de control sigue en déficit); validaciones de `demobilize`; sin negativos |
+| GP-03 | Prioridad: sin dinero no se cobra ni acelera; con 5 de dinero se cobran 5 ticks y la ciudad gana 1 punto de nivel extra por tick; validaciones de `add_growth` |
+| GP-04 | Frente ancho en expansión: la franja prevista (columna de 9 celdas) es la conquistada; con 3 soldados, 3 celdas; avanza columna a columna, nunca más de 12 celdas por avance, y se detiene en el agua (225 celdas); no salta una columna de agua |
+| GP-05 | Una expansión que llega a otra nación se detiene (`STOP_CONTACT`) sin guerra ni ocupación; la previsión lo avisa; reanudar es un ataque explícito que declara la guerra |
+| GP-06 | Combate con frente ancho: un enfrentamiento por avance, las 6 celdas previstas se ocupan, las bajas son las previstas, la propiedad no cambia y el registro de guerra anota bajas y ocupaciones; derrota prevista = derrota real |
+| GP-07 | Los soldados de una ofensiva activa no defienden; un frente detenido vuelve a defender; `attacks_against` lista la amenaza |
+| GP-08 | Bonificación de ciudad: misma defensa local, ×1,8 junto a la ciudad y ×1,2 lejos; 6 atacantes ganan lejos y pierden junto a ella |
+| GP-09 | Liberación: la celda propia ocupada es objetivo contra el ocupante; `suggest_front` propone el frente; se libera sin cambiar propietarios |
+| GP-10 | IA defensiva: atacada con 10 y con 5 en reserva, retira su expansión; no crea soldados; sube el reparto de soldados |
+| GP-11 | IA ofensiva: en guerra y con ventaja ataca con el 70 % de sus soldados libres y previsión de victoria; débil, no ataca al jugador; retira un frente derrotado |
+| GP-12 | IA y treguas: con tregua no declara la guerra; sin tregua (y tras el plazo de gracia) la declara y avisa; antes del plazo, nunca |
+| GP-13 | Dos IA en guerra igualada y larga hacen la paz (propuesta, aceptación, tregua y aviso); una IA en déficit se cansa antes |
+| GP-14 | Tratados con el frente ancho: una oferta imposible no cambia nada; la paz con conquistas traspasa las 6 celdas, termina la guerra, detiene la ofensiva y empieza la tregua; la tregua bloquea `plan_attack` y deja de hacerlo al expirar |
+| GP-15 | Partida por defecto con IA, 240 ticks: sin negativos ni asignaciones imposibles; todas las IA amplían territorio; alguna funda una ciudad; el jugador pasivo no gana ni pierde territorio oficial |
+| GP-16 | La pausa detiene también a la IA (nada cambia en 200 s de pausa) y al reanudar todo vuelve a moverse |
+| GP-17 | Determinismo: dos partidas por defecto con IA, 200 ticks, acaban en el mismo estado |
+| GP-18 | `suggest_front` (celda lejana, vecina, interior, agua) y textos nuevos (defensa, amenazas, franja, empleo, balance con signo, desmovilizar); la pantalla crea la IA activada y muestra sus avisos; controles nuevos presentes |
+| GP-19 | Las suites anteriores y los archivos del hito existen |
+
+**Cambios en suites anteriores por las reglas nuevas (no se redujo ninguna comprobación de lógica):**
+- `combat_tests.gd` y `diplomacy_tests.gd`: sus mundos controlados fijan `front_half_width = 0` (avance de una celda del hito 9) para conservar sus escenarios celda a celda; las pantallas desactivan la IA (`screen.ai.enabled = false`). CB «estado de guerra»: la expansión que llega a la IA 1 ya no declara la guerra (se detiene con `STOP_CONTACT`); se añadió la orden explícita y se conservó la comprobación de la ocupación. CB «economía»: el dinero del jugador suma ahora lo de sus trabajadores.
+- `population_tests.gd`: la prioridad cuesta dinero y acelera el nivel (se comprueban el coste exacto y el nivel; los nacidos siguen siendo 3 y 6); el coste del mantenimiento suma lo producido por los empleados; la prueba de prioridad de mantenimiento usa 60 soldados (no 40) y la de recuperación del déficit 40 + 60 (no 50 + 50) porque los trabajadores ya producen; «comportamiento anterior» compara dinero y recursos con fórmulas exactas (ciudades + trabajadores − mantenimiento) y ya no usa la prioridad; la pantalla desactiva la IA.
+- `military_tests.gd`: pulsar una celda ajena lejana ahora propone un frente desde la frontera más cercana (antes limpiaba la elección); la pantalla desactiva la IA.
+- `city_economy_tests.gd`: el HUD muestra el balance real (`net_economy_summary`).
+
+### Construcciones (pendiente; antes «hito 11»)
 | ID | Qué comprobar |
 |---|---|
-| T-61 | Producción de ciudades según nivel y trabajadores (si se decide D14) sin romper el equilibrio inicial del hito 7 |
 | T-64 | Construcciones: se rechazan sin dinero suficiente |
 
 ### Reclutamiento forzoso (antes «hito 11», absorbido por el hito 7)
 La movilización progresiva se prueba en PO-11, PO-12, PO-13 y PO-17. Las penalizaciones definitivas (D13) se probarán cuando se definan.
 
 ### Hito 12 — IA
-| ID | Qué comprobar |
-|---|---|
-| T-90 | La IA solo emite órdenes válidas |
-| T-91 | Determinismo: mismo estado y semilla → misma decisión |
-| T-92 | Una simulación larga sin jugador no produce errores |
+La IA estratégica básica del hito 11 ya se prueba en GP-10…GP-17 (órdenes válidas con las mismas reglas que el jugador, determinismo y partida larga sin errores). T-90…T-92 quedan cubiertas por ellas; lo que se añada al redefinir el hito 12 tendrá pruebas propias.
 
 ### Hito 13 — Victoria, derrota y reinicio
 | ID | Qué comprobar |
@@ -514,3 +541,15 @@ La movilización progresiva se prueba en PO-11, PO-12, PO-13 y PO-17. Las penali
 | Revisión estática | Lectura línea a línea; tipos explícitos en lugar de `:=` con `Variant`; comprobación mecánica de paréntesis y sangrías | Hecha; **sin compilar** (no hay Godot en la nube) |
 | Réplica en Python de las fórmulas de la IA y de los escenarios numéricos de DI-07, DI-14 y DI-15 | Escrita para contrastar las cifras esperadas | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye**; el resto (mapas, pantalla, paneles) solo se revisó a mano |
 | Aspecto y manejo (M-80…M-87) | F5 en el editor | **Pendiente** (validación del propietario) |
+
+## Estado del hito 11 (gran reforma de jugabilidad)
+
+| Comprobación | Cómo | Estado |
+|---|---|---|
+| Base de partida | Rama `claude/ecstatic-bardeen-1de9nl` en el commit `81efaa6` (hito 10), al día con el remoto | Comprobado por Claude (git) |
+| Godot en el entorno | Búsqueda del ejecutable | **No disponible** en la nube: nada se ha compilado ni ejecutado |
+| `tests/test_gameplay.gd` (19 pruebas) | `godot --headless --path . --script res://tests/test_gameplay.gd` | **Pendiente** en Godot (PC del propietario). GP-15…GP-17 ejecutan partidas de 200–240 ticks con IA: pueden tardar varios segundos |
+| Suites anteriores tras el cambio | Comandos de «Cómo ejecutar las pruebas» | **Pendiente** de repetir. El hito 11 cambia `population.gd`, `city_manager.gd` (`add_growth`), `military.gd` (frentes de liberación), `offensives.gd` (frente ancho, objetivo, liberación, defensa, ciudad), `combat.gd` (bonificación opcional), `diplomacy.gd` (valoración), `sector_layer_view.gd`, los paneles y la pantalla, y añade `ai_controller.gd` y `ai_balance.gd` |
+| Revisión estática | Lectura línea a línea; tipos explícitos en lugar de `:=` con `Variant` | Hecha; **sin compilar** |
+| Réplica en Python de la economía (escenarios de GP-02, GP-03 y de las pruebas de población adaptadas) | Escrita para elegir y contrastar las cifras esperadas | Ejecutada en la nube; **no es una prueba de Godot ni la sustituye**; los escenarios de combate y de IA se calcularon a mano |
+| Aspecto, manejo y diversión | F5 en el editor | **Pendiente** (validación del propietario): ritmo de expansión, presión de la IA, legibilidad de amenazas y previsión, rendimiento de las decisiones de la IA |

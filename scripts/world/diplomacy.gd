@@ -36,7 +36,13 @@
 ## ganando (reluctancia alta) exige dinero o rechaza; una que va perdiendo o está cansada acepta paz blanca
 ## e incluso paga. Una IA también propone la paz sola (hacia el jugador), como mucho cada
 ## AI_OFFER_INTERVAL_TICKS, cuando su reluctancia baja de -PEACE_SEEK_MARGIN; la propuesta caduca a los
-## PROPOSAL_TIMEOUT_TICKS. Las guerras entre dos IA no generan propuestas (no hay IA estratégica aún).
+## PROPOSAL_TIMEOUT_TICKS. Las guerras entre dos IA las negocia la IA estratégica (AIController) con estas
+## mismas valoraciones.
+##
+## Hito 11: la parte de la esperanza que sale de las celdas ocupadas se limita a ±HELD_HOPE_CAP (con el
+## frente ancho se ocupan muchas celdas), y el cansancio suma DEFICIT_WEARINESS si la IA está en déficit
+## de recursos y OCCUPIED_CITY_WEARINESS por cada ciudad suya ocupada por el rival: una guerra que arruina
+## su economía la empuja a la paz.
 extends RefCounted
 
 const TerritoryGrid := preload("res://scripts/world/territory_grid.gd")
@@ -265,13 +271,21 @@ func ai_stance(ai_id: int, other_id: int) -> Dictionary:
 	var strength := 500 if own + rival == 0 else own * 1000 / (own + rival)
 	var held_own := _occupation.count_between(ai_id, other_id)
 	var held_other := _occupation.count_between(other_id, ai_id)
-	var hope: int = (strength - 500) * Balance.STRENGTH_WEIGHT / 100 + (held_own - held_other) * Balance.CELL_VALUE
+	var held_hope := clampi((held_own - held_other) * Balance.CELL_VALUE, -Balance.HELD_HOPE_CAP, Balance.HELD_HOPE_CAP)
+	var hope: int = (strength - 500) * Balance.STRENGTH_WEIGHT / 100 + held_hope
 	var duration := _wars.war_duration(ai_id, other_id)
 	var casualties := _wars.casualties_of(ai_id, other_id)
-	var weariness: int = duration * Balance.WEARINESS_PER_TICK + casualties * Balance.CASUALTY_WEIGHT
+	var in_deficit: bool = _population.get_maintenance(ai_id).get("in_deficit", false)
+	var cities_lost := 0
+	for city_id: int in _cities.get_city_ids():
+		if _cities.get_owner(city_id) == ai_id and _occupation.occupier_at(_cities.get_city(city_id)["cell"]) == other_id:
+			cities_lost += 1
+	var weariness: int = duration * Balance.WEARINESS_PER_TICK + casualties * Balance.CASUALTY_WEIGHT \
+			+ (Balance.DEFICIT_WEARINESS if in_deficit else 0) + cities_lost * Balance.OCCUPIED_CITY_WEARINESS
 	return {
 		"own_soldiers": own, "rival_soldiers": rival, "strength": strength, "held_own": held_own,
 		"held_other": held_other, "duration": duration, "casualties": casualties,
+		"in_deficit": in_deficit, "cities_lost": cities_lost,
 		"hope": hope, "weariness": weariness, "reluctance": hope - weariness,
 	}
 

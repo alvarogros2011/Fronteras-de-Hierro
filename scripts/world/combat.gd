@@ -11,6 +11,10 @@
 ##     ventaja atacante (>= 1,5), equilibrado o defensa superior (< 0,8). El resultado lo decide la
 ##     regla de arriba, no la etiqueta.
 ## La previsión ES esta misma función aplicada al estado actual: no es una probabilidad estadística.
+##
+## Hito 11: ratio_permille, attacker_wins y resolve aceptan una bonificación de defensa distinta (por
+## defecto DEFENSE_BONUS_PERCENT); Offensives la sube cerca de las ciudades del defensor
+## (DEFENSE_BONUS_PERCENT + CITY_DEFENSE_BONUS_PERCENT).
 extends RefCounted
 
 const Balance := preload("res://scripts/data/combat_balance.gd")
@@ -50,10 +54,10 @@ static func defense_per_front(defender_soldiers: int, exposed_cells: int) -> int
 
 ## Relación atacantes / defensa efectiva en milésimas (1000 = fuerzas iguales).
 @warning_ignore("integer_division")
-static func ratio_permille(attackers: int, defense: int) -> int:
+static func ratio_permille(attackers: int, defense: int, bonus_percent: int = Balance.DEFENSE_BONUS_PERCENT) -> int:
 	if defense <= 0:
 		return NO_RESISTANCE_RATIO if attackers > 0 else 0
-	return attackers * 100000 / (defense * Balance.DEFENSE_BONUS_PERCENT)
+	return attackers * 100000 / (defense * bonus_percent)
 
 
 ## CATEGORY_* correspondiente a una relación.
@@ -66,16 +70,16 @@ static func category(ratio: int) -> int:
 
 
 ## ¿Vence el atacante? (regla exacta con enteros; un empate lo gana la defensa)
-static func attacker_wins(attackers: int, defense: int) -> bool:
+static func attacker_wins(attackers: int, defense: int, bonus_percent: int = Balance.DEFENSE_BONUS_PERCENT) -> bool:
 	if attackers <= 0:
 		return false
-	return defense <= 0 or attackers * 100 > defense * Balance.DEFENSE_BONUS_PERCENT
+	return defense <= 0 or attackers * 100 > defense * bonus_percent
 
 
 ## Resuelve un enfrentamiento: {"attacker_wins", "attacker_losses", "defender_losses",
 ## "attackers_after", "ratio_permille", "category"}. Pura y determinista.
-static func resolve(attackers: int, defense: int) -> Dictionary:
-	var wins := attacker_wins(attackers, defense)
+static func resolve(attackers: int, defense: int, bonus_percent: int = Balance.DEFENSE_BONUS_PERCENT) -> Dictionary:
+	var wins := attacker_wins(attackers, defense, bonus_percent)
 	var attacker_losses := 0
 	var defender_losses := 0
 	if defense > 0 and attackers > 0:
@@ -87,7 +91,7 @@ static func resolve(attackers: int, defense: int) -> Dictionary:
 			defender_losses = ceil_percent(attackers, Balance.WINNER_LOSS_PERCENT)
 	attacker_losses = mini(attacker_losses, attackers)
 	defender_losses = mini(defender_losses, defense)
-	var ratio := ratio_permille(attackers, defense)
+	var ratio := ratio_permille(attackers, defense, bonus_percent)
 	return {
 		"attacker_wins": wins,
 		"attacker_losses": attacker_losses,

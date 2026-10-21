@@ -153,6 +153,37 @@ func occupy(occupier_id: int, cell: Vector2i) -> int:
 	return OCC_OK
 
 
+## Ocupa varias celdas a la vez (hito 11: el frente ancho), con las mismas reglas que occupy: las que no
+## se pueden ocupar se saltan. Avisa UNA vez (cells_changed con las celdas ocupadas, en su orden, y changed).
+## Devuelve las celdas que quedaron ocupadas por `occupier_id` en esta operación.
+func occupy_cells(occupier_id: int, cells: Array) -> Array:
+	var done: Array = []
+	for cell: Vector2i in cells:
+		if validate(occupier_id, cell) != OCC_OK or done.has(cell):
+			continue
+		if _cells.has(cell) and _cells[cell]["occupier"] == occupier_id:
+			continue
+		_cells[cell] = {"occupier": occupier_id, "owner": _grid.get_cell_owner(cell.x, cell.y)}
+		done.append(cell)
+	if not done.is_empty():
+		cells_changed.emit(done)
+		changed.emit()
+	return done
+
+
+## Libera varias celdas a la vez (las que no estaban ocupadas se saltan) y avisa UNA vez. Devuelve cuántas.
+func release_cells(cells: Array) -> int:
+	var done: Array = []
+	for cell: Vector2i in cells:
+		if _cells.has(cell):
+			_cells.erase(cell)
+			done.append(cell)
+	if not done.is_empty():
+		cells_changed.emit(done)
+		changed.emit()
+	return done.size()
+
+
 ## Libera la celda. Devuelve false, sin cambiar nada, si no estaba ocupada.
 func release(cell: Vector2i) -> bool:
 	if not _cells.has(cell):
