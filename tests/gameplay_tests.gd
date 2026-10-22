@@ -598,10 +598,14 @@ func _test_ai_peace() -> Array:
 	world["ai"].decide(AI_1)
 	_expect(errors, [wars.at_war(AI_1, AI_2), wars.has_truce(AI_1, AI_2), world["dip"].history().size()], [false, true, 1], "propone la paz, la otra IA acepta y empieza la tregua")
 	_expect(errors, _events.size() >= 1, true, "se anuncia la paz")
-	# Las IA sienten el déficit y las ciudades ocupadas en su cansancio.
+	# Las IA sienten el déficit y las ciudades ocupadas en su cansancio. El mantenimiento se acumula en
+	# milésimas: la deuda (y con ella el déficit) solo aparece cuando lo debido llega a 1 recurso entero.
+	# Para que su ejército quede sin pagar hacen falta ceil(1000 / (6 * SOLDIER_UPKEEP_MILLI)) ticks.
 	var poor := _make_world({PLAYER: {"workers": 30, "soldiers": 6}, AI_1: {"workers": 30, "soldiers": 6}}, _duel_grid(), false)
 	poor["wars"].declare_war(PLAYER, AI_1)
-	_ticks(poor, 1)
+	var unpaid_ticks := ceili(1000.0 / float(6 * PopulationBalance.SOLDIER_UPKEEP_MILLI))
+	_ticks(poor, unpaid_ticks)
+	_expect(errors, [poor["economy"].get_resources(AI_1), poor["pop"].get_maintenance(AI_1)["soldiers_covered"]], [0, false], "sin recursos, el ejército de la IA 1 queda sin pagar")
 	var poor_stance: Dictionary = poor["dip"].ai_stance(AI_1, PLAYER)
 	_expect(errors, [poor_stance["in_deficit"], poor_stance["weariness"] >= DiplomacyBalance.DEFICIT_WEARINESS], [true, true], "una IA sin recursos para su ejército se cansa antes")
 	return errors
@@ -625,6 +629,14 @@ func _test_treaty_wave() -> Array:
 	var failed := dip.propose(PLAYER, AI_1, Diplomacy.KIND_CONQUESTS, AI_1, 1000)
 	_expect(errors, [failed["ok"], failed["error"]], [false, Diplomacy.ERR_NO_FUNDS], "oferta rechazada antes de aplicarse")
 	_expect(errors, _snapshot(world) == before, true, "y no cambió nada")
+	# La IA 1, derrotada, ya propuso sola una paz blanca durante el avance (Diplomacy._make_ai_offers). Solo
+	# puede haber una propuesta pendiente por pareja: el jugador la responde (la rechaza) antes de proponer.
+	var incoming: Array = dip.pending_for(PLAYER)
+	_expect(errors, incoming.size(), 1, "la IA 1, derrotada, ha propuesto la paz por su cuenta")
+	if incoming.size() == 1:
+		_expect(errors, [incoming[0]["from"], incoming[0]["kind"]], [AI_1, Diplomacy.KIND_WHITE], "una paz blanca de la IA 1")
+		_expect(errors, dip.reject(incoming[0]["id"], PLAYER)["ok"], true, "el jugador la rechaza")
+	_expect(errors, [dip.has_pending(PLAYER, AI_1), wars.at_war(PLAYER, AI_1), occ.count()], [false, true, 6], "rechazarla no cambia la guerra ni las ocupaciones")
 	# Paz con conquistas: lo ocupado pasa a ser del jugador; la guerra termina y empieza la tregua.
 	var money := [economy.get_money(PLAYER), economy.get_money(AI_1)]
 	var peace := dip.propose(PLAYER, AI_1, Diplomacy.KIND_CONQUESTS, Diplomacy.NO_PAYER, 0)
