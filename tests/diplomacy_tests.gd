@@ -453,13 +453,13 @@ func _test_launch_invalid() -> Array:
 		if x >= 310 and x <= 314:
 			owners[100 * TerritoryGrid.WIDTH + x] = PLAYER
 	strip["grid"].load_from_data(terrain, owners)
-	var edge := strip["off"].launch_attack(PLAYER, Vector2i(314, 100), Military.DIR_NORTH, 4)
+	var edge: Dictionary = strip["off"].launch_attack(PLAYER, Vector2i(314, 100), Military.DIR_NORTH, 4)
 	_expect(errors, [edge["ok"], strip["mil"].sector_count()], [false, 0], "el agua no se ataca y no queda frente")
-	var unreachable := strip["off"].launch_attack(PLAYER, Vector2i(314, 100), Military.DIR_EAST, 4)
+	var unreachable: Dictionary = strip["off"].launch_attack(PLAYER, Vector2i(314, 100), Military.DIR_EAST, 4)
 	_expect(errors, [unreachable["ok"], strip["mil"].sector_count(), strip["mil"].assigned_soldiers(PLAYER)], [true, 1, 4], "tierra sin reclamar contigua: se conquista")
 	# Un frente existente en otra nación que ya no es atacable no se pierde ni cambia al fallar una orden.
 	var sid: int = unreachable["sector_id"]
-	var too_many := strip["off"].launch_attack(PLAYER, Vector2i(314, 100), Military.DIR_EAST, 50)
+	var too_many: Dictionary = strip["off"].launch_attack(PLAYER, Vector2i(314, 100), Military.DIR_EAST, 50)
 	_expect(errors, [too_many["ok"], too_many["error"], strip["mil"].get_sector(sid)["soldiers"], strip["mil"].sector_count()], [false, Offensives.LAUNCH_ERR_NOT_ENOUGH, 4, 1], "pedir de más con un frente existente no lo toca")
 	# La región del plan describe el mismo motivo que la orden.
 	var plan := off.plan_attack(PLAYER, BORDER, Military.DIR_EAST, 99)
@@ -606,7 +606,7 @@ func _test_white_peace() -> Array:
 	world2["wars"].declare_war(PLAYER, AI_1)
 	var conquered: Dictionary = world2["grid"].conquer_cells(PLAYER, [Vector2i(25, 15)])
 	_expect(errors, conquered["ok"], true, "el jugador conquista una celda libre durante la guerra")
-	var white := world2["dip"].propose(PLAYER, AI_1, Diplomacy.KIND_WHITE, Diplomacy.NO_PAYER, 0)
+	var white: Dictionary = world2["dip"].propose(PLAYER, AI_1, Diplomacy.KIND_WHITE, Diplomacy.NO_PAYER, 0)
 	_expect(errors, [white["ok"], world2["grid"].get_cell_owner(25, 15)], [true, PLAYER], "la paz blanca no se la quita")
 	return errors
 
@@ -801,7 +801,7 @@ func _test_truce() -> Array:
 	var tri := _make_world(TRI_POP, _make_tri_grid())
 	tri["wars"].declare_war(PLAYER, AI_1)
 	tri["dip"].propose(PLAYER, AI_1, Diplomacy.KIND_WHITE, Diplomacy.NO_PAYER, 0)
-	var other := tri["off"].launch_attack(PLAYER, Vector2i(24, 25), Military.DIR_EAST, 4)
+	var other: Dictionary = tri["off"].launch_attack(PLAYER, Vector2i(24, 25), Military.DIR_EAST, 4)
 	_expect(errors, [other["ok"], tri["wars"].at_war(PLAYER, AI_2)], [true, true], "la tregua con la IA 1 no protege a la IA 2")
 	return errors
 
