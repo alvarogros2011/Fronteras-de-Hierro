@@ -385,6 +385,7 @@ func _test_priority_growth() -> Array:
 	return errors
 
 
+@warning_ignore("integer_division")
 func _test_priority_rules() -> Array:
 	var errors: Array = []
 	var world := _make_world({PLAYER: {"workers": 10, "soldiers": 0}, AI_1: {"workers": 10, "soldiers": 0}}, [Vector2i(24, 12)])
@@ -529,6 +530,7 @@ func _test_mobilization_no_double_count() -> Array:
 	return errors
 
 
+@warning_ignore("integer_division")
 func _test_upkeep_cost() -> Array:
 	var errors: Array = []
 	var world := _make_maxed_world({PLAYER: {"workers": 150, "soldiers": 90}})
