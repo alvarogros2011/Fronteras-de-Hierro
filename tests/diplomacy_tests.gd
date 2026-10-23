@@ -754,8 +754,16 @@ func _test_peace_stops_offensives() -> Array:
 	var soldiers_before := pop.soldiers(PLAYER)
 	var assigned_first: int = mil.get_sector(first)["soldiers"]
 	var owners_before: PackedByteArray = grid.copy_owner_data()
+	# La IA 1, muy inferior en soldados, ya propuso sola una paz blanca en los primeros ticks de la guerra
+	# (Diplomacy._make_ai_offers). Solo puede haber una propuesta pendiente por pareja: el jugador la responde
+	# (la rechaza) antes de proponer él. La de la IA 2 es de otra pareja y no interfiere.
+	var incoming: Dictionary = dip.pending_between(PLAYER, AI_1)
+	_expect(errors, [incoming.get("from", -1), incoming.get("kind", -1)], [AI_1, Diplomacy.KIND_WHITE], "la IA 1 ha propuesto una paz blanca por su cuenta")
+	if not incoming.is_empty():
+		_expect(errors, dip.reject(incoming["id"], PLAYER)["ok"], true, "el jugador rechaza la propuesta entrante")
+	_expect(errors, [dip.has_pending(PLAYER, AI_1), wars.at_war(PLAYER, AI_1), off.active_count(PLAYER)], [false, true, 2], "rechazarla no cambia la guerra ni las ofensivas")
 	var result := dip.propose(PLAYER, AI_1, Diplomacy.KIND_WHITE, Diplomacy.NO_PAYER, 0)
-	_expect(errors, [result["ok"], result["response"], result["treaty"]["stopped"]], [true, Diplomacy.RESPONSE_ACCEPTED, 1], "la paz con la IA 1 detuvo una ofensiva")
+	_expect(errors, [result["ok"], result["response"], result["treaty"].get("stopped", -1)], [true, Diplomacy.RESPONSE_ACCEPTED, 1], "la paz con la IA 1 detuvo una ofensiva")
 	_expect(errors, [off.sector_state(first), off.get_offensive(first)["reason"], off.sector_state(second)], [Offensives.STATE_STOPPED, Offensives.STOP_MANUAL, Offensives.STATE_ACTIVE], "solo la dirigida contra la IA 1; la otra sigue")
 	_expect(errors, [mil.get_sector(first)["soldiers"], pop.soldiers(PLAYER), mil.available_soldiers(PLAYER)], [assigned_first, soldiers_before, soldiers_before - assigned_first - mil.get_sector(second)["soldiers"]], "los soldados y las reservas siguen coherentes (la paz no los destruye)")
 	_expect(errors, [occ.count_between(PLAYER, AI_1), occ.count_between(PLAYER, AI_2)], [0, 1], "la ocupación de la IA 1 desaparece; la de la IA 2 se mantiene")
@@ -1069,7 +1077,7 @@ func _test_diplomacy_panel() -> Array:
 	if dip.pending_for(PLAYER).is_empty():
 		screen.free()
 		return errors
-	var proposal := dip.pending_for(PLAYER)[0]
+	var proposal: Dictionary = dip.pending_for(PLAYER)[0]
 	_expect(errors, [incoming.visible, incoming.text, accept.visible, decline.visible, form.visible], [true, dip.proposal_text(proposal), true, true, false], "el panel muestra la propuesta con Aceptar/Rechazar y oculta el formulario")
 	decline.pressed.emit()
 	_expect(errors, [dip.pending_for(PLAYER).size(), incoming.visible, form.visible, wars.at_war(PLAYER, AI_1)], [0, false, true, true], "rechazar la quita y la guerra continúa")

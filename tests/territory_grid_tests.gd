@@ -239,6 +239,7 @@ func _test_nations_not_empty() -> Array:
 
 ## Comprobación independiente de la lógica interna de la cuadrícula: recorrido en anchura
 ## sobre los datos copiados, con adyacencia ortogonal (arriba, abajo, izquierda, derecha).
+@warning_ignore("integer_division")
 func _count_reachable(owner_data: PackedByteArray, start: int, owner_id: int) -> int:
 	var visited := {}
 	var queue: Array = [start]

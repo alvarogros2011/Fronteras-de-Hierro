@@ -512,6 +512,7 @@ func _test_ai_defends() -> Array:
 	return errors
 
 
+@warning_ignore("integer_division")
 func _test_ai_attacks() -> Array:
 	var errors: Array = []
 	var world := _make_world({PLAYER: {"workers": 30, "soldiers": 6}, AI_1: {"workers": 30, "soldiers": 30}}, _duel_grid())
