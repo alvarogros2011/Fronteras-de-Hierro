@@ -329,10 +329,22 @@ func _test_war_state() -> Array:
 	_expect(errors, [wars.declare_war(PLAYER, AI_1), wars.declare_war(AI_1, PLAYER), wars.at_war(PLAYER, AI_1)], [false, false, false], "con tregua no se puede declarar la guerra")
 	_ticks(world, 4)
 	_expect(errors, [wars.truce_remaining(PLAYER, AI_1), wars.truces_of(PLAYER), wars.truces_of(AI_2)], [6, [{"other": AI_1, "remaining": 6}], []], "la tregua cuenta atrás con el reloj")
-	_ticks(world, 6)
-	_expect(errors, [wars.has_truce(PLAYER, AI_1), wars.truce_remaining(PLAYER, AI_1), wars.truces_of(PLAYER)], [false, 0, []], "al agotarse deja de contar aunque no se haya limpiado")
 	_signal_count = 0
-	_expect(errors, [wars.expire_truces(), _signal_count, wars.expire_truces()], [1, 1, 0], "expirar limpia el registro y avisa una vez")
+	_ticks(world, 6)
+	_expect(errors, [wars.has_truce(PLAYER, AI_1), wars.truce_remaining(PLAYER, AI_1), wars.truces_of(PLAYER)], [false, 0, []], "al agotarse deja de contar")
+	# Diplomacy cuelga del reloj y limpia las treguas terminadas en el propio tick: ya no queda nada que expirar.
+	_expect(errors, [_signal_count, wars.expire_truces()], [1, 0], "el reloj limpia la tregua terminada y avisa una vez")
+	# expire_truces en solitario: un WarState con el mismo reloj pero sin Diplomacy, con dos treguas independientes.
+	var bare := WarState.new(world["cities"])
+	bare.start_truce(PLAYER, AI_1, 3)
+	bare.start_truce(PLAYER, AI_2, 10)
+	_ticks(world, 3)
+	_signal_count = 0
+	bare.changed.connect(_count_signal)
+	_expect(errors, [bare.has_truce(PLAYER, AI_1), bare.truce_remaining(PLAYER, AI_2)], [false, 7], "sin limpiar, una tregua agotada no cuenta y la otra sigue")
+	_expect(errors, [bare.expire_truces(), _signal_count, bare.expire_truces(), _signal_count], [1, 1, 0, 1], "expirar limpia solo la agotada y avisa una vez")
+	_expect(errors, [bare.truce_remaining(PLAYER, AI_2), bare.truces_of(PLAYER)], [7, [{"other": AI_2, "remaining": 7}]], "la tregua que no debe expirar se conserva")
+	_signal_count = 0
 	_expect(errors, [wars.declare_war(PLAYER, AI_1), wars.get_war(PLAYER, AI_1)["id"], wars.casualties_of(PLAYER, AI_1)], [true, 3, 0], "terminada la tregua puede empezar una guerra nueva con registro nuevo")
 	# Sin reloj (como en las suites antiguas) todo funciona con tiempo 0.
 	var plain := WarState.new()

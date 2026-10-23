@@ -368,9 +368,14 @@ func _test_priority_growth() -> Array:
 	_expect(errors, [boosted["cities"].get_city(1)["level"], boosted["cities"].get_city(1)["progress"]], [2, points - EconomyBalance.GROWTH_TO_NEXT[1]], "la ciudad prioritaria sube antes de nivel")
 	_expect(errors, [plain["cities"].get_city(1)["level"], plain["cities"].get_city(1)["progress"]], [1, 20 * EconomyBalance.GROWTH_PER_TICK], "la otra sigue su ritmo")
 	_expect(errors, boosted["grid"].copy_owner_data() == plain["grid"].copy_owner_data(), true, "mismo territorio")
-	# Se puede quitar.
+	# Se puede quitar. La ciudad subió a nivel 2 (comprobado arriba), así que su aporte base ya es el del nivel 2,
+	# no el del nivel 1 (`base`); la prioridad solo multiplica el del nivel real.
+	var level_now: int = boosted["cities"].get_city(1)["level"]
+	var base_now: int = Balance.GROWTH_MILLI_PER_LEVEL[level_now]
+	_expect(errors, [level_now, base_now != base], [2, true], "el aporte base depende del nivel real de la ciudad")
+	_expect(errors, pop_b.city_growth_milli(1), base_now * Balance.PRIORITY_GROWTH_PERCENT / 100, "activa en nivel 2: duplica el aporte del nivel 2")
 	pop_b.set_city_priority(PLAYER, 1, false)
-	_expect(errors, [pop_b.is_city_priority(1), pop_b.city_growth_milli(1)], [false, base], "tras desactivarla vuelve al aporte base")
+	_expect(errors, [pop_b.is_city_priority(1), pop_b.city_growth_milli(1)], [false, base_now], "tras desactivarla vuelve al aporte base del nivel real")
 	# Varias ciudades prioritarias a la vez: cada una recibe el efecto por separado.
 	var two := _make_world({PLAYER: {"workers": 10, "soldiers": 0}}, [CITY_A, CITY_B])
 	var pop: Population = two["pop"]
