@@ -1057,7 +1057,7 @@ func _test_diplomacy_panel() -> Array:
 	if dip.pending_for(PLAYER).is_empty():
 		screen.free()
 		return errors
-	var proposal := dip.pending_for(PLAYER)[0]
+	var proposal: Dictionary = dip.pending_for(PLAYER)[0]
 	_expect(errors, [incoming.visible, incoming.text, accept.visible, decline.visible, form.visible], [true, dip.proposal_text(proposal), true, true, false], "el panel muestra la propuesta con Aceptar/Rechazar y oculta el formulario")
 	decline.pressed.emit()
 	_expect(errors, [dip.pending_for(PLAYER).size(), incoming.visible, form.visible, wars.at_war(PLAYER, AI_1)], [0, false, true, true], "rechazar la quita y la guerra continúa")
